@@ -1,3 +1,9 @@
+# Eclipse files
+*.project
+
+# Custom executable
+*rebound_spring
+
 # Prerequisites
 *.d
 
