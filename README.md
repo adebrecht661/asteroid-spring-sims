@@ -1,2 +1,3 @@
-# phobos
-Exploration of a tumbling Phobos using the mass spring model.
+# Bennu
+Can we spin Bennu up to live inside it?
+Using the mass spring model.
