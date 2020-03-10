@@ -414,6 +414,7 @@ void reb_calculate_acceleration_var(struct reb_simulation* r){
 				cs[i].z = 0.;
 			}
         }
+        break;
 		case REB_GRAVITY_BASIC:
             for (int v=0;v<r->var_config_N;v++){
                 struct reb_variational_configuration const vc = r->var_config[v];

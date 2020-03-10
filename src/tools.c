@@ -956,8 +956,10 @@ static uint32_t reb_murmur3_32(const char *key, uint32_t len, uint32_t seed) {
     switch (len & 3) {
     case 3:
         k1 ^= tail[2] << 16;
+        break;
     case 2:
         k1 ^= tail[1] << 8;
+        break;
     case 1:
         k1 ^= tail[0];
 
