@@ -1,5 +1,7 @@
 # Eclipse files
 *.project
+*.settings
+*.cproject
 
 # Custom executable
 *rebound_spring
@@ -56,3 +58,4 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+/build/
