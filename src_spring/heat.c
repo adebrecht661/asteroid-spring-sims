@@ -14,7 +14,6 @@
 
 
 extern int NS; // number of springs
-extern int NPERT;  // number of external perturbing bodies
 double *heatvec; // global so can be reached by all routines here
 // heatvec is an array for each spring
 

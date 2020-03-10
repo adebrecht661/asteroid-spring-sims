@@ -16,7 +16,6 @@
 
 extern int NS; // number of springs
 int NSmax=0; // springs
-extern int NPERT;  // number of external point masses 
 
 // delete a spring
 // here i is the index of the spring

@@ -14,7 +14,6 @@
 
 
 extern int NS; // number of springs
-extern int NPERT;  // number of external perturbing bodies
 struct stresstensor *stressvec; // global so can be reached by all routines here
 
 void spring_force_one();
@@ -45,7 +44,7 @@ void update_stresstensor(struct reb_simulation* const r)
       stressvec[i].fail=0;
    }
 
-   for(int k=0;k<r->NS;k++){ // over springs
+   for(int k=0;k<NS;k++){ // over springs
       int ii = springs[k].i; 
       int jj = springs[k].j;
       double Fx,Fy,Fz,Lx,Ly,Lz;
