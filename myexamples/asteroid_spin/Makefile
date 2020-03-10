@@ -1,4 +1,9 @@
 export OPENGL=1
+
+ifdef $MPI
+export MPI=1
+endif
+
 include ../../src/Makefile.defs
 LIB+=-L/usr/X11/lib
 OPT+=-I/usr/X11/include
