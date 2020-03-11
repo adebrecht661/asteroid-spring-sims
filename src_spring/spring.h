@@ -4,64 +4,61 @@
  * @author      Alice Quilen 
  */
 
-
 #ifndef _SPRING_H
 #define _SPRING_H
-
 
 #include"particle.h"
 
 // spring structure 
-struct spring  {
+struct spring {
 	double ks;   // spring constant
 	double rs0;  // distance of no force
 	double gamma; // damping coefficient
 	double k_heat;  //  heat diffusion coefficient!
-	int    i;    // vertex 1 referring to a particle
-	int    j;    // vertex 2 referring to a particle
+	int i;    // vertex 1 referring to a particle
+	int j;    // vertex 2 referring to a particle
 };
 
 // coordination structure for each node
 struct coord {
-       int ncoord;  // number of springs connected to this node
-       int coordlist[50];  // a list of spring indices ** note number here is hard wired, giving a max!
-       double lx;
-       double ly;
-       double lz;
+	int ncoord;  // number of springs connected to this node
+	int coordlist[50]; // a list of spring indices ** note number here is hard wired, giving a max!
+	double lx;
+	double ly;
+	double lz;
 };
 
 struct stresstensor {  // for each node
-        double sigxx; //stress tensor
-        double sigyy;
-        double sigzz;
-        double sigxy;
-        double sigyz;
-        double sigxz;
-        double eig1;  // eigenvalues of stress tensor eig1 is biggest
-        double eig2;
-        double eig3;
-        double maxF;  // max Force of a spring
-        int s_index;  // index of spring giving max Force
-        int fail;  // is there material failure 
+	double sigxx; //stress tensor
+	double sigyy;
+	double sigzz;
+	double sigxy;
+	double sigyz;
+	double sigxz;
+	double eig1;  // eigenvalues of stress tensor eig1 is biggest
+	double eig2;
+	double eig3;
+	double maxF;  // max Force of a spring
+	int s_index;  // index of spring giving max Force
+	int fail;  // is there material failure
 };
 
 struct node {
-        int surf;  // is 1 if is a surface node
-        double temp;  // temperature
-        double cv;    // specific heat, probably integrated over mass of node?
+	int surf;  // is 1 if is a surface node
+	double temp;  // temperature
+	double cv;    // specific heat, probably integrated over mass of node?
 };
 
 struct symtensor {
-       double xx;
-       double yy;
-       double zz;
-       double xy;
-       double yz;
-       double xz;
+	double xx;
+	double yy;
+	double zz;
+	double xy;
+	double yz;
+	double xz;
 };
 
-
-extern struct spring* springs;
+extern struct spring *springs;
 extern int NS; // numbers of springs
 extern int NPERT; // number of point masses
 extern double b_distance; // mush formation
@@ -74,7 +71,7 @@ double spring_potential_energy();
 double grav_potential_energy();
 
 // list of springs related subroutines
-struct node *mknodevec();
+struct node* mknodevec();
 void surface_nodes();
 void nfilename();
 void print_node();
@@ -100,9 +97,9 @@ void print_surf();
 int surface_shape(); //ZYH
 void surfaceparticle_display(); //ZYH
 void potoang(); //ZYH
-int *marksurface();
-int *marksurface_football();
-int *marksurface_cone();
+int* marksurface();
+int* marksurface_football();
+int* marksurface_cone();
 void rescale_xyz();
 double min_radius();
 double max_radius();
@@ -133,7 +130,7 @@ void compute_Lorb();
 double spring_length();
 double strain();
 void springs_add();
-void normalize ();
+void normalize();
 double mindist();
 void centerbody();
 void connect_springs_dist();
@@ -156,7 +153,7 @@ void compute_semi();
 void compute_semi_bin();
 void total_mom();
 double mean_L();
-void spring_init(struct reb_simulation* r);
+void spring_init(struct reb_simulation *r);
 void output_png();
 void output_png_single();
 void spr_ang_mid();
@@ -194,7 +191,5 @@ double compute_rot_kin();
 void adjust_nodes_cp();
 void stretch();
 
-
 #endif // _SPRING_H
-
 

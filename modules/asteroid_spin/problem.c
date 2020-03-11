@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
 
 	// spin it
 	subtractcov(r, i_low, i_high); // center of velocity subtracted
-	spin(r, i_low, i_high, 0.0, 0.0, omegaz);  // change one of these zeros to tilt it!
+	spin(r, i_low, i_high, 0.0, 0.0, omegaz); // change one of these zeros to tilt it!
 	// can spin about non principal axis
 	subtractcov(r, i_low, i_high); // center of velocity subtracted
 	double speriod = fabs(2.0 * M_PI / omegaz);

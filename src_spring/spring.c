@@ -386,7 +386,8 @@ void zero_accel(struct reb_simulation *const r) {
 // distances less than h_dist apart
 // for particle index range [i0,imax-1]
 // spring added with rest length at current length  
-void connect_springs_dist(struct reb_simulation *const r, double h_dist, int i0, int imax, struct spring spring_vals) {
+void connect_springs_dist(struct reb_simulation *const r, double h_dist, int i0,
+		int imax, struct spring spring_vals) {
 	if (imax <= i0)
 		return;
 // find all the springs for near neighbors
@@ -398,10 +399,11 @@ void connect_springs_dist(struct reb_simulation *const r, double h_dist, int i0,
 			double xj = r->particles[j].x;
 			double yj = r->particles[j].y;
 			double zj = r->particles[j].z;
-			double dr = sqrt(pow((xi - xj), 2) + pow((yi - yj), 2) + pow((zi - zj), 2));
+			double dr = sqrt(
+					pow((xi - xj), 2) + pow((yi - yj), 2) + pow((zi - zj), 2));
 			if (dr < h_dist) { 	   // try to add the spring
 				add_spring_i(r, i, j, spring_vals); // will not be added if there is already
-													  // one there
+													// one there
 				// spring added at rest distance
 			}
 		}

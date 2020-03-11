@@ -175,14 +175,15 @@ void kep_to_cart(double GM, OrbitalElements orb_el, PhaseState *state) {
 double eccentric_anomaly(double ecc, double mean_anom) {
 	double delta_u, u_guess, l_guess; // mean_anom_guess from the current guess of ecc anom
 	delta_u = 1.0;
-	u_guess = mean_anom + ecc*sin(mean_anom) + 0.5*pow(ecc,2)*sin(2.0*mean_anom);
+	u_guess = mean_anom + ecc * sin(mean_anom)
+			+ 0.5 * pow(ecc, 2) * sin(2.0 * mean_anom);
 	// also see M+D equation 2.55
 	/* supposed to be good to second order in e, from Brouwer+Clemence
 	 u0 is first guess */
 	int counter = 0;
 	while (fabs(delta_u) > PREC_ecc_ano) {
-		l_guess = u_guess - ecc*sin(u_guess);
-		delta_u = (mean_anom - l_guess) / (1.0 - ecc*cos(u_guess));
+		l_guess = u_guess - ecc * sin(u_guess);
+		delta_u = (mean_anom - l_guess) / (1.0 - ecc * cos(u_guess));
 		u_guess += delta_u; /* this gives a better guess */
 		counter++;
 		if (counter > 10000)
@@ -202,7 +203,7 @@ double eccentric_anomaly_hyperbolic(double ecc, double mean_anom) {
 	int counter = 0;
 	while (fabs(delta_u) > PREC_ecc_ano) {
 		f_guess = u_guess - ecc * sinh(u_guess);
-		delta_u = (-mean_anom - f_guess)/(1.0 - ecc*cosh(u_guess));
+		delta_u = (-mean_anom - f_guess) / (1.0 - ecc * cosh(u_guess));
 		u_guess += delta_u;
 		counter++;
 		if (counter > 10000)
