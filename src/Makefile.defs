@@ -1,7 +1,7 @@
 OPT+= -std=c99 -Wpointer-arith -D_GNU_SOURCE -O3 -march=native
 
 ifeq ($(DEBUG),1)
-	OPT+= -Werror
+	OPT+= -Werror -Wno-error=strict-overflow -Wno-error=unused-result
 endif
 
 ifndef OS

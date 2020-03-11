@@ -58,7 +58,7 @@ double add_pluto_charon_kep(struct reb_simulation* const r,double mp,
    orbel.longnode= longnode;
    orbel.meananom= meananom;
    PhaseState ps;
-   cartesian(GM, orbel, &ps);
+   kep_to_cart(GM, orbel, &ps);
    double om_orb = sqrt(GM/aa)/aa;
 
    // ratio of reduced mass to binary mass
@@ -67,12 +67,12 @@ double add_pluto_charon_kep(struct reb_simulation* const r,double mp,
    om_orb *= fac; // correct mean motion by binary quad moment
    
    pt.x = ps.x + x2; pt.y = ps.y + 0.0; pt.z = ps.z + 0.0;
-   pt.vx = ps.xd + 0.0; pt.vy = ps.yd + vy2; pt.vz = ps.zd + 0.0; 
+   pt.vx = ps.vx + 0.0; pt.vy = ps.vy + vy2; pt.vz = ps.vz + 0.0; 
    pt.m = m2; pt.r = r2;
    reb_add(r,pt);   // add Charon
 
    pt.x = ps.x + x1; pt.y = ps.y + 0.0; pt.z = ps.z + 0.0;
-   pt.vx = ps.xd + 0.0; pt.vy = ps.yd + vy1; pt.vz = ps.zd + 0.0; 
+   pt.vx = ps.vx + 0.0; pt.vy = ps.vy + vy1; pt.vz = ps.vz + 0.0; 
    pt.m = m1; pt.r = r1;
    reb_add(r,pt);   // Pluto is last
    return om_orb;
@@ -122,21 +122,21 @@ double add_pt_mass_kep(struct reb_simulation* const r,
    orbel.longnode= longnode;
    orbel.meananom= meananom;
    PhaseState ps;
-   cartesian(GM, orbel, &ps);
+   kep_to_cart(GM, orbel, &ps);
    double om_orb = sqrt(GM/aa)/aa;
 
    if (ip<0){  // move position of extended body
      pt.x   = 0.0; pt.y   = 0.0; pt.z   = 0.0;
      pt.vx  = 0.0; pt.vy  = 0.0; pt.vz  = 0.0; // new particle is at origin
-     move_resolved(r,ps.x,ps.y,ps.z,ps.xd,ps.yd,ps.zd, il,ih);
+     move_resolved(r,ps.x,ps.y,ps.z,ps.vx,ps.vy,ps.vz, il,ih);
    }
    else { // position and velocity of new particle with respected to mass at index ip
      pt.x       = ps.x + x0;
      pt.y       = ps.y + y0;
      pt.z       = ps.z + z0;
-     pt.vx      = ps.xd + vx0;
-     pt.vy      = ps.yd + vy0;
-     pt.vz      = ps.zd + vz0;
+     pt.vx      = ps.vx + vx0;
+     pt.vy      = ps.vy + vy0;
+     pt.vz      = ps.vz + vz0;
    }
    reb_add(r,pt); // add the new particle
    return om_orb; // return mean motion
@@ -162,16 +162,16 @@ double add_one_mass_kep(struct reb_simulation* const r, double m1,
    orbel.longnode= longnode;
    orbel.meananom= meananom;
    PhaseState ps;
-   cartesian(GM, orbel, &ps);
+   kep_to_cart(GM, orbel, &ps);
    double om_orb = sqrt(GM/aa)/aa;
 
    pt.m       = m1;
    pt.x       = ps.x;
    pt.y       = ps.y;
    pt.z       = ps.z;
-   pt.vx      = ps.xd;
-   pt.vy      = ps.yd;
-   pt.vz      = ps.zd;
+   pt.vx      = ps.vx;
+   pt.vy      = ps.vy;
+   pt.vz      = ps.vz;
    pt.r       = r1;
    pt.ax = 0; pt.ay = 0; pt.az = 0;
    reb_add(r,pt);
