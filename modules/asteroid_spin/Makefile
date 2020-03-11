@@ -1,15 +1,17 @@
 export OPENGL=1
 
-ifdef $MPI
-export MPI=1
-endif
-
 include ../../src/Makefile.defs
+
 LIB+=-L/usr/X11/lib
 OPT+=-I/usr/X11/include
 
-MYSOURCES=../../src_spring/spring.c ../../src_spring/kepcart.c ../../src_spring/heat.c ../../src_spring/orb.c ../../src_spring/m_output.c 
-#../../src_spring/try.c
+MYSOURCES=../../src_spring/spring.c \
+		  ../../src_spring/kepcart.c \
+		  ../../src_spring/heat.c \
+		  ../../src_spring/orb.c \
+		  ../../src_spring/m_output.c
+MYOBJECTS=$(SOURCES:.c=.o)
+MYHEADERS=$(SOURCES:.c=.h)
 
 all: librebound
 	@echo ""
@@ -29,4 +31,5 @@ clean:
 	@-rm -f librebound.so
 	$(MAKE) -C ../../src/ clean
 	@echo "Cleaning up local directory ..."
-	@-rm -vf rebound
+	@-rm -rf ../../src_spring/*.o
+	@-rm -vf rebound_spring
