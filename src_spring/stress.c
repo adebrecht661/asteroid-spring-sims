@@ -12,7 +12,7 @@
 #include "kepcart.h"
 
 extern int NS; // number of springs
-struct stresstensor *stressvec; // global so can be reached by all routines here
+struct stress_tensor *stressvec; // global so can be reached by all routines here
 
 void spring_force_one();
 int markfailure();
@@ -24,7 +24,7 @@ void update_stresstensor(struct reb_simulation *const r) {
 	static int first = 0;
 	if (first == 0) {
 		first = 1;
-		stressvec = malloc(r->N * sizeof(struct stresstensor));
+		stressvec = malloc(r->N * sizeof(struct stress_tensor));
 	}
 	for (int i = 0; i < r->N; i++) { // over nodes
 		stressvec[i].sigxx = 0.0;
@@ -218,20 +218,14 @@ void print_stress(struct reb_simulation *const r, int npert, char *filename) {
 	fprintf(fpo, "#%.2e\n", r->t);
 	int il = 0;
 	int ih = r->N - npert; // NPERT?
-	double xc, yc, zc;
-	compute_com(r, il, ih, &xc, &yc, &zc);
+	double CoM[3];
+	compute_com(r, il, ih, CoM);
 	for (int i = il; i < ih; i++) {
-		double x = particles[i].x - xc;
-		double y = particles[i].y - yc;
-		double z = particles[i].z - zc;
+		double x = particles[i].x - CoM[0];
+		double y = particles[i].y - CoM[1];
+		double z = particles[i].z - CoM[2];
 		double m = particles[i].m;
 		fprintf(fpo, "%d %.4f %.3f %.3f %.3f ", i, m, x, y, z);
-		// double sigxx = stressvec[i].sigxx;
-		// double sigyy = stressvec[i].sigyy;
-		// double sigzz = stressvec[i].sigzz;
-		// double sigxy = stressvec[i].sigxy;
-		// double sigyz = stressvec[i].sigyz;
-		// double sigxz = stressvec[i].sigxz;
 		double eig1 = stressvec[i].eig1;
 		double eig2 = stressvec[i].eig2;
 		double eig3 = stressvec[i].eig3;

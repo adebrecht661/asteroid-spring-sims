@@ -52,15 +52,13 @@ void print_extended(struct reb_simulation *const r, int il, int ih,
 		fpo = fopen(filename, "a");
 	}
 	fprintf(fpo, "%.3f ", r->t);
-	double xc = 0.0;
-	double yc = 0.0;
-	double zc = 0.0;
-	compute_com(r, il, ih, &xc, &yc, &zc);
+	double CoM[3];
+	compute_com(r, il, ih, CoM);
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
 	compute_cov(r, il, ih, &vxc, &vyc, &vzc);
-	fprintf(fpo, "%.5f %.5f %.5f ", xc, yc, zc);
+	fprintf(fpo, "%.5f %.5f %.5f ", CoM[0], CoM[1], CoM[2]);
 	fprintf(fpo, "%.5f %.5f %.5f ", vxc, vyc, vzc);
 
 	double omx, omy, omz, Ibig, Imid, Ismall, llx, lly, llz;
@@ -103,15 +101,13 @@ void print_extended_simp(struct reb_simulation *const r, int il, int ih,
 		fpo = fopen(filename, "a");
 	}
 	fprintf(fpo, "%.3f ", r->t);
-	double xc = 0.0;
-	double yc = 0.0;
-	double zc = 0.0;
-	compute_com(r, il, ih, &xc, &yc, &zc);
+	double CoM[3];
+	compute_com(r, il, ih, CoM);
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
 	compute_cov(r, il, ih, &vxc, &vyc, &vzc);
-	fprintf(fpo, "%.5f %.5f %.5f ", xc, yc, zc);
+	fprintf(fpo, "%.5f %.5f %.5f ", CoM[0], CoM[1], CoM[2]);
 	fprintf(fpo, "%.5f %.5f %.5f ", vxc, vyc, vzc);
 
 	double omx, omy, omz, Ibig, Imid, Ismall, llx, lly, llz;
@@ -225,7 +221,7 @@ void print_tab(struct reb_simulation *const r, int npert, char *filename) {
 	body_spin(r, il, ih, &omx, &omy, &omz, &Ibig, &Imid, &Ismall);
 	fprintf(fpo, "%.4e %.4e %.4e %.3f %.3f %.3f ", omx, omy, omz, Ibig, Imid,
 			Ismall);
-	double E = Young_mush(r, il, ih, 0.0, 0.5);
+	double E = Young_mesh(r, il, ih, 0.0, 0.5);
 	fprintf(fpo, "%.3f ", E);
 	double llx, lly, llz;
 	measure_L(r, il, ih, &llx, &lly, &llz); // spin angular momentum of spining body
@@ -276,37 +272,33 @@ void print_bin(struct reb_simulation *const r, int npert, char *filename) {
 
 	int il = 0; // index range for resolved body
 	int ih = r->N - npert;
-	double xc = 0.0;
-	double yc = 0.0;
-	double zc = 0.0;
+	double CoM[3];
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
-	compute_com(r, il, ih, &xc, &yc, &zc); // center of mass of resolved body
+	compute_com(r, il, ih, CoM); // center of mass of resolved body
 	compute_cov(r, il, ih, &vxc, &vyc, &vzc); // center of velocity of resolved body
 	int iml = r->N - npert; // index range for perturbing masses, binary
 	int imh = r->N;
-	double xb = 0.0;
-	double yb = 0.0;
-	double zb = 0.0;
+	double CoM_bin[3];
 	double vxb = 0.0;
 	double vyb = 0.0;
 	double vzb = 0.0;
-	compute_com(r, iml, imh, &xb, &yb, &zb); // center of mass of binary
+	compute_com(r, iml, imh, CoM_bin); // center of mass of binary
 	compute_cov(r, iml, imh, &vxb, &vyb, &vzb); // center of velocity of binary
 
-	double xr = xc - xb;
+	double xr = CoM[0] - CoM_bin[0];
 	double vxr = vxc - vxb;  // of resolved w.r.t binary center
-	double yr = yc - yb;
+	double yr = CoM[1] - CoM_bin[1];
 	double vyr = vyc - vyb;
-	double zr = zc - zb;
+	double zr = CoM[2] - CoM_bin[2];
 	double vzr = vzc - vzb;
 	// store resolved center vs bin center
 	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", xr, yr, zr, vxr, vyr, vzr);
 
-	double xs = particles[mark].x - xc;   // marked w.r.t to resolved center
-	double ys = particles[mark].y - yc;
-	double zs = particles[mark].z - zc;
+	double xs = particles[mark].x - CoM[0];   // marked w.r.t to resolved center
+	double ys = particles[mark].y - CoM[1];
+	double zs = particles[mark].z - CoM[2];
 	double vxs = particles[mark].vx - vxc;
 	double vys = particles[mark].vy - vyc;
 	double vzs = particles[mark].vz - vzc;
@@ -388,7 +380,7 @@ void read_springs(struct reb_simulation *const r, char *fileroot, int index) {
 		spr.rs0 = rs0;
 		spr.gamma = gamma;
 		spr.k_heat = k_heat;
-		springs_add(r, spr);
+		add_spring_helper(spr);
 	}
 	fclose(fpi);
 	printf("read_springs: NS=%d\n", NS);

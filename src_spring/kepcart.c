@@ -17,48 +17,48 @@
 #define SIGN(a) ((a) < 0 ? -1 : 1)
 
 /* given PhaseState returns orbital elements */
-void cart_to_kep(double GM, PhaseState state, OrbitalElements *orbel) {
-	double rxv_x, rxv_y, rxv_z, hs, h;
-	double r, vs, rdotv, rdot, ecostrueanom, esintrueanom, cosnode, sinnode;
+void cart_to_kep(double GM, PhaseState state, OrbitalElements *orb_el) {
+	double L_x, L_y, L_z, Lsqd, L;
+	double r, vsqd, rdotv, rdot, ecostrueanom, esintrueanom, cosnode, sinnode;
 	double rcosu, rsinu, u, trueanom, eccanom;
 
 	/* find direction of angular momentum vector */
-	rxv_x = state.y * state.vz - state.z * state.vy;
-	rxv_y = state.z * state.vx - state.x * state.vz;
-	rxv_z = state.x * state.vy - state.y * state.vx;
-	hs = rxv_x * rxv_x + rxv_y * rxv_y + rxv_z * rxv_z;
-	h = sqrt(hs);
+	L_x = state.y * state.vz - state.z * state.vy;
+	L_y = state.z * state.vx - state.x * state.vz;
+	L_z = state.x * state.vy - state.y * state.vx;
+	Lsqd = L_x * L_x + L_y * L_y + L_z * L_z;
+	L = sqrt(Lsqd);
 
 	r = sqrt(state.x * state.x + state.y * state.y + state.z * state.z);
-	vs = state.vx * state.vx + state.vy * state.vy + state.vz * state.vz;
+	vsqd = state.vx * state.vx + state.vy * state.vy + state.vz * state.vz;
 
 	rdotv = state.x * state.vx + state.y * state.vy + state.z * state.vz;
 	rdot = rdotv / r;
 
-	orbel->i = acos(rxv_z / h);
+	orb_el->i = acos(L_z / L);
 
-	if (rxv_x != 0.0 || rxv_y != 0.0) {
-		orbel->longnode = atan2(rxv_x, -rxv_y);
+	if (L_x != 0.0 || L_y != 0.0) {
+		orb_el->longnode = atan2(L_x, -L_y);
 	} else
-		orbel->longnode = 0.0;
+		orb_el->longnode = 0.0;
 
-	orbel->a = 1.0 / (2.0 / r - vs / GM); // could be negative
+	orb_el->a = 1.0 / (2.0 / r - vsqd / GM); // could be negative
 
-	ecostrueanom = hs / (GM * r) - 1.0;
-	esintrueanom = rdot * h / GM;
-	orbel->e = sqrt(ecostrueanom * ecostrueanom + esintrueanom * esintrueanom);
+	ecostrueanom = Lsqd / (GM * r) - 1.0;
+	esintrueanom = rdot * L / GM;
+	orb_el->e = sqrt(ecostrueanom * ecostrueanom + esintrueanom * esintrueanom);
 
 	if (esintrueanom != 0.0 || ecostrueanom != 0.0) {
 		trueanom = atan2(esintrueanom, ecostrueanom);
 	} else
 		trueanom = 0.0;
 
-	cosnode = cos(orbel->longnode);
-	sinnode = sin(orbel->longnode);
+	cosnode = cos(orb_el->longnode);
+	sinnode = sin(orb_el->longnode);
 
 	/* u is the argument of latitude */
 	rcosu = state.x * cosnode + state.y * sinnode;
-	rsinu = (state.y * cosnode - state.x * sinnode) / cos(orbel->i);
+	rsinu = (state.y * cosnode - state.x * sinnode) / cos(orb_el->i);
 	// potential divide by zero here!!!!!!!!
 
 	if (rsinu != 0.0 || rcosu != 0.0) {
@@ -66,30 +66,27 @@ void cart_to_kep(double GM, PhaseState state, OrbitalElements *orbel) {
 	} else
 		u = 0.0;
 
-	orbel->argperi = u - trueanom;
+	orb_el->argperi = u - trueanom;
 
-	double foo = sqrt(fabs(1.0 - orbel->e) / (1.0 + orbel->e));
-	if (orbel->e < 1.0) {
+	double foo = sqrt(fabs(1.0 - orb_el->e) / (1.0 + orb_el->e));
+	if (orb_el->e < 1.0) {
 		eccanom = 2.0 * atan(foo * tan(trueanom / 2.0));
-		orbel->meananom = eccanom - orbel->e * sin(eccanom);
-		//     if (orbel->meananom> M_PI) orbel->meananom-= 2.0*M_PI;
-		//     if (orbel->meananom< -M_PI) orbel->meananom+= 2.0*M_PI;
-		// only shift M if elliptic orbit
+		orb_el->meananom = eccanom - orb_el->e * sin(eccanom);
 	} else {
 		eccanom = 2.0 * atanh(foo * tan(trueanom / 2.0));
-		orbel->meananom = orbel->e * sinh(eccanom) - eccanom;
+		orb_el->meananom = orb_el->e * sinh(eccanom) - eccanom;
 	}
-	if (orbel->argperi > M_PI)
-		orbel->argperi -= 2.0 * M_PI;
-	if (orbel->argperi < -M_PI)
-		orbel->argperi += 2.0 * M_PI;
+	if (orb_el->argperi > M_PI)
+		orb_el->argperi -= 2.0 * M_PI;
+	if (orb_el->argperi < -M_PI)
+		orb_el->argperi += 2.0 * M_PI;
 }
 
 /* given orbital elements return PhaseState */
 // hyperbolic orbits have e>1, not sure about convention for a positive or not
 void kep_to_cart(double GM, OrbitalElements orb_el, PhaseState *state) {
 	double meanmotion, cosE, sinE, foo;
-	double x, y, z, xd, yd, zd;
+	double x, y, z, vx, vy, vz;
 	double xp, yp, zp, xdp, ydp, zdp;
 	double cosw, sinw, cosi, sini, cosnode, sinnode;
 	double E0, rovera;
@@ -127,9 +124,9 @@ void kep_to_cart(double GM, OrbitalElements orb_el, PhaseState *state) {
 	x = a * (cosE - e);
 	y = foo * a * sinE;
 	z = 0.0;
-	xd = -a * meanmotion * sinE / rovera;
-	yd = foo * a * meanmotion * cosE / rovera;
-	zd = 0.0;
+	vx = -a * meanmotion * sinE / rovera;
+	vy = foo * a * meanmotion * cosE / rovera;
+	vz = 0.0;
 	if (e > 1.0)
 		x *= -1.0;
 
@@ -139,9 +136,9 @@ void kep_to_cart(double GM, OrbitalElements orb_el, PhaseState *state) {
 	xp = x * cosw - y * sinw;
 	yp = x * sinw + y * cosw;
 	zp = z;
-	xdp = xd * cosw - yd * sinw;
-	ydp = xd * sinw + yd * cosw;
-	zdp = zd;
+	xdp = vx * cosw - vy * sinw;
+	ydp = vx * sinw + vy * cosw;
+	zdp = vz;
 
 	/* rotate by inclination about x axis */
 	cosi = cos(i);
@@ -149,9 +146,9 @@ void kep_to_cart(double GM, OrbitalElements orb_el, PhaseState *state) {
 	x = xp;
 	y = yp * cosi - zp * sini;
 	z = yp * sini + zp * cosi;
-	xd = xdp;
-	yd = ydp * cosi - zdp * sini;
-	zd = ydp * sini + zdp * cosi;
+	vx = xdp;
+	vy = ydp * cosi - zdp * sini;
+	vz = ydp * sini + zdp * cosi;
 
 	/* rotate by longitude of node about z axis */
 	cosnode = cos(longnode);
@@ -159,9 +156,9 @@ void kep_to_cart(double GM, OrbitalElements orb_el, PhaseState *state) {
 	state->x = x * cosnode - y * sinnode;
 	state->y = x * sinnode + y * cosnode;
 	state->z = z;
-	state->vx = xd * cosnode - yd * sinnode;
-	state->vy = xd * sinnode + yd * cosnode;
-	state->vz = zd;
+	state->vx = vx * cosnode - vy * sinnode;
+	state->vy = vx * sinnode + vy * cosnode;
+	state->vz = vz;
 }
 
 /* Helpers for coordinate conversion */

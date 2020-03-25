@@ -114,8 +114,8 @@ int main(int argc, char *argv[]) {
 	connect_springs_dist(r, mesh_distance, i_low, i_high, spring_mesh);
 
 	double ddr = 0.4; // mini radius  for computing Young modulus
-	double Emush = Young_mush(r, i_low, i_high, 0.0, ddr); // compute from springs out to ddr
-	double Emush_big = Young_mush_big(r, i_low, i_high);
+	double Emush = Young_mesh(r, i_low, i_high, 0.0, ddr); // compute from springs out to ddr
+	double Emush_big = Young_mesh_big(r, i_low, i_high);
 	printf("ddr = %.3f mush_distance =%.3f\n", ddr, mesh_distance);
 	printf("Youngs_modulus %.6f\n", Emush);
 	printf("Youngs_modulus_big %.6f\n", Emush_big);
@@ -157,7 +157,7 @@ void heartbeat(struct reb_simulation *const r) {
 		reb_output_timing(r, 0);
 	}
 	if (fabs(r->t - t_damp) < 0.9 * r->dt)
-		set_gamma(gamma_all, 0, r->N - npert);
+		set_gamma(gamma_all);
 	// damp initial bounce only
 	// reset gamma only at t near t_damp
 

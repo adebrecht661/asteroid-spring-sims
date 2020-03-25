@@ -288,10 +288,8 @@ void dodrift_res(struct reb_simulation *const r, double tstep, double inv_taua,
 
 	double m1 = particles[im1].m;
 	double m2 = sum_mass(r, il, ih);
-	double xc = 0.0;
-	double yc = 0.0;
-	double zc = 0.0;
-	compute_com(r, il, ih, &xc, &yc, &zc);
+	double CoM[3];
+	compute_com(r, il, ih, CoM);
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
@@ -299,9 +297,9 @@ void dodrift_res(struct reb_simulation *const r, double tstep, double inv_taua,
 
 	double GMM = r->G * (m1 + m2);
 
-	double x = xc - particles[im1].x;
-	double y = yc - particles[im1].y;
-	double z = zc - particles[im1].z;
+	double x = CoM[0] - particles[im1].x;
+	double y = CoM[1] - particles[im1].y;
+	double z = CoM[2] - particles[im1].z;
 	double vx = vxc - particles[im1].vx;
 	double vy = vyc - particles[im1].vy;
 	double vz = vzc - particles[im1].vz;
