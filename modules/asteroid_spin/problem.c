@@ -1,3 +1,11 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 /**
  * resolved mass spring model
  * using the leap frog integrator. 
@@ -9,7 +17,9 @@
 #include <math.h>
 #include <time.h>
 #include <sys/time.h>
+extern "C" {
 #include "rebound.h"
+}
 #include "tools.h"
 #include "output.h"
 #include "spring.h"

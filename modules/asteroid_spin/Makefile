@@ -1,6 +1,6 @@
 export OPENGL=1
 
-include ../../src/Makefile.defs
+include Makefile.defs
 
 LIB+=-L/usr/X11/lib
 OPT+=-I/usr/X11/include
