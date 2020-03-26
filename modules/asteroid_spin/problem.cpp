@@ -1,3 +1,11 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 /**
  * resolved mass spring model
  * using the leap frog integrator. 
@@ -7,17 +15,20 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <cmath>
 #include <time.h>
 #include <sys/time.h>
+extern "C" {
 #include "rebound.h"
+}
 #include "tools.h"
 #include "output.h"
 #include "spring.h"
 
 int NS;  // global numbers of springs
 struct spring *springs;
-void reb_springs();  // to pass springs to display
-void read_particles_i();
+void reb_springs(struct reb_simulation *const r);  // to pass springs to display
+void read_particles_i(struct reb_simulation* const n_body_sim, char* filename);
 
 double gamma_all; // for gamma  of all springs
 double t_damp;    // end faster damping, relaxation
@@ -37,12 +48,12 @@ void heartbeat(struct reb_simulation *const r);
 
 int main(int argc, char *argv[]) {
 	struct reb_simulation *const r = reb_create_simulation();
-	struct spring spring_mesh; // spring parameters for mush
+	struct spring spring_mesh; // spring parameters for mesh
 	// Setup constants
-	r->integrator = REB_INTEGRATOR_LEAPFROG;
+	r->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
 	// r->gravity	= REB_GRAVITY_BASIC;
-	r->gravity = REB_GRAVITY_NONE;
-	r->boundary = REB_BOUNDARY_NONE;
+	r->gravity = reb_simulation::REB_GRAVITY_NONE;
+	r->boundary = reb_simulation::REB_BOUNDARY_NONE;
 	r->G = 1;
 	r->additional_forces = additional_forces; // spring forces
 	// setup callback function for additional forces
@@ -106,7 +117,7 @@ int main(int argc, char *argv[]) {
 	spin(r, i_low, i_high, 0.0, 0.0, omegaz); // change one of these zeros to tilt it!
 	// can spin about non principal axis
 	subtractcov(r, i_low, i_high); // center of velocity subtracted
-	double speriod = fabs(2.0 * M_PI / omegaz);
+	double speriod = abs(2.0 * M_PI / omegaz);
 	printf("spin period %.6f\n", speriod);
 	fprintf(fpr, "spin period %.6f\n", speriod);
 
@@ -176,8 +187,8 @@ void heartbeat(struct reb_simulation *const r) {
 // make a spring index list for display
 void reb_springs(struct reb_simulation *const r) {
 	r->NS = NS;
-	r->springs_ii = malloc(NS * sizeof(int));
-	r->springs_jj = malloc(NS * sizeof(int));
+	r->springs_ii = (int*) malloc(NS * sizeof(int));
+	r->springs_jj = (int*) malloc(NS * sizeof(int));
 	for (int i = 0; i < NS; i++) {
 		r->springs_ii[i] = springs[i].i;
 		r->springs_jj[i] = springs[i].j;

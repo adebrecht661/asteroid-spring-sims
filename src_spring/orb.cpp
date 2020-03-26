@@ -1,11 +1,21 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <math.h>
+#include <cmath>
 #include <time.h>
 #include <sys/time.h>
+extern "C" {
 #include "rebound.h"
+}
 #include "spring.h"
 #include "tools.h"
 #include "output.h"

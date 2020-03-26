@@ -94,7 +94,8 @@ void spr_xyz_mid(struct reb_simulation *const n_body_sim, spring spr,
 // Returns strain on given spring
 double strain(struct reb_simulation *const n_body_sim, spring spr);
 // Connects springs between all particles closer than dist in index range i_low -> i_high-1
-void connect_springs_dist();
+void connect_springs_dist(struct reb_simulation *const n_body_sim,
+		double max_dist, int i_low, int i_high, spring spr);
 // Set damping coefficient of all springs
 void set_gamma(double new_gamma);
 void connect_springs_dist_nodemax();
@@ -120,9 +121,9 @@ bool isSym(double matrix[3][3]);
 /* !!!!!! Unsorted operations !!!!!!!!! */
 /****************************************/
 
-void spring_forces();
-double spring_potential_energy();
-double grav_potential_energy();
+void spring_forces(struct reb_simulation* n_body_sim);
+double spring_potential_energy(struct reb_simulation *const r);
+double grav_potential_energy(struct reb_simulation *const r, int il, int ih);
 
 // list of springs related subroutines
 struct node* mknodevec();
@@ -145,7 +146,8 @@ int markfailure();
 void sfilename();
 void killsprings();
 
-int nearest_to_shape();
+int nearest_to_shape(struct reb_simulation *r, int il, int ih, double x,
+		double y, double z);
 void print_surf();
 int surface_shape(); //ZYH
 void surfaceparticle_display(); //ZYH
@@ -163,8 +165,8 @@ void read_vertex_file();
 void adjust_ks_abc();
 void adjust_ks_abc_fac();
 void adjust_mass_abc();
-void subtractcov();
-void subtractcom();
+void subtractcov(struct reb_simulation *const r, int il, int ih);
+void subtractcom(struct reb_simulation *const r, int il, int ih);
 void print_extended();
 void print_extended_simp();
 void print_extended_2nodes();
@@ -172,44 +174,56 @@ void print_pm();
 void hfilename();
 void quadJ2pole();
 double add_pt_mass_kep();
-void move_resolved();
-double sum_mass();
-double dEdt();
-double dEdt_total();
-void compute_com();
-void compute_cov();
-void compute_Lorb();
+void move_resolved(struct reb_simulation *r, double dx, double dy, double dz,
+		double dvx, double dvy, double dvz, int il, int ih);
+double sum_mass(struct reb_simulation *const r, int il, int ih);
+double dEdt(struct reb_simulation *const r, struct spring spr);
+double dEdt_total(struct reb_simulation *const r);
+void compute_com(struct reb_simulation *const n_body_sim, int il, int ih,
+		double CoM[3]);
+void compute_cov(struct reb_simulation *const r, int il, int ih, double *vxc,
+		double *vyc, double *vzc);
+void compute_Lorb(struct reb_simulation *const r, int il, int ih, int npert,
+		double *llx, double *lly, double *llz);
 double mindist();
-void centerbody();
+void centerbody(struct reb_simulation *const r, int il, int ih);
 void rand_football();
 void rand_rectangle();
 void rand_rectangle_2d();
 void rand_cone();
 void rand_football_from_sphere();
-double Young_mesh();
-double Young_mesh_big();
-void spin();
+double Young_mesh(struct reb_simulation *const r, int il, int ih, double rmin,
+		double rmax);
+double Young_mesh_big(struct reb_simulation *const r, int il, int ih);
+void spin(struct reb_simulation *const r, int il, int ih, double omegax,
+		double omegay, double omegaz);
 void make_binary_spring();
-void mom_inertia();
-void measure_L();
+void mom_inertia(struct reb_simulation *const n_body_sim, int i_low, int i_high, double inertia[3][3]);
+void measure_L(struct reb_simulation *const r, int il, int ih, double *llx,
+		double *lly, double *llz);
 void measure_L_origin();
-void compute_semi();
-void compute_semi_bin();
+void compute_semi(struct reb_simulation *const r, int il, int ih, int im1,
+		double *aa, double *meanmo, double *ee, double *ii, double *LL);
+void compute_semi_bin(struct reb_simulation *const r, int il, int ih, int npert,
+		double *aa, double *meanmo, double *ee, double *ii, double *LL);
 void total_mom();
-double mean_L();
+double mean_L(struct reb_simulation *const r);
 void spring_init(struct reb_simulation *r);
 void output_png();
 void output_png_single();
-void body_spin();
+void body_spin(struct reb_simulation *const r, int il, int ih, double *omx,
+		double *omy, double *omz, double eigs[3]);
 void print_tab();
 void print_bin();
 void print_heat();
-void write_particles();
-void write_springs();
-void toistring();
-void zero_accel();
+void write_particles(struct reb_simulation *const r, char *fileroot, int index);
+void write_springs(struct reb_simulation *const r, char *fileroot, int index);
+void toistring(char *istring, int i);
+void zero_accel(struct reb_simulation* n_body_sim);
 void rotate_to_principal();
-void vec_mul();
+void vec_mul(double Axx, double Axy, double Axz, double Ayx, double Ayy,
+		double Ayz, double Azx, double Azy, double Azz, double bx, double by,
+		double bz, double *cx, double *cy, double *cz);
 void adjust_ks();
 void adjust_mass_side();
 void rotate_body();
@@ -224,8 +238,8 @@ void add_one_mass_cartesian();
 void dodrift_bin();
 void dodrift_res();
 void addto_heatvec();
-void norm_heatvec();
-double compute_rot_kin();
+void norm_heatvec(int ndt);
+double compute_rot_kin(struct reb_simulation *const r, int il, int ih);
 void adjust_nodes_cp();
 void stretch();
 

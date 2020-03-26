@@ -1,11 +1,22 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <cmath>
 #include <time.h>
 #include <sys/time.h>
+extern "C" {
 #include "rebound.h"
+}
 #include "spring.h"
 #include "tools.h"
 #include "output.h"
@@ -97,7 +108,7 @@ void addto_heatvec(struct reb_simulation *const r) {
 	static int first = 0;
 	if (first == 0) {
 		first = 1;
-		heatvec = malloc(NS * sizeof(double));
+		heatvec = (double*) malloc(NS * sizeof(double));
 		for (int i = 0; i < NS; i++)
 			heatvec[i] = 0.0;
 	}
@@ -163,7 +174,7 @@ void nfilename(struct reb_simulation *const r, char *root, double tp,
 // initialize each node with a specific heat and temperature
 struct node* mknodevec(struct reb_simulation *const r, double cv, double T0) {
 	struct node *nodevec;
-	nodevec = malloc(sizeof(struct node) * (r->N + 10));
+	nodevec = (node*) malloc(sizeof(struct node) * (r->N + 10));
 	for (int i = 0; i < r->N + 10; i++) {
 		nodevec[i].surf = 0;  // initialize as if in interior
 		nodevec[i].temp = T0; // temperature
@@ -239,7 +250,7 @@ void transport_heat(struct reb_simulation *const r, int npert,
 	static int first = 0;
 	if (first == 0) {
 		first = 1;
-		newTvec = malloc(sizeof(double) * r->N);
+		newTvec = (double*) malloc(sizeof(double) * r->N);
 	}
 	for (int k = 0; k < r->N; k++)
 		newTvec[k] = 0.0;

@@ -1,11 +1,22 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <cmath>
 #include <time.h>
 #include <sys/time.h>
+extern "C" {
 #include "rebound.h"
+}
 #include "tools.h"
 #include "output.h"
 #include "spring.h"
@@ -61,17 +72,15 @@ void print_extended(struct reb_simulation *const r, int il, int ih,
 	fprintf(fpo, "%.5f %.5f %.5f ", CoM[0], CoM[1], CoM[2]);
 	fprintf(fpo, "%.5f %.5f %.5f ", vxc, vyc, vzc);
 
-	double omx, omy, omz, Ibig, Imid, Ismall, llx, lly, llz;
+	double omx, omy, omz, eigs[3], llx, lly, llz;
 	// computes omega using inverse of moment of inertia matrix and angular momentum
-	body_spin(r, il, ih, &omx, &omy, &omz, &Ibig, &Imid, &Ismall);
-	measure_L(r, il, ih, &llx, &lly, &llz); // computes spin angular momentum of spining body
+	body_spin(r, il, ih, &omx, &omy, &omz, eigs);
+	measure_L(r, il, ih, &llx, &lly, &llz); // computes spin angular momentum of spinning body
 	fprintf(fpo, "%.4e %.4e %.4e ", omx, omy, omz);
 	fprintf(fpo, "%.4e %.4e %.4e ", llx, lly, llz);
-	// fprintf(fpo,"%.4e %.4e %.4e ",Ibig, Imid, Ismall);
-	double Ixx, Iyy, Izz, Ixy, Iyz, Ixz;
-	mom_inertia(r, il, ih, &Ixx, &Iyy, &Izz, &Ixy, &Iyz, &Ixz);
-	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", Ixx, Iyy, Izz, Ixy, Iyz,
-			Ixz);
+	double inertia_mat[3][3];
+	mom_inertia(r, il, ih, inertia_mat);
+	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", inertia_mat[0][0], inertia_mat[1][1], inertia_mat[2][2], inertia_mat[0][1], inertia_mat[0][2], inertia_mat[1][2]);
 
 	double KErot = compute_rot_kin(r, il, ih); // total kinetic energy (including rotational)
 	double pe_springs = spring_potential_energy(r); // potential energy in springs
@@ -82,7 +91,6 @@ void print_extended(struct reb_simulation *const r, int il, int ih,
 	fprintf(fpo, "%.5e %.5e %.10e %.10e %.10e ", KErot, pe_springs, pe_grav,
 			E_tot, dEdtnow);
 	fprintf(fpo, "%.10e", dEdtave);
-	// printf(" %.5e %.5e %.5e %.5e\n",KErot,pe_springs,pe_grav,E_tot); //
 	fprintf(fpo, "\n");
 	fclose(fpo);
 }
@@ -110,17 +118,16 @@ void print_extended_simp(struct reb_simulation *const r, int il, int ih,
 	fprintf(fpo, "%.5f %.5f %.5f ", CoM[0], CoM[1], CoM[2]);
 	fprintf(fpo, "%.5f %.5f %.5f ", vxc, vyc, vzc);
 
-	double omx, omy, omz, Ibig, Imid, Ismall, llx, lly, llz;
+	double omx, omy, omz, eigs[3], llx, lly, llz;
 	// computes omega using inverse of moment of inertia matrix and angular momentum
-	body_spin(r, il, ih, &omx, &omy, &omz, &Ibig, &Imid, &Ismall);
+	body_spin(r, il, ih, &omx, &omy, &omz, eigs);
 	measure_L(r, il, ih, &llx, &lly, &llz); // computes spin angular momentum of spining body
 	fprintf(fpo, "%.4e %.4e %.4e ", omx, omy, omz);
 	fprintf(fpo, "%.4e %.4e %.4e ", llx, lly, llz);
 	// fprintf(fpo,"%.4e %.4e %.4e ",Ibig, Imid, Ismall);
-	double Ixx, Iyy, Izz, Ixy, Iyz, Ixz;
-	mom_inertia(r, il, ih, &Ixx, &Iyy, &Izz, &Ixy, &Iyz, &Ixz);
-	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", Ixx, Iyy, Izz, Ixy, Iyz,
-			Ixz);
+	double inertia_mat[3][3];
+	mom_inertia(r, il, ih, inertia_mat);
+	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", inertia_mat[0][0], inertia_mat[1][1], inertia_mat[2][2], inertia_mat[0][1], inertia_mat[0][2], inertia_mat[1][2]);
 
 	fprintf(fpo, "\n");
 	fclose(fpo);
@@ -163,7 +170,8 @@ void print_extended_2nodes(struct reb_simulation *const r, int il, int ih,
 // print out information for a point mass with index ip
 // which point mass is ipert  (0 being the central one)
 // but ip is its index in the particle list
-void print_pm(struct reb_simulation *const r, int ip, int ipert, char *filename) {
+void print_pm(struct reb_simulation *const r, int ip, int ipert,
+		char *filename) {
 	struct reb_particle *particles = r->particles;
 	static int firstarr[NPMAXE];
 	static int first = 0;
@@ -216,11 +224,11 @@ void print_tab(struct reb_simulation *const r, int npert, char *filename) {
 	} else
 		compute_semi_bin(r, il, ih, npert, &a, &meanmo, &ecc, &incl, &Lorb);
 	fprintf(fpo, "%.3f %.6e %.4e %.4f %.4e ", r->t, a, meanmo, ecc, incl);
-	double omx, omy, omz, Ibig, Imid, Ismall;
+	double omx, omy, omz, eigs[3];
 	// computes sping using inverse of moment of inertia matrix and angular momentum vec
-	body_spin(r, il, ih, &omx, &omy, &omz, &Ibig, &Imid, &Ismall);
-	fprintf(fpo, "%.4e %.4e %.4e %.3f %.3f %.3f ", omx, omy, omz, Ibig, Imid,
-			Ismall);
+	body_spin(r, il, ih, &omx, &omy, &omz, eigs);
+	fprintf(fpo, "%.4e %.4e %.4e %.3f %.3f %.3f ", omx, omy, omz, eigs[0], eigs[1],
+			eigs[2]);
 	double E = Young_mesh(r, il, ih, 0.0, 0.5);
 	fprintf(fpo, "%.3f ", E);
 	double llx, lly, llz;
@@ -235,10 +243,9 @@ void print_tab(struct reb_simulation *const r, int npert, char *filename) {
 	// spin angular momentu and orbital angular momentum
 	fprintf(fpo, "%.5f ", angle);
 	fprintf(fpo, "%.5f %.5f %.5f ", llx_o, lly_o, llz_o); // orbital angular momentum
-	double Ixx, Iyy, Izz, Ixy, Iyz, Ixz;
-	mom_inertia(r, il, ih, &Ixx, &Iyy, &Izz, &Ixy, &Iyz, &Ixz);
-	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", Ixx, Iyy, Izz, Ixy, Iyz,
-			Ixz);
+	double inertia_mat[3][3];
+	mom_inertia(r, il, ih, inertia_mat);
+	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", inertia_mat[0][0], inertia_mat[1][1], inertia_mat[2][2], inertia_mat[0][1], inertia_mat[0][2], inertia_mat[1][2]);
 
 	fprintf(fpo, "\n");
 	fclose(fpo);
@@ -324,10 +331,9 @@ void print_bin(struct reb_simulation *const r, int npert, char *filename) {
 	fprintf(fpo, "%.5f %.5f %.5f ", llx, lly, llz);
 
 	//compute moment of inertia matrix
-	double Ixx, Iyy, Izz, Ixy, Iyz, Ixz;
-	mom_inertia(r, il, ih, &Ixx, &Iyy, &Izz, &Ixy, &Iyz, &Ixz);
-	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", Ixx, Iyy, Izz, Ixy, Iyz,
-			Ixz);
+	double inertia_mat[3][3];
+	mom_inertia(r, il, ih, inertia_mat);
+	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", inertia_mat[0][0], inertia_mat[1][1], inertia_mat[2][2], inertia_mat[0][1], inertia_mat[0][2], inertia_mat[1][2]);
 
 	fprintf(fpo, "\n");
 	fclose(fpo);
@@ -420,7 +426,8 @@ void read_particles(struct reb_simulation *const r, char *fileroot, int index) {
 	printf("read_particles: N=%d\n", r->N);
 }
 
-void write_particles(struct reb_simulation *const r, char *fileroot, int index) {
+void write_particles(struct reb_simulation *const r, char *fileroot,
+		int index) {
 	FILE *fpo;
 	char filename[100];
 	char istring[100];

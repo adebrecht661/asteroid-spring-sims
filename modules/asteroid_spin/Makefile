@@ -1,22 +1,22 @@
 export OPENGL=1
 
-include ../../src/Makefile.defs
+include Makefile.defs
 
 LIB+=-L/usr/X11/lib
 OPT+=-I/usr/X11/include
 
-MYSOURCES=../../src_spring/spring.c \
-		  ../../src_spring/kepcart.c \
-		  ../../src_spring/heat.c \
-		  ../../src_spring/orb.c \
-		  ../../src_spring/m_output.c
+MYSOURCES=../../src_spring/spring.cpp \
+		  ../../src_spring/kepcart.cpp \
+		  ../../src_spring/heat.cpp \
+		  ../../src_spring/orb.cpp \
+		  ../../src_spring/m_output.cpp
 MYOBJECTS=$(SOURCES:.c=.o)
 MYHEADERS=$(SOURCES:.c=.h)
 
 all: librebound
 	@echo ""
 	@echo "Compiling problem file ..."
-	$(CC) -I../../src/ -I./ -Wl,-rpath,./ $(OPT) $(PREDEF) -I../../src_spring/ $(MYSOURCES) problem.c  -L. -lrebound $(LIB) -o rebound_spring
+	$(CC) -I../../src/ -I./ -Wl,-rpath,./ $(OPT) $(PREDEF) -I../../src_spring/ $(MYSOURCES) problem.cpp -L. -lrebound $(LIB) -o rebound_spring
 	@echo ""
 	@echo "REBOUND-SPRING compiled successfully."
 

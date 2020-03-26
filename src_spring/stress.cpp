@@ -1,3 +1,11 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -5,17 +13,17 @@
 #include <math.h>
 #include <time.h>
 #include <sys/time.h>
+extern "C" {
 #include "rebound.h"
+}
 #include "spring.h"
 #include "tools.h"
 #include "output.h"
 #include "kepcart.h"
+#include "stress.h"
 
 extern int NS; // number of springs
 struct stress_tensor *stressvec; // global so can be reached by all routines here
-
-void spring_force_one();
-int markfailure();
 
 // convension should be tensile stress is negative
 // update the stress tensor, create it if does not exist
@@ -82,13 +90,18 @@ void update_stresstensor(struct reb_simulation *const r) {
 		stressvec[i].sigxz /= vol;
 	}
 	for (int i = 0; i < r->N; i++) { // compute and store eigenvalues for each node!
-		double eig1, eig2, eig3;
-		eigenvalues(stressvec[i].sigxx, stressvec[i].sigyy, stressvec[i].sigzz,
-				stressvec[i].sigxy, stressvec[i].sigyz, stressvec[i].sigxz,
-				&eig1, &eig2, &eig3); // eig>=eig2>=eig3
-		stressvec[i].eig1 = eig1;
-		stressvec[i].eig2 = eig2;
-		stressvec[i].eig3 = eig3;
+		double eigs[3];
+		double stress_mat[3][3];
+		stress_mat[0][0] = stressvec[i].sigxx;
+		stress_mat[1][1] = stressvec[i].sigyy;
+		stress_mat[2][2] = stressvec[i].sigzz;
+		stress_mat[0][1] = stress_mat[1][0] = stressvec[i].sigxy;
+		stress_mat[0][2] = stress_mat[2][0] = stressvec[i].sigyz;
+		stress_mat[1][2] = stress_mat[2][1] = stressvec[i].sigxz;
+		eigenvalues(stress_mat,	eigs); // eig>=eig2>=eig3
+		stressvec[i].eig1 = eigs[0];
+		stressvec[i].eig2 = eigs[1];
+		stressvec[i].eig3 = eigs[2];
 	}
 }
 

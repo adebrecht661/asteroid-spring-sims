@@ -9,9 +9,9 @@
  ecc_anohyp:   solve Kepler's equation hyperbolic orbits
  */
 
-#include<math.h>
-#include<stdio.h>
-#include<stdlib.h>
+#include <cmath>
+#include <stdio.h>
+#include <stdlib.h>
 #include "kepcart.h"
 
 #define SIGN(a) ((a) < 0 ? -1 : 1)
