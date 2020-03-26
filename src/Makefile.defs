@@ -23,7 +23,7 @@ ifeq ($(MPI), 1)
 	CC=mpicc
 	PREDEF+= -DMPI
 else
-	CC=cc
+	CC=gcc
 endif
 
 ifeq ($(FFTW), 1)
