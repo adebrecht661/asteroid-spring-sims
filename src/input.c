@@ -55,8 +55,6 @@ int reb_read_int(int argc, char** argv, const char* argument, int _default){
 
 
 char* reb_read_char(int argc, char** argv, const char* argument){
-    opterr = 0;
-    optind = 1;
     while (1) {
         struct option long_options[] = {
             {NULL, required_argument, 0, 'a'},
@@ -75,7 +73,6 @@ char* reb_read_char(int argc, char** argv, const char* argument){
 
         switch (c){
             case 'a':
-                return optarg;
                 break;
             default:
                 break;

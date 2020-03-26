@@ -32,7 +32,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/time.h>
+#include <time.h>
 #include "rebound.h"
 #include "display.h"
 #include "tools.h"

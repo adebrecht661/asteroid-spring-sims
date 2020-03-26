@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <math.h>
+#include <cmath>
 #include <time.h>
 #include <sys/time.h>
 #include <stdbool.h>
@@ -21,6 +21,7 @@ extern "C" {
 #include "tools.h"
 #include "output.h"
 #include "kepcart.h"
+#include "math.h"
 
 extern int NS; // Current number of springs
 int NSmax = 0; // Max number of springs (size of array)
@@ -81,7 +82,7 @@ void add_spring_helper(spring spr) {
 	// If max size is smaller than current size, increase
 	while (NSmax <= NS) {
 		NSmax += 128;
-		springs = realloc(springs, sizeof(spring) * NSmax);
+		springs = (spring*) realloc(springs, sizeof(spring) * NSmax);
 	}
 
 	// Add spring to end of array, update count
@@ -2103,7 +2104,7 @@ void rescale_xyz(struct reb_simulation *const r, int il, int ih,
 int* marksurface(struct reb_simulation *const r, int N_bennu, double mind) {
 	int npsurf = 0; // number of particles in surface
 	int *surfp;
-	surfp = malloc(sizeof(int) * r->N);
+	surfp = (int*) malloc(sizeof(int) * r->N);
 	for (int j = N_bennu; j < r->N; j++) {
 		int i0 = j - N_bennu;
 		surfp[i0] = 0; // index of particle once shape model removed
@@ -2135,7 +2136,7 @@ int* marksurface_football(struct reb_simulation *const r, double mind,
 		double ax, double by, double cz) {
 	int npsurf = 0; // number of particles in surface
 	int *surfp;
-	surfp = malloc(sizeof(int) * r->N);
+	surfp = (int*) malloc(sizeof(int) * r->N);
 	for (int j = 0; j < r->N; j++)
 		surfp[j] = 0.0;
 	for (int j = 0; j < r->N; j++) {
@@ -2164,7 +2165,7 @@ int* marksurface_cone(struct reb_simulation *const r, double mind, double rb,
 		double slope) {
 	int npsurf = 0; // number of particles in surface
 	int *surfp;
-	surfp = malloc(sizeof(int) * r->N);
+	surfp = (int*) malloc(sizeof(int) * r->N);
 	double ifac = sqrt(1.0 + slope * slope);
 	double hcone = rb * slope;
 	for (int j = 0; j < r->N; j++)
@@ -2219,7 +2220,7 @@ void connect_springs_dist_nodemax(struct reb_simulation *const r,
 	if (imax <= i0)
 		return;
 	int *n_nodes;
-	n_nodes = malloc(r->N * sizeof(int));
+	n_nodes = (int*) malloc(r->N * sizeof(int));
 	for (int ii = 0; ii < r->N; ii++)
 		n_nodes[ii] = 0;
 	for (int k = 0; k < NS; k++) {
