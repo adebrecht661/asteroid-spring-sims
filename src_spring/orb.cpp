@@ -20,6 +20,7 @@ extern "C" {
 #include "tools.h"
 #include "output.h"
 #include "kepcart.h"
+#include "matrix_math.h"
 
 // make a PlutoCharon binary with two masses m1,m2 
 // add those two masses 
@@ -298,8 +299,7 @@ void dodrift_res(struct reb_simulation *const r, double tstep, double inv_taua,
 
 	double m1 = particles[im1].m;
 	double m2 = sum_mass(r, il, ih);
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
+	Vector CoM = compute_com(r, il, ih);
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
@@ -307,51 +307,35 @@ void dodrift_res(struct reb_simulation *const r, double tstep, double inv_taua,
 
 	double GMM = r->G * (m1 + m2);
 
-	double x = CoM[0] - particles[im1].x;
-	double y = CoM[1] - particles[im1].y;
-	double z = CoM[2] - particles[im1].z;
+	Vector x_0 = {particles[im1].x, particles[im1].y, particles[im1].z};
+	Vector x = CoM - x_0;
 	double vx = vxc - particles[im1].vx;
 	double vy = vyc - particles[im1].vy;
 	double vz = vzc - particles[im1].vz;
-	double rdotv = x * vx + y * vy + z * vz;
-	double rad = sqrt(x * x + y * y + z * z);
-	double r2 = rad * rad;
+	Vector v = {vx, vy, vz};
+	double rad = x.len();
 	double vc = sqrt(GMM / rad); // circular velocity
 	//  rxL is  vector in plane of orbit, perp to r,
 	//  direction of rotation
 	// r x v x r = r x -L
 	// vector identity axbxc = (adotc)b-(adotb)c
-	double rcrossl_x = r2 * vx - rdotv * x;
-	double rcrossl_y = r2 * vy - rdotv * y;
-	double rcrossl_z = r2 * vz - rdotv * z;
-	double vl = sqrt(
-			rcrossl_x * rcrossl_x + rcrossl_y * rcrossl_y
-					+ rcrossl_z * rcrossl_z); // length of rcrossl
-	rcrossl_x /= vl;
-	rcrossl_y /= vl;
-	rcrossl_z /= vl; // unit vector now
-	double vcvec_x = vc * rcrossl_x;
-	double vcvec_y = vc * rcrossl_y;
-	double vcvec_z = vc * rcrossl_z;
+	Vector r_cross_L = cross(x, cross(v, x));
+	r_cross_L /= r_cross_L.len(); // unit vector
+
+	Vector vcvec = vc * r_cross_L;
 	// difference between velocity and vc
-	double dd_vc_x = vx - vcvec_x;
-	double dd_vc_y = vy - vcvec_y;
-	double dd_vc_z = vz - vcvec_z;
+	Vector dd_vc = v - vcvec;
 
-// compute changes in velocity 
-	double dvx = tstep * (vx * inv_taua / 2.0 + dd_vc_x * inv_taue);
-	double dvy = tstep * (vy * inv_taua / 2.0 + dd_vc_y * inv_taue);
-	double dvz = tstep * (vz * inv_taua / 2.0 + dd_vc_z * inv_taue);
+	// compute changes in velocity
+	Vector dv = tstep * (v * inv_taua / 2.0 + dd_vc * inv_taue);
 
-// update velocities , in such a way as to conserve
-// momentum of binary, lower mass is affected much more than higher mass
-	particles[im1].vx -= m2 * dvx / (m1 + m2);
-	particles[im1].vy -= m2 * dvy / (m1 + m2);
-	particles[im1].vz -= m2 * dvz / (m1 + m2);
-	double cvx = m1 * dvx / (m1 + m2);  // changes to velocity of resolved body
-	double cvy = m1 * dvy / (m1 + m2);
-	double cvz = m1 * dvz / (m1 + m2);
-	move_resolved(r, 0.0, 0.0, 0.0, cvx, cvy, cvz, il, ih); // change only velocities
+	// update velocities , in such a way as to conserve
+	// momentum of binary, lower mass is affected much more than higher mass
+	particles[im1].vx -= m2 * dv.getX() / (m1 + m2);
+	particles[im1].vy -= m2 * dv.getY() / (m1 + m2);
+	particles[im1].vz -= m2 * dv.getZ() / (m1 + m2);
+	Vector cv = m1 * dv / (m1 + m2);  // changes to velocity of resolved body
+	move_resolved(r, 0.0, 0.0, 0.0, cv.getX(), cv.getY(), cv.getZ(), il, ih); // change only velocities
 
 }
 

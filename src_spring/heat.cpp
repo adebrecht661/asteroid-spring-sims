@@ -21,6 +21,7 @@ extern "C" {
 #include "tools.h"
 #include "output.h"
 #include "kepcart.h"
+#include "matrix_math.h"
 
 extern int NS; // number of springs
 double *heatvec; // global so can be reached by all routines here
@@ -44,48 +45,45 @@ void print_heat(struct reb_simulation *const r, int npert, char *filename,
 	fprintf(fpo, "#%.2e xyz dedt xrot yrot \n", r->t);
 	int il = 0;
 	int ih = r->N - npert; // NPERT?
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
+	Vector CoM = compute_com(r, il, ih);
 	int im1 = r->N - 1; // index for primary perturber
 	// double m1 = particles[im1].m;
 	double x1 = particles[im1].x;
 	double y1 = particles[im1].y;
 	double z1 = particles[im1].z;
-	double theta = atan2(y1 - CoM[1], x1 - CoM[0]);
+	double theta = atan2(y1 - CoM.getY(), x1 - CoM.getX());
 	double ct = cos(theta);
 	double st = sin(-theta);  // note sign!
-	fprintf(fpo, "#%.3f %.3f %.3f %.3f %.3f %.3f %.3f \n", x1, y1, z1, CoM[0],
-			CoM[1], CoM[2], theta);
-	// theta =0 when m1 is at +x direction compared to resolved body
-	double xmid, ymid, zmid;
+	fprintf(fpo, "#%.3f %.3f %.3f %.3f %.3f %.3f %.3f \n", x1, y1, z1, CoM.getX(),
+			CoM.getY(), CoM.getZ(), theta);
 
 	for (int i = 0; i < NS; i++) {
-		spr_xyz_mid(r, springs[i], CoM, &xmid, &ymid, &zmid);
+		Vector x_mid = spr_mid(r, springs[i], CoM);
 		// rotate around center of body in xy plane
 		// after rotation:
 		// +x is toward perturber
 		// +y is direction of rotation of perturber w.r.t to body
 		// so -y is headwind direction for body in body
 		// and +y is tailwind surface on body?????
-		double xrot = xmid * ct - ymid * st;
-		double yrot = xmid * st + ymid * ct;
+		double xrot = x_mid.getX() * ct - x_mid.getY() * st;
+		double yrot = x_mid.getX() * st + x_mid.getY() * ct;
 		// double power = dEdt(r,springs[i]);
 
 		double power = heatvec[i];
 		// double powerfac = 0.5; // fraction of heat goes to center of spring
 		// heat on center of spring
-		fprintf(fpo, "%d %.3f %.3f %.3f %.5e %.3f %.3f\n", i, xmid, ymid, zmid,
+		fprintf(fpo, "%d %.3f %.3f %.3f %.5e %.3f %.3f\n", i, x_mid.getX(), x_mid.getY(), x_mid.getZ(),
 				power * powerfac, xrot, yrot);
 		// put some heat on nodes as well as center of spring
 		if (powerfac < 1.0) {
 			int ii = springs[i].i;
 			int jj = springs[i].j;
-			double xpi = particles[ii].x - CoM[0];
-			double ypi = particles[ii].y - CoM[1];
-			double zpi = particles[ii].z - CoM[2];
-			double xpj = particles[jj].x - CoM[0];
-			double ypj = particles[jj].y - CoM[1];
-			double zpj = particles[jj].z - CoM[2];
+			double xpi = particles[ii].x - CoM.getX();
+			double ypi = particles[ii].y - CoM.getY();
+			double zpi = particles[ii].z - CoM.getZ();
+			double xpj = particles[jj].x - CoM.getX();
+			double ypj = particles[jj].y - CoM.getY();
+			double zpj = particles[jj].z - CoM.getZ();
 			fprintf(fpo, "%d %.3f %.3f %.3f %.5e %.3f %.3f\n", i, xpi, ypi, zpi,
 					power * (1.0 - powerfac) * 0.5, xrot, yrot);
 			fprintf(fpo, "%d %.3f %.3f %.3f %.5e %.3f %.3f\n", i, xpj, ypj, zpj,
@@ -206,19 +204,18 @@ void print_node(struct reb_simulation *const r, int npert, struct node *nodevec,
 	fpo = fopen(filename, "w");
 	fprintf(fpo, "#%.2e i xyz vxvyvz T cv surf m xrot yrot \n", r->t);
 
-	double CoM[3];
 	int il = 0;
 	int ih = r->N - 1;
-	compute_com(r, il, ih, CoM);
+	Vector CoM = compute_com(r, il, ih);
 	int im1 = r->N - 1; // index for primary perturber
 	double x1 = particles[im1].x;
 	double y1 = particles[im1].y;
 	double z1 = particles[im1].z;
-	double theta = atan2(y1 - CoM[1], x1 - CoM[0]);
+	double theta = atan2(y1 - CoM.getY(), x1 - CoM.getX());
 	double ct = cos(theta);
 	double st = sin(-theta);  // note sign!
-	fprintf(fpo, "#%.3f %.3f %.3f %.3f %.3f %.3f %.3f \n", x1, y1, z1, CoM[0],
-			CoM[1], CoM[2], theta);
+	fprintf(fpo, "#%.3f %.3f %.3f %.3f %.3f %.3f %.3f \n", x1, y1, z1, CoM.getX(),
+			CoM.getY(), CoM.getZ(), theta);
 
 	for (int i = il; i < ih; i++) {
 		double x = particles[i].x;
@@ -295,16 +292,14 @@ void heat_nodes_tidal(struct reb_simulation *const r, int npert,
 //    from center of mass [rmin,rmax]
 // uses rest lengths
 // only computes center of mass using particles index range [il,ih)
-double Kthermal_mush(struct reb_simulation *const r, int il, int ih,
+double Kthermal_mesh(struct reb_simulation *const r, int il, int ih,
 		double rmin, double rmax) {
 	double sum = 0.0;
-	double CoM[3];
-	compute_com(r, il, ih, CoM); // center of mass coords for particles in range
-	double rmid, thetamid, phimid;
+	Vector CoM = compute_com(r, il, ih); // center of mass coords for particles in range
 	for (int i = 0; i < NS; i++) {
-		spr_sph_mid(r, springs[i], CoM, &rmid, &thetamid, &phimid);
+		Vector x_mid = spr_mid(r, springs[i], CoM);
 
-		double rc = rmid; // center of spring
+		double rc = x_mid.len(); // center of spring
 		if ((rc < rmax) && (rc > rmin)) {
 			double kappa = springs[i].k_heat;
 			double Li = springs[i].rs0;

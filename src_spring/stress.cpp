@@ -1,3 +1,4 @@
+
 #ifdef __cplusplus
 # 	ifdef __GNUC__
 #		define restrict __restrict__
@@ -10,7 +11,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <math.h>
+#include <cmath>
 #include <time.h>
 #include <sys/time.h>
 extern "C" {
@@ -21,6 +22,7 @@ extern "C" {
 #include "output.h"
 #include "kepcart.h"
 #include "stress.h"
+#include "matrix_math.h"
 
 extern int NS; // number of springs
 struct stress_tensor *stressvec; // global so can be reached by all routines here
@@ -231,12 +233,11 @@ void print_stress(struct reb_simulation *const r, int npert, char *filename) {
 	fprintf(fpo, "#%.2e\n", r->t);
 	int il = 0;
 	int ih = r->N - npert; // NPERT?
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
+	Vector CoM = compute_com(r, il, ih);
 	for (int i = il; i < ih; i++) {
-		double x = particles[i].x - CoM[0];
-		double y = particles[i].y - CoM[1];
-		double z = particles[i].z - CoM[2];
+		double x = particles[i].x - CoM.getX();
+		double y = particles[i].y - CoM.getY();
+		double z = particles[i].z - CoM.getZ();
 		double m = particles[i].m;
 		fprintf(fpo, "%d %.4f %.3f %.3f %.3f ", i, m, x, y, z);
 		double eig1 = stressvec[i].eig1;

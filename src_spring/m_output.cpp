@@ -20,6 +20,7 @@ extern "C" {
 #include "tools.h"
 #include "output.h"
 #include "spring.h"
+#include "matrix_math.h"
 
 extern int NS;
 
@@ -63,24 +64,24 @@ void print_extended(struct reb_simulation *const r, int il, int ih,
 		fpo = fopen(filename, "a");
 	}
 	fprintf(fpo, "%.3f ", r->t);
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
+	Vector CoM = compute_com(r, il, ih);
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
 	compute_cov(r, il, ih, &vxc, &vyc, &vzc);
-	fprintf(fpo, "%.5f %.5f %.5f ", CoM[0], CoM[1], CoM[2]);
+	std::cout.precision(5);
+	std::cout << "Center of mass: " << CoM << std::endl;
 	fprintf(fpo, "%.5f %.5f %.5f ", vxc, vyc, vzc);
 
-	double omx, omy, omz, eigs[3], llx, lly, llz;
+	double eigs[3];
 	// computes omega using inverse of moment of inertia matrix and angular momentum
-	body_spin(r, il, ih, &omx, &omy, &omz, eigs);
-	measure_L(r, il, ih, &llx, &lly, &llz); // computes spin angular momentum of spinning body
-	fprintf(fpo, "%.4e %.4e %.4e ", omx, omy, omz);
-	fprintf(fpo, "%.4e %.4e %.4e ", llx, lly, llz);
-	double inertia_mat[3][3];
-	mom_inertia(r, il, ih, inertia_mat);
-	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", inertia_mat[0][0], inertia_mat[1][1], inertia_mat[2][2], inertia_mat[0][1], inertia_mat[0][2], inertia_mat[1][2]);
+	Vector omega = body_spin(r, il, ih, eigs);
+	Vector L = measure_L(r, il, ih); // computes spin angular momentum of spinning body
+	std::cout.precision(4);
+	std::cout << "Omega: " << omega << "\nL: " << L << std::endl;
+	Matrix inertia_mat = mom_inertia(r, il, ih);
+	std::cout.precision(5);
+	std::cout << "Moment of inertia: " << inertia_mat << std::endl;
 
 	double KErot = compute_rot_kin(r, il, ih); // total kinetic energy (including rotational)
 	double pe_springs = spring_potential_energy(r); // potential energy in springs
@@ -109,25 +110,24 @@ void print_extended_simp(struct reb_simulation *const r, int il, int ih,
 		fpo = fopen(filename, "a");
 	}
 	fprintf(fpo, "%.3f ", r->t);
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
+	Vector CoM = compute_com(r, il, ih);
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
 	compute_cov(r, il, ih, &vxc, &vyc, &vzc);
-	fprintf(fpo, "%.5f %.5f %.5f ", CoM[0], CoM[1], CoM[2]);
+	std::cout.precision(5);
+	std::cout << "Center of mass: " << CoM << std::endl;
 	fprintf(fpo, "%.5f %.5f %.5f ", vxc, vyc, vzc);
 
-	double omx, omy, omz, eigs[3], llx, lly, llz;
+	double eigs[3];
 	// computes omega using inverse of moment of inertia matrix and angular momentum
-	body_spin(r, il, ih, &omx, &omy, &omz, eigs);
-	measure_L(r, il, ih, &llx, &lly, &llz); // computes spin angular momentum of spining body
-	fprintf(fpo, "%.4e %.4e %.4e ", omx, omy, omz);
-	fprintf(fpo, "%.4e %.4e %.4e ", llx, lly, llz);
-	// fprintf(fpo,"%.4e %.4e %.4e ",Ibig, Imid, Ismall);
-	double inertia_mat[3][3];
-	mom_inertia(r, il, ih, inertia_mat);
-	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", inertia_mat[0][0], inertia_mat[1][1], inertia_mat[2][2], inertia_mat[0][1], inertia_mat[0][2], inertia_mat[1][2]);
+	Vector omega = body_spin(r, il, ih, eigs);
+	Vector L = measure_L(r, il, ih); // computes spin angular momentum of spining body
+	std::cout.precision(4);
+	std::cout << "Omega: " << omega << "\nL: " << L << std::endl;
+	Matrix inertia_mat = mom_inertia(r, il, ih);
+	std::cout.precision(5);
+	std::cout << "Moment of inertia: " << inertia_mat << std::endl;
 
 	fprintf(fpo, "\n");
 	fclose(fpo);
@@ -224,28 +224,31 @@ void print_tab(struct reb_simulation *const r, int npert, char *filename) {
 	} else
 		compute_semi_bin(r, il, ih, npert, &a, &meanmo, &ecc, &incl, &Lorb);
 	fprintf(fpo, "%.3f %.6e %.4e %.4f %.4e ", r->t, a, meanmo, ecc, incl);
-	double omx, omy, omz, eigs[3];
+	double eigs[3];
 	// computes sping using inverse of moment of inertia matrix and angular momentum vec
-	body_spin(r, il, ih, &omx, &omy, &omz, eigs);
-	fprintf(fpo, "%.4e %.4e %.4e %.3f %.3f %.3f ", omx, omy, omz, eigs[0], eigs[1],
-			eigs[2]);
+	Vector omega = body_spin(r, il, ih, eigs);
+	std::cout.precision(4);
+	std::cout << "Omega: " << omega << std::endl;
+	std::cout.precision(3);
+	std::cout << "Eigenvalues: " << eigs[0] << eigs[1] << eigs[2] << std::endl;
 	double E = Young_mesh(r, il, ih, 0.0, 0.5);
 	fprintf(fpo, "%.3f ", E);
-	double llx, lly, llz;
-	measure_L(r, il, ih, &llx, &lly, &llz); // spin angular momentum of spining body
-	fprintf(fpo, "%.5f %.5f %.5f ", llx, lly, llz);
+	Vector L = measure_L(r, il, ih); // spin angular momentum of spining body
+	std::cout.precision(5);
+	std::cout << "L: " << L << std::endl;
 	double llx_o, lly_o, llz_o;
 	compute_Lorb(r, il, ih, npert, &llx_o, &lly_o, &llz_o); // total orbital angular momentum
-	double L_spin = sqrt(llx * llx + lly * lly + llz * llz);
-	double L_orb = sqrt(llx_o * llx_o + lly_o * lly_o + llz_o * llz_o);
-	double LsdotLo = llx * llx_o + lly * lly_o + llz * llz_o;
-	double angle = acos(LsdotLo / (L_spin * L_orb)); // angular difference  between
-	// spin angular momentu and orbital angular momentum
+	Vector L_o = {llx_o, lly_o, llz_o};
+	double L_spin = L.len();
+	double L_orb = L_o.len();
+	double Ls_dot_Lo = dot(L, L_o);
+	double angle = acos(Ls_dot_Lo / (L_spin * L_orb)); // angular difference  between
+	// spin angular momentum and orbital angular momentum
 	fprintf(fpo, "%.5f ", angle);
 	fprintf(fpo, "%.5f %.5f %.5f ", llx_o, lly_o, llz_o); // orbital angular momentum
-	double inertia_mat[3][3];
-	mom_inertia(r, il, ih, inertia_mat);
-	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", inertia_mat[0][0], inertia_mat[1][1], inertia_mat[2][2], inertia_mat[0][1], inertia_mat[0][2], inertia_mat[1][2]);
+	Matrix inertia_mat = mom_inertia(r, il, ih);
+	std::cout.precision(5);
+	std::cout << "Moment of inertia: " << inertia_mat << std::endl;
 
 	fprintf(fpo, "\n");
 	fclose(fpo);
@@ -279,33 +282,29 @@ void print_bin(struct reb_simulation *const r, int npert, char *filename) {
 
 	int il = 0; // index range for resolved body
 	int ih = r->N - npert;
-	double CoM[3];
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
-	compute_com(r, il, ih, CoM); // center of mass of resolved body
+	Vector CoM = compute_com(r, il, ih); // center of mass of resolved body
 	compute_cov(r, il, ih, &vxc, &vyc, &vzc); // center of velocity of resolved body
 	int iml = r->N - npert; // index range for perturbing masses, binary
 	int imh = r->N;
-	double CoM_bin[3];
 	double vxb = 0.0;
 	double vyb = 0.0;
 	double vzb = 0.0;
-	compute_com(r, iml, imh, CoM_bin); // center of mass of binary
+	Vector CoM_bin = compute_com(r, iml, imh); // center of mass of binary
 	compute_cov(r, iml, imh, &vxb, &vyb, &vzb); // center of velocity of binary
 
-	double xr = CoM[0] - CoM_bin[0];
+	Vector xr = CoM - CoM_bin;
 	double vxr = vxc - vxb;  // of resolved w.r.t binary center
-	double yr = CoM[1] - CoM_bin[1];
 	double vyr = vyc - vyb;
-	double zr = CoM[2] - CoM_bin[2];
 	double vzr = vzc - vzb;
 	// store resolved center vs bin center
-	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", xr, yr, zr, vxr, vyr, vzr);
+	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", xr.getX(), xr.getY(), xr.getZ(), vxr, vyr, vzr);
 
-	double xs = particles[mark].x - CoM[0];   // marked w.r.t to resolved center
-	double ys = particles[mark].y - CoM[1];
-	double zs = particles[mark].z - CoM[2];
+	double xs = particles[mark].x - CoM.getX();   // marked w.r.t to resolved center
+	double ys = particles[mark].y - CoM.getY();
+	double zs = particles[mark].z - CoM.getZ();
 	double vxs = particles[mark].vx - vxc;
 	double vys = particles[mark].vy - vyc;
 	double vzs = particles[mark].vz - vzc;
@@ -326,14 +325,14 @@ void print_bin(struct reb_simulation *const r, int npert, char *filename) {
 		fprintf(fpo, "0 0 0 0 0 0 ");
 	}
 
-	double llx, lly, llz;
-	measure_L(r, il, ih, &llx, &lly, &llz); // spin angular momentum of spining body
-	fprintf(fpo, "%.5f %.5f %.5f ", llx, lly, llz);
+	Vector L = measure_L(r, il, ih); // spin angular momentum of spining body
+	std::cout.precision(5);
+	std::cout << "L: " << L << std::endl;
 
 	//compute moment of inertia matrix
-	double inertia_mat[3][3];
-	mom_inertia(r, il, ih, inertia_mat);
-	fprintf(fpo, "%.5f %.5f %.5f %.5f %.5f %.5f ", inertia_mat[0][0], inertia_mat[1][1], inertia_mat[2][2], inertia_mat[0][1], inertia_mat[0][2], inertia_mat[1][2]);
+	Matrix inertia_mat = mom_inertia(r, il, ih);
+	std::cout.precision(5);
+	std::cout << "Moment of inertia: \n" << inertia_mat << std::endl;
 
 	fprintf(fpo, "\n");
 	fclose(fpo);

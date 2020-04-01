@@ -5,7 +5,8 @@ include Makefile.defs
 LIB+=-L/usr/X11/lib
 OPT+=-I/usr/X11/include
 
-MYSOURCES=../../src_spring/spring.cpp \
+MYSOURCES=../../src_spring/matrix_math.cpp \
+		  ../../src_spring/spring.cpp \
 		  ../../src_spring/kepcart.cpp \
 		  ../../src_spring/heat.cpp \
 		  ../../src_spring/orb.cpp \

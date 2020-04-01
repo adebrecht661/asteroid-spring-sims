@@ -24,6 +24,7 @@ extern "C" {
 #include "tools.h"
 #include "output.h"
 #include "spring.h"
+#include "matrix_math.h"
 
 int NS;  // global numbers of springs
 struct spring *springs;
@@ -114,7 +115,8 @@ int main(int argc, char *argv[]) {
 
 	// spin it
 	subtractcov(r, i_low, i_high); // center of velocity subtracted
-	spin(r, i_low, i_high, 0.0, 0.0, omegaz); // change one of these zeros to tilt it!
+	Vector omega = {0, 0, omegaz};
+	spin(r, i_low, i_high, omega); // change one of these zeros to tilt it!
 	// can spin about non principal axis
 	subtractcov(r, i_low, i_high); // center of velocity subtracted
 	double speriod = abs(2.0 * M_PI / omegaz);

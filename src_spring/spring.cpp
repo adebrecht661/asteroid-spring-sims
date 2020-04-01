@@ -14,6 +14,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <stdbool.h>
+#include <iostream>
 extern "C" {
 #include "rebound.h"
 }
@@ -21,7 +22,7 @@ extern "C" {
 #include "tools.h"
 #include "output.h"
 #include "kepcart.h"
-#include "math.h"
+#include "matrix_math.h"
 
 extern int NS; // Current number of springs
 int NSmax = 0; // Max number of springs (size of array)
@@ -30,7 +31,7 @@ int NSmax = 0; // Max number of springs (size of array)
 /* Spring functions */
 /********************/
 
-// Delete spring i
+// Delete spring at spring_index
 void del_spring(struct reb_simulation *const n_body_sim, int spring_index) {
 	// Overwrite spring at index with last spring, and reduce count (last spring is still present at original location)
 	if (NS > 0) {
@@ -96,63 +97,29 @@ double spring_length(struct reb_simulation *const n_body_sim, spring spr) {
 	struct reb_particle *particles = n_body_sim->particles;
 	int i = spr.i;
 	int j = spr.j;
-	double x_i = particles[i].x;
-	double y_i = particles[i].y;
-	double z_i = particles[i].z;
-	double x_j = particles[j].x;
-	double y_j = particles[j].y;
-	double z_j = particles[j].z;
 
-	// Compute length
-	double len = sqrt(
-			(x_i - x_j) * (x_i - x_j) + (y_i - y_j) * (y_i - y_j)
-					+ (z_i - z_j) * (z_i - z_j));
-	return len;
-}
+	// Get locations of endpoints of spring
+	Vector x_i = { particles[i].x, particles[i].y, particles[i].z };
+	Vector x_j = { particles[j].x, particles[j].y, particles[j].z };
 
-// Compute spring midpoint location from arbitrary center (spherical coordinates)
-void spr_sph_mid(struct reb_simulation *const n_body_sim, spring spr,
-		double center[3], double *rmid, double *thetamid, double *phimid) {
-	// Get simulation and spring information
-	struct reb_particle *particles = n_body_sim->particles;
-	int i = spr.i;
-	int j = spr.j;
-	double x_i = particles[i].x;
-	double y_i = particles[i].y;
-	double z_i = particles[i].z;
-	double x_j = particles[j].x;
-	double y_j = particles[j].y;
-	double z_j = particles[j].z;
-
-	// Calculate location of midpoint of spring from arbitrary center position <x_c, y_c, z_c>
-	double x_mid = 0.5 * (x_i + x_j) - center[0];
-	double y_mid = 0.5 * (y_i + y_j) - center[1];
-	double z_mid = 0.5 * (z_i + z_j) - center[2];
-
-	// Calculate spherical coordinates of midpoint
-	*rmid = sqrt(x_mid * x_mid + y_mid * y_mid + z_mid * z_mid);
-	*thetamid = acos(z_mid / *rmid);
-	*phimid = atan2(y_mid, x_mid);
+	// Return length of spring
+	return (x_i - x_j).len();
 }
 
 // Compute spring midpoint location from arbitrary center (Cartesian coordinates)
-void spr_xyz_mid(struct reb_simulation *const n_body_sim, spring spr,
-		double center[3], double *xmid, double *ymid, double *zmid) {
+Vector spr_mid(struct reb_simulation *const n_body_sim, spring spr,
+		Vector center) {
 	// Get simulation and spring information
 	struct reb_particle *particles = n_body_sim->particles;
 	int i = spr.i;
 	int j = spr.j;
-	double x_i = particles[i].x;
-	double y_i = particles[i].y;
-	double z_i = particles[i].z;
-	double x_j = particles[j].x;
-	double y_j = particles[j].y;
-	double z_j = particles[j].z;
 
-	// Calculate location of midpoint of spring from arbitrary center position <x_c, y_c, z_c>
-	*xmid = 0.5 * (x_i + x_j) - center[0];
-	*ymid = 0.5 * (y_i + y_j) - center[1];
-	*zmid = 0.5 * (z_i + z_j) - center[2];
+	// Get locations of endpoints of spring
+	Vector x_i = { particles[i].x, particles[i].y, particles[i].z };
+	Vector x_j = { particles[j].x, particles[j].y, particles[j].z };
+
+	// Calculate location of midpoint of spring from arbitrary center position
+	return 0.5 * (x_i + x_j) - center;
 }
 
 // Return spring strain
@@ -165,6 +132,8 @@ double strain(struct reb_simulation *const n_body_sim, spring spr) {
 // Spring is added with rest length at current length
 void connect_springs_dist(struct reb_simulation *const n_body_sim,
 		double max_dist, int i_low, int i_high, spring spr) {
+	// Get particle info from sim
+	reb_particle* particles = n_body_sim->particles;
 
 	// Return if low index is above high index
 	if (i_high <= i_low)
@@ -173,20 +142,14 @@ void connect_springs_dist(struct reb_simulation *const n_body_sim,
 	// Create all springs for near neighbors
 	// Scan through particles from i_low to i_high-1 (i_high can't pair with itself)
 	for (int i = i_low; i < i_high - 1; i++) {
-		double x_i = n_body_sim->particles[i].x;
-		double y_i = n_body_sim->particles[i].y;
-		double z_i = n_body_sim->particles[i].z;
+		Vector x_i = {particles[i].x, particles[i].y, particles[i].z};
 
 		// Scan through all possible pairs, without repetition
 		for (int j = i + 1; j < i_high; j++) {
-			double x_j = n_body_sim->particles[j].x;
-			double y_j = n_body_sim->particles[j].y;
-			double z_j = n_body_sim->particles[j].z;
+			Vector x_j = {particles[j].x, particles[j].y, particles[j].z};
 
 			// Calculate distance between ith and jth particle
-			double dist = sqrt(
-					pow((x_i - x_j), 2) + pow((y_i - y_j), 2)
-							+ pow((z_i - z_j), 2));
+			double dist = (x_i - x_j).len();
 
 			// Add spring if particles are close enough
 			if (dist < max_dist) {
@@ -201,219 +164,8 @@ void set_gamma(double new_gamma) {
 	for (int i = 0; i < NS; i++) {
 		springs[i].gamma = new_gamma;
 	}
-	printf("\n gamma set to %.2f\n", new_gamma);
-}
-
-/***************************/
-/* Mathematical Operations */
-/***************************/
-
-// Find normalized eigenvector for specified matrix and eigenvalue
-void eigenvecs(double matrix[3][3], double eigval, double eigvec[3]) {
-
-	// Check if matrix is symmetric
-	if (!isSym(matrix)) return;
-
-	// Number of iterations
-	int N_ITS = 20;
-
-	// Compute inverse of A= (C - lambda I)
-	double inv_mat[3][3];
-	for (int i = 0; i < 3; i++) {
-		matrix[i][i] -= eigval;
-	}
-	inv(matrix, inv_mat); // inverse
-
-	// Initialize eigenvector
-	for (int i = 0; i < 3; i++) {
-		eigvec[i] = 1.0;
-	}
-
-	// Calculate LHS of eigenvector eqn of inverse
-	double len = 0;
-	for (int i = 0; i < N_ITS; i++) {
-		eigvec_helper(inv_mat, eigvec, len);
-		// Normalize length of eigenvector at each loop
-		eigvec[0] /= len;
-		eigvec[1] /= len;
-		eigvec[2] /= len;
-	}
-
-	// Calculate LHS eigenvector eqn
-	double diff1 = 0;
-	eigvec_helper(matrix, eigvec, diff1);
-
-	// Save eigvec
-	double eigvec1[3];
-	for (int i = 0; i < 3; i++) {
-		eigvec1[i] = eigvec[i];
-	}
-
-	// Reinitialize eigenvector
-	eigvec[0] = 1.0;
-	eigvec[1] = -0.5;
-	eigvec[2] = 0.5;
-
-	// Calculate LHS of eigenvector eqn for inverse matrix with new initial eigenvector
-	for (int i = 0; i < N_ITS; i++) {
-		eigvec_helper(inv_mat, eigvec, len);
-		// Normalize length of eigenvector at each loop
-		eigvec[0] /= len;
-		eigvec[1] /= len;
-		eigvec[2] /= len;
-	}
-
-	// Calculate new LHS of eigenvector eqn
-	double diff2 = 0;
-	eigvec_helper(matrix, eigvec, diff2);
-
-	// Set eigvec to correct value
-	if (diff1 < diff2) {
-		eigvec = eigvec1;
-	} else {
-		// eigvec already correct
-	}
-}
-
-void eigvec_helper(double matrix[3][3], double eigvec[3], double len) {
-	// For ease of calculation
-	double xx = matrix[0][0], yy = matrix[1][1], zz = matrix[2][2], xy = matrix[0][1], xz = matrix[0][2], yz = matrix[1][2];
-
-	double bx = xx * eigvec[0] + xy * eigvec[1] + xz * eigvec[2];
-	double by = xy * eigvec[0] + yy * eigvec[1] + yz * eigvec[2];
-	double bz = xz * eigvec[0] + yz * eigvec[1] + zz * eigvec[2];
-	len = sqrt(bx * bx + by * by + bz * bz);
-}
-
-// Compute inverse of 3x3 symmetric matrix
-void inv(double matrix[3][3], double inverse[3][3]) {
-
-	// Return 0 if matrix isn't symmetric or other error occurs
-	for (int i = 0; i < 3; i++) {
-		for (int j = 0; j < 3; j++) {
-			inverse[i][j] = 0;
-		}
-	}
-
-	// Check if matrix is symmetric
-	if (!isSym(matrix))
-		return;
-
-	// For ease of computation
-	double inverse_factor = 1.0 / det(matrix), xx = matrix[0][0], yy =
-			matrix[1][1], zz = matrix[2][2], xy = matrix[0][1], xz =
-			matrix[0][2], yz = matrix[1][2];
-
-	inverse[0][0] = inverse_factor * (yy * zz - yz * yz);
-	inverse[1][1] = inverse_factor * (xx * zz - xz * xz);
-	inverse[2][2] = inverse_factor * (xx * yy - xy * xy);
-	inverse[0][1] = inverse[1][0] = inverse_factor * (xz * yz - xy * zz);
-	inverse[0][2] = inverse[2][0] = inverse_factor * (xy * yz - xz * yy);
-	inverse[1][2] = inverse[2][1] = inverse_factor * (xz * xy - yz * xx);
-}
-
-// Compute determinant of 3x3 symmetric matrix
-double det(double matrix[3][3]) {
-
-	// Check if matrix is symmetric
-	if (!isSym(matrix))
-		return -1;
-
-	// For ease of notation
-	double xx = matrix[0][0], yy = matrix[1][1], zz = matrix[2][2], xy =
-			matrix[0][1], xz = matrix[0][2], yz = matrix[1][2];
-
-	// Return determinant
-	return xx * (yy * zz - yz * yz) + xy * (yz * xz - xy * zz)
-			+ xz * (xy * yz - yy * xz);
-}
-
-// Return eigenvalues of symmetric matrix
-// eigs[0] >= eigs[1] >= eigs[2]
-void eigenvalues(double matrix[3][3], double eigs[3]) {
-
-	// Return 0 eigenvalues if matrix isn't symmetric or other error occurs
-	eigs[0] = eigs[1] = eigs[2] = 0;
-
-	// Check if matrix is symmetric
-	if (!isSym(matrix))
-		return;
-
-	// For ease of computation
-	double xx = matrix[0][0], yy = matrix[1][1], zz = matrix[2][2], xy =
-			matrix[0][1], xz = matrix[0][2], yz = matrix[1][2];
-
-	// Recipe from Wikipedia for eigenvalues of a symmetric matrix
-	double p1 = xy * xy + yz * yz + xz * xz;
-
-	// Matrix is diagonal.
-	if (p1 == 0) {
-		// Make sure eigenvalues are in order
-		if ((xx >= yy) && (yy >= zz)) {
-			eigs[0] = xx;
-			eigs[1] = yy;
-			eigs[2] = zz;
-		} else if ((xx >= zz) && (zz >= yy)) {
-			eigs[0] = xx;
-			eigs[1] = zz;
-			eigs[2] = yy;
-		} else if ((yy >= xx) && (xx >= zz)) {
-			eigs[0] = yy;
-			eigs[1] = xx;
-			eigs[2] = zz;
-		} else if ((yy >= zz) && (zz >= xx)) {
-			eigs[0] = yy;
-			eigs[1] = zz;
-			eigs[2] = xx;
-		} else if ((zz >= xx) && (xx >= yy)) {
-			eigs[0] = zz;
-			eigs[1] = xx;
-			eigs[2] = yy;
-		} else if ((zz >= yy) && (yy >= xx)) {
-			eigs[0] = zz;
-			eigs[1] = yy;
-			eigs[2] = xx;
-		}
-		// Matrix isn't diagonal
-	} else {
-		// Identity matrix
-		double I[3][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
-
-		// Helper variables
-		double q = (xx + yy + zz) / 3.0; // Trace divided by 3
-		double p2 = pow(xx - q, 2.0) + pow(yy - q, 2.0) + pow(zz - q, 2.0)
-				+ 2.0 * p1;
-		double p = sqrt(p2 / 6.0);
-
-		double B[3][3];
-		for (int i = 0; i < 3; i++) {
-			for (int j = 0; j < 3; j++) {
-				B[i][j] = (1.0 / p) * (matrix[i][j] - q * I[i][j]);
-			}
-		}
-		double r = 0.5 * det(B);
-
-		// For a symmetric matrix, -1 <= r <= 1, but computation error can leave it slightly outside this range
-		double phi = 0.0;
-		if (r <= -1.0) {
-			phi = M_PI / 3.0;
-		} else if (r >= 1.0) {
-			phi = 0;
-		} else if ((r < 1.0) && (r > -1.0)) {
-			phi = acos(r) / 3.0;
-		}
-
-		// The eigenvalues satisfy eig3 <= eig2 <= eig1
-		eigs[0] = q + 2.0 * p * cos(phi);
-		eigs[2] = q + 2.0 * p * cos(phi + (2.0 * M_PI / 3.0));
-		eigs[1] = 3.0 * q - eigs[0] - eigs[2]; //  since trace(A) = eig1 + eig2 + eig3
-	}
-}
-
-// Check if 3x3 matrix is symmetric
-bool isSym(double matrix[3][3]) {
-	return (matrix[0][1] == matrix[1][0] && matrix[0][2] == matrix[2][0]
-			&& matrix[1][2] == matrix[2][1]);
+	std::cout.precision(2);
+	std::cout << "\n gamma set to " << new_gamma << std::endl;
 }
 
 /*****************************************/
@@ -439,27 +191,21 @@ double mindist(struct reb_simulation *const r, int imin, int imax) {
 }
 
 // compute center of mass coordinates in particle range [il,ih)
-void compute_com(struct reb_simulation *const n_body_sim, int il, int ih,
-		double CoM[3]) {
+Vector compute_com(struct reb_simulation *const n_body_sim, int il, int ih) {
 	// Get simulation information and initialize sums
 	struct reb_particle *particles = n_body_sim->particles;
-	double xsum = 0.0;
-	double ysum = 0.0;
-	double zsum = 0.0;
-	double msum = 0.0;
+	double m_tot = 0.0;
+	Vector x_times_m(zero_vec);
 
 	// Sum masses and location-weighted masses
 	for (int i = il; i < ih; i++) {
-		xsum += particles[i].x * particles[i].m;
-		ysum += particles[i].y * particles[i].m;
-		zsum += particles[i].z * particles[i].m;
-		msum += particles[i].m;
+		x_times_m += particles[i].m * Vector({ particles[i].x,
+						particles[i].y, particles[i].z });
+		m_tot += particles[i].m;
 	}
 
 	// Calculate center of mass
-	CoM[0] = xsum / msum;
-	CoM[1] = ysum / msum;
-	CoM[2] = zsum / msum;
+	return x_times_m / m_tot;
 }
 
 // compute total mass of particles in particle range [il,ih)
@@ -474,8 +220,7 @@ double sum_mass(struct reb_simulation *const r, int il, int ih) {
 
 // compute center of velocity particles in particle range [il,ih)
 // values returned in vxc, vyc, vzc
-void compute_cov(struct reb_simulation *const r, int il, int ih, double *vxc,
-		double *vyc, double *vzc) {
+void compute_cov(struct reb_simulation *const r, int il, int ih, double *vxc, double *vyc, double *vzc) {
 	double vxsum = 0.0;
 	double vysum = 0.0;
 	double vzsum = 0.0;
@@ -497,12 +242,11 @@ void compute_cov(struct reb_simulation *const r, int il, int ih, double *vxc,
 // only coordinates changed,  particle velocities not changed
 // all particles are shifted, not just the extended body
 void centerbody(struct reb_simulation *const r, int il, int ih) {
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
+	Vector CoM = compute_com(r, il, ih);
 	for (int i = 0; i < (r->N); i++) { // all particles shifted
-		r->particles[i].x -= CoM[0];
-		r->particles[i].y -= CoM[1];
-		r->particles[i].z -= CoM[2];
+		r->particles[i].x -= CoM.getX();
+		r->particles[i].y -= CoM.getY();
+		r->particles[i].z -= CoM.getZ();
 	}
 }
 
@@ -519,9 +263,8 @@ void subtractcov(struct reb_simulation *const r, int il, int ih) {
 // subtract center of mass position from the resolved body
 // only changing particles in the resolved body [il,ih)
 void subtractcom(struct reb_simulation *const r, int il, int ih) {
-	double CoM[3];
-	compute_com(r, il, ih, CoM); // center of velocity of resolved body
-	move_resolved(r, -CoM[0], -CoM[1], -CoM[2], 0.0, 0.0, 0.0, il, ih);
+	Vector CoM = compute_com(r, il, ih); // center of mass of resolved body
+	move_resolved(r, -CoM.getX(), -CoM.getY(), -CoM.getZ(), 0.0, 0.0, 0.0, il, ih);
 }
 
 // calculate spring forces
@@ -983,22 +726,19 @@ double rad_com(struct reb_simulation *const r, int ii, double xc, double yc,
 // using equation 20 by Kot et al. 2014  sum_i k_iL_i^2/(6V)
 // uses rest lengths
 // only computes center of mass using particles index range [il,ih)
-double Young_mesh(struct reb_simulation *const r, int il, int ih, double rmin,
+double Young_mesh(struct reb_simulation *const n_body_sim, int il, int ih, double rmin,
 		double rmax) {
 	double sum = 0.0;
-	double CoM[3];
-	compute_com(r, il, ih, CoM); // center of mass coords for particles in range
-	double rmid, thetamid, phimid;
+	Vector CoM = compute_com(n_body_sim, il, ih); // center of mass coords for particles in range
 	for (int i = 0; i < NS; i++) {
-		spr_sph_mid(r, springs[i], CoM, &rmid, &thetamid, &phimid);
+		Vector x_mid = spr_mid(n_body_sim, springs[i], CoM);
 
-		double rc = rmid; // center of spring
-		if ((rc < rmax) && (rc > rmin)) {
+		double r_c = x_mid.len(); // center of spring
+		if ((r_c < rmax) && (r_c > rmin)) {
 			double ks = springs[i].ks;
 			double Li = springs[i].rs0;
 			sum += ks * Li * Li;
 		}
-		// printf("rc %.2e sum %.2e\n",rc,sum);
 	}
 	double volume = (4.0 * M_PI / 3.0) * (pow(rmax, 3.0) - pow(rmin, 3.0)); // in shell
 	double E = sum / (6.0 * volume); // equation 20 by Kot et al. 2014
@@ -1031,27 +771,22 @@ double mean_L(struct reb_simulation *const r) {
 // with spin value omegax,omegay,omegaz,  about center of mass
 // spin vector is omegax,omegay,omegaz
 // does not change center of mass coordinates or velocity
-void spin(struct reb_simulation *const r, int il, int ih, double omegax,
-		double omegay, double omegaz) {
-	double CoM[3];
-	compute_com(r, il, ih, CoM); // compute center of mass
+void spin(struct reb_simulation *const r, int il, int ih, Vector omega) {
+	Vector CoM = compute_com(r, il, ih); // compute center of mass
 	double vxc, vyc, vzc;
 	compute_cov(r, il, ih, &vxc, &vyc, &vzc);
 
-	double omega = sqrt(omegax * omegax + omegay * omegay + omegaz * omegaz);
-	// size limit
-	if (omega > 1e-5) {
+	// Operate only if spin is large enough
+	if (omega.len() > 1e-5) {
 		for (int i = il; i < ih; i++) {
-			double dx = r->particles[i].x - CoM[0];
-			double dy = r->particles[i].y - CoM[1];
-			double dz = r->particles[i].z - CoM[2];
-			double rcrosso_x = -dy * omegaz + dz * omegay;   // r cross omega
-			double rcrosso_y = -dz * omegax + dx * omegaz;
-			double rcrosso_z = -dx * omegay + dy * omegax;
-			r->particles[i].vx = vxc + rcrosso_x;
+
+			Vector dx = { r->particles[i].x - CoM.getX(), r->particles[i].y - CoM.getY(), r->particles[i].z - CoM.getZ() };
+			Vector r_cross_omega = cross(dx, omega);
+
 			// set it spinning with respect to center of mass
-			r->particles[i].vy = vyc + rcrosso_y;
-			r->particles[i].vz = vzc + rcrosso_z;
+			r->particles[i].vx = vxc + r_cross_omega.getX();
+			r->particles[i].vy = vyc + r_cross_omega.getY();
+			r->particles[i].vz = vzc + r_cross_omega.getZ();
 		}
 	}
 
@@ -1062,8 +797,7 @@ void spin(struct reb_simulation *const r, int il, int ih, double omegax,
 // connect two masses with spring with values given by spring_vals
 // center of mass is set to origin
 void make_binary_spring(struct reb_simulation *const r, double m1, double m2,
-		double sep, double omegax, double omegay, double omegaz,
-		struct spring spring_vals) {
+		double sep, Vector omega, struct spring spring_vals) {
 	const int i_low = r->N;
 	struct reb_particle pt;
 	pt.ax = 0.0;
@@ -1083,7 +817,7 @@ void make_binary_spring(struct reb_simulation *const r, double m1, double m2,
 	pt.r *= pow(m1 / m2, 0.33333);
 	reb_add(r, pt);
 	int i_high = i_low + 2;
-	spin(r, i_low, i_high, omegax, omegay, omegaz); // spin it
+	spin(r, i_low, i_high, omega); // spin it
 	connect_springs_dist(r, sep * 1.1, i_low, i_high, spring_vals); // add spring
 
 }
@@ -1100,33 +834,25 @@ double get_angle(struct reb_simulation *const r, int i, int j) {
 // with respect to its center of mass position and velocity 
 // can measure angular momentum of the entire system if il=0 and ih=N
 // but with respect to center of mass of entire system
-void measure_L(struct reb_simulation *const r, int il, int ih, double *llx,
-		double *lly, double *llz) {
+Vector measure_L(struct reb_simulation *const r, int il, int ih) {
 	struct reb_particle *particles = r->particles;
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
+	Vector CoM = compute_com(r, il, ih);
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
 	compute_cov(r, il, ih, &vxc, &vyc, &vzc);
 
-	double lx = 0.0;
-	double ly = 0.0;
-	double lz = 0.0;
+	Vector L(zero_vec);
 	for (int i = il; i < ih; i++) {
-		double dx = (particles[i].x - CoM[0]);
-		double dy = (particles[i].y - CoM[1]);
-		double dz = (particles[i].z - CoM[2]);
-		double dvx = (particles[i].vx - vxc);
-		double dvy = (particles[i].vy - vyc);
-		double dvz = (particles[i].vz - vzc);
-		lx += particles[i].m * (dy * dvz - dz * dvy); // angular momentum vector
-		ly += particles[i].m * (dz * dvx - dx * dvz);
-		lz += particles[i].m * (dx * dvy - dy * dvx);
+		Vector dx = { particles[i].x - CoM.getX(), particles[i].y
+								- CoM.getY(), particles[i].z - CoM.getZ() };
+		Vector dv = { particles[i].vx - vxc, particles[i].vy
+								- vyc, particles[i].vz - vzc };
+		Vector dL = cross(dx, dv);
+		L += particles[i].m * dL; // angular momentum vector
 	}
-	*llx = lx;
-	*lly = ly;
-	*llz = lz;
+
+	return Vector(L);
 
 }
 
@@ -1157,31 +883,23 @@ void measure_L_origin(struct reb_simulation *const r, int il, int ih,
 
 // compute the moment of inertia tensor of a body with particle indices [il,ih)
 // with respect to center of mass
-void mom_inertia(struct reb_simulation *const n_body_sim, int i_low, int i_high, double inertia[3][3]) {
+Matrix mom_inertia(struct reb_simulation *const n_body_sim, int i_low,
+		int i_high) {
+
+	reb_particle *particles = n_body_sim->particles;
+	Matrix inertia(zero_mat);
 
 	// Calculate center of mass of specified body
-	double CoM[3];
-	compute_com(n_body_sim, i_low, i_high, CoM);
-
-	// Initialize inertia matrix
-	for (int i = 0; i < 3; i++) {
-		for (int j = 0; j <3; j++) {
-			inertia[i][j] = 0.0;
-		}
-	}
+	Vector CoM = compute_com(n_body_sim, i_low, i_high);
 
 	// Calculate moment of inertia of particles
 	for (int i = i_low; i < i_high; i++) {
-		double dx = n_body_sim->particles[i].x - CoM[0];
-		double dy = n_body_sim->particles[i].y - CoM[1];
-		double dz = n_body_sim->particles[i].z - CoM[2];
-		inertia[0][0] += n_body_sim->particles[i].m * (dy * dy + dz * dz);
-		inertia[1][1] += n_body_sim->particles[i].m * (dx * dx + dz * dz);
-		inertia[2][2] += n_body_sim->particles[i].m * (dx * dx + dy * dy);
-		inertia[0][1] = inertia[1][0] -= n_body_sim->particles[i].m * (dx * dy);
-		inertia[0][2] = inertia[2][0] -= n_body_sim->particles[i].m * (dx * dz);
-		inertia[1][2] = inertia[2][1] -= n_body_sim->particles[i].m * (dy * dz);
+		Vector dx ={ particles[i].x - CoM.getX(), particles[i].y
+								- CoM.getY(), particles[i].z - CoM.getZ() };
+		inertia += particles[i].m * pow(dx.len(), 2.0) * I;
+		inertia -= particles[i].m * outer(dx, dx);
 	}
+	return inertia;
 }
 
 // compute orbital properties of body
@@ -1201,8 +919,7 @@ void compute_semi(struct reb_simulation *const r, int il, int ih, int im1,
 			tm += r->particles[i].m; // mass of resolved body
 		first = 1;
 	}
-	double CoM[3];
-	compute_com(r, il, ih, CoM); // center of mass of resolved body
+	Vector CoM = compute_com(r, il, ih); // center of mass of resolved body
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
@@ -1222,8 +939,8 @@ void compute_semi(struct reb_simulation *const r, int il, int ih, int im1,
 	// double mu = tm*m1/MM;  // reduced mass
 	double GMM = r->G * MM;
 	double ke = 0.5 * dv2; // kinetic energy /mu  (per unit mass)
-	double dr = sqrt(pow(x0 - CoM[0], 2.0) +  // distance between
-			pow(y0 - CoM[1], 2.0) + pow(z0 - CoM[2], 2.0));
+	double dr = sqrt(pow(x0 - CoM.getX(), 2.0) +  // distance between
+			pow(y0 - CoM.getY(), 2.0) + pow(z0 - CoM.getZ(), 2.0));
 	double pe = -GMM / dr; // potential energy/mu, interaction term  tm*m1 = GM*mu
 	double E = ke + pe;  // total energy per unit mass
 	double a = -0.5 * GMM / E; // semi-major axis
@@ -1231,9 +948,9 @@ void compute_semi(struct reb_simulation *const r, int il, int ih, int im1,
 	*meanmo = sqrt(GMM / (a * a * a)); // mean motion
 	// printf("dr=%.2f dv2=%.2f\n",dr,dv2);
 	// compute orbital angular momentum
-	double dx = x0 - CoM[0];
-	double dy = y0 - CoM[1];
-	double dz = z0 - CoM[2];
+	double dx = x0 - CoM.getX();
+	double dy = y0 - CoM.getY();
+	double dz = z0 - CoM.getZ();
 	double dvx = vx0 - vxc;
 	double dvy = vy0 - vyc;
 	double dvz = vz0 - vzc;
@@ -1265,48 +982,35 @@ void compute_Lorb(struct reb_simulation *const r, int il, int ih, int npert,
 			tm += r->particles[i].m; // mass of resolved body
 		first = 1;
 	}
-	double CoM[3];
-	compute_com(r, il, ih, CoM); // center of mass of resolved body
+	Vector CoM = compute_com(r, il, ih); // center of mass of resolved body
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
 	compute_cov(r, il, ih, &vxc, &vyc, &vzc); // center of velocity of resolved body
 
-	double CoM0[3];
+	Vector CoM0;
 	double vx0 = 0.0;
 	double vy0 = 0.0;
 	double vz0 = 0.0;
 	if (npert == 1) {
 		int im1 = r->N - 1; // index for primary perturber
-		// double m1 = particles[im1].m;
-		// double MM = m1+ tm; // total mass
-		// double GMM = r->G*MM;
-		CoM0[0] = particles[im1].x;
+		CoM0 = { particles[im1].x, particles[im1].y, particles[im1].z };
 		vx0 = particles[im1].vx;
-		CoM0[1] = particles[im1].y;
 		vy0 = particles[im1].vy;
-		CoM0[2] = particles[im1].z;
 		vz0 = particles[im1].vz;
 	} else {
 		int iml = r->N - npert; // index range for perturbing masses
 		int imh = r->N;
-		compute_com(r, iml, imh, CoM0); // center of mass of perturbing bodies
+		CoM0 = compute_com(r, iml, imh); // center of mass of perturbing bodies
 		compute_cov(r, iml, imh, &vx0, &vy0, &vz0); // center of velocity of perturbing bodies
-		// for(int i=iml;i<imh;i++) m1 += particles[i].m; // total perturbing mass
 	}
 
-	double dx = CoM0[0] - CoM[0];
-	double dy = CoM0[1] - CoM[1];
-	double dz = CoM0[2] - CoM[2];
-	double dvx = vx0 - vxc;
-	double dvy = vy0 - vyc;
-	double dvz = vz0 - vzc;
-	double lx = dy * dvz - dz * dvy;
-	double ly = dz * dvx - dx * dvz;
-	double lz = dx * dvy - dy * dvx;
-	*llx = lx;
-	*lly = ly;
-	*llz = lz;
+	Vector dx = CoM0 - CoM;
+	Vector dv = {vx0 - vxc, vy0 - vyc, vz0 - vzc};
+	Vector L = cross(dx, dv);
+	*llx = L.getX();
+	*lly = L.getY();
+	*llz = L.getZ();
 }
 
 // compute rotational kinetic energy
@@ -1347,31 +1051,28 @@ void compute_semi_bin(struct reb_simulation *const r, int il, int ih, int npert,
 			tm += r->particles[i].m; // mass of resolved body
 		first = 1;
 	}
-	double CoM[3];
-	compute_com(r, il, ih, CoM); // center of mass of resolved body
+	Vector CoM = compute_com(r, il, ih); // center of mass of resolved body
 	double vxc = 0.0;
 	double vyc = 0.0;
 	double vzc = 0.0;
 	compute_cov(r, il, ih, &vxc, &vyc, &vzc); // center of velocity of resolved body
 
-	double CoM0[3];
+	Vector CoM0;
 	double vxc0 = 0.0;
 	double vyc0 = 0.0;
 	double vzc0 = 0.0;
 	double m1 = 0.0;
 	if (npert == 1) {
 		int im1 = r->N - 1; // index for primary perturber
-		CoM0[0] = particles[im1].x;
+		CoM0 = {particles[im1].x, particles[im1].y, particles[im1].z};
 		vxc0 = particles[im1].vx;
-		CoM0[1] = particles[im1].y;
 		vyc0 = particles[im1].vy;
-		CoM0[2] = particles[im1].z;
 		vzc0 = particles[im1].vz;
 		m1 = particles[im1].m;
 	} else {
 		int iml = r->N - npert; // index range for perturbing masses
 		int imh = r->N;
-		compute_com(r, iml, imh, CoM0); // center of mass of perturbing bodies
+		CoM0 = compute_com(r, iml, imh); // center of mass of perturbing bodies
 		compute_cov(r, iml, imh, &vxc0, &vyc0, &vzc0); // center of velocity of perturbing body
 		for (int i = iml; i < imh; i++)
 			m1 += particles[i].m; // total perturbing mass
@@ -1383,29 +1084,22 @@ void compute_semi_bin(struct reb_simulation *const r, int il, int ih, int npert,
 	// double mu = tm*m1/MM;  // reduced mass
 	double GMM = r->G * MM;
 	double ke = 0.5 * dv2; // kinetic energy /mu  (per unit mass)
-	double dr = sqrt(pow(CoM0[0] - CoM[0], 2.0) +  // distance between
-			pow(CoM0[1] - CoM[1], 2.0) + pow(CoM0[2] - CoM[2], 2.0));
+	double dr = (CoM0 - CoM).len();  // distance between
 	double pe = -GMM / dr; // potential energy/mu, interaction term  tm*m1 = GM*mu
 	double E = ke + pe;  // total energy
 	double a = -0.5 * GMM / E; // semi-major axis
 	*aa = a;
 	*meanmo = sqrt(GMM / (a * a * a)); // mean motion
-	// printf("dr=%.2f dv2=%.2f\n",dr,dv2);
+
 	// compute orbital angular momentum
-	double dx = CoM0[0] - CoM[0];
-	double dy = CoM0[1] - CoM[1];
-	double dz = CoM0[2] - CoM[2];
-	double dvx = vxc0 - vxc;
-	double dvy = vyc0 - vyc;
-	double dvz = vzc0 - vzc;
-	double lx = dy * dvz - dz * dvy;
-	double ly = dz * dvx - dx * dvz;
-	double lz = dx * dvy - dy * dvx;
-	double ltot = sqrt(lx * lx + ly * ly + lz * lz);
+	Vector dx = CoM0 - CoM;
+	Vector dv = {vxc0 - vxc, vyc0 - vyc, vzc0 - vzc};
+	Vector L = cross(dx, dv);
+	double ltot = L.len();
 	*LL = ltot; // orbital angular momentum per unit mass
 	double e2 = fabs(1.0 - ltot * ltot / (a * GMM));
 	*ee = sqrt(e2 + 1e-16); // eccentricity
-	*ii = acos(lz / ltot); // inclination ? if lz==ltot then is zero
+	*ii = acos(L.getZ() / ltot); // inclination ? if lz==ltot then is zero
 
 }
 
@@ -1471,44 +1165,35 @@ void rotate_origin(struct reb_simulation *const r, int il, int ih, double alpha,
 // rotate both position and velocities
 // center of mass position and velocity is not changed
 void rotate_body(struct reb_simulation *const r, int il, int ih, double alpha,
-		double beta, double ggamma) {
+		double beta, double gamma) {
 	struct reb_particle *particles = r->particles;
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
+
+	// Set rotation matrices
+	Matrix Rz1 = {{cos(alpha), -sin(alpha), 0}, {sin(alpha), cos(alpha), 0}, {0, 0, 1}}; // Rotate about z
+	Matrix Rx = {{1, 0, 0}, {0, cos(beta), -sin(beta)}, {0, sin(beta), cos(beta)}}; // Rotate about x'
+	Matrix Rz2 = {{cos(gamma), -sin(gamma), 0}, {sin(gamma), cos(gamma), 0}, {0, 0, 1}}; // Rotate about z''
+
+	Vector CoM = compute_com(r, il, ih);
 	double vxc, vyc, vzc;
 	compute_cov(r, il, ih, &vxc, &vyc, &vzc);
-	for (int i = il; i < ih; i++) {
-		double x0 = particles[i].x - CoM[0];
-		double y0 = particles[i].y - CoM[1];
-		double z0 = particles[i].z - CoM[2];
-		double x1 = x0 * cos(alpha) - y0 * sin(alpha); // rotate about z axis in xy plane
-		double y1 = x0 * sin(alpha) + y0 * cos(alpha);
-		double z1 = z0;
-		double x2 = x1;                      // rotate about x' axis in yz plane
-		double y2 = y1 * cos(beta) - z1 * sin(beta);
-		double z2 = y1 * sin(beta) + z1 * cos(beta);
-		double x3 = x2 * cos(ggamma) - y2 * sin(ggamma); // rotate about z'' axis in xy plane
-		double y3 = x2 * sin(ggamma) + y2 * cos(ggamma);
-		double z3 = z2;
-		particles[i].x = x3 + CoM[0];
-		particles[i].y = y3 + CoM[1];
-		particles[i].z = z3 + CoM[2];
 
-		double vx0 = particles[i].vx - vxc;
-		double vy0 = particles[i].vy - vyc;
-		double vz0 = particles[i].vz - vzc;
-		double vx1 = vx0 * cos(alpha) - vy0 * sin(alpha); // rotate about z axis in xy plane
-		double vy1 = vx0 * sin(alpha) + vy0 * cos(alpha);
-		double vz1 = vz0;
-		double vx2 = vx1;                    // rotate about x' axis in yz plane
-		double vy2 = vy1 * cos(beta) - vz1 * sin(beta);
-		double vz2 = vy1 * sin(beta) + vz1 * cos(beta);
-		double vx3 = vx2 * cos(ggamma) - vy2 * sin(ggamma); // rotate about z'' axis in xy plane
-		double vy3 = vx2 * sin(ggamma) + vy2 * cos(ggamma);
-		double vz3 = vz2;
-		particles[i].vx = vx3 + vxc;
-		particles[i].vy = vy3 + vyc;
-		particles[i].vz = vz3 + vzc;
+	for (int i = il; i < ih; i++) {
+
+		Vector x0 = {particles[i].x, particles[i].y, particles[i].z};
+		x0 -= CoM;
+
+		Vector x_rot = Rz1*Rx*Rz2*x0;
+
+		particles[i].x = x_rot.getX() + CoM.getX();
+		particles[i].y = x_rot.getY() + CoM.getY();
+		particles[i].z = x_rot.getZ() + CoM.getZ();
+
+		Vector v0 = {particles[i].vx - vxc, particles[i].vy - vyc, particles[i].vz - vzc};
+		Vector v_rot = Rz1*Rx*Rz2*v0;
+
+		particles[i].vx = v_rot.getX() + vxc;
+		particles[i].vy = v_rot.getY() + vyc;
+		particles[i].vz = v_rot.getZ() + vzc;
 	}
 }
 
@@ -1537,32 +1222,21 @@ void rotate_vector(double x, double y, double z, double *xr, double *yr,
 //    computed using inverse of moment of inertia matrix
 // also return eigenvalues of moment of inertia  matrix
 // order big>=middle>=small (
-void body_spin(struct reb_simulation *const r, int il, int ih, double *omx,
-		double *omy, double *omz, double eigs[3]) {
-	// struct reb_particle* particles = r->particles;
+Vector body_spin(struct reb_simulation *const r, int il, int ih, double eigs[3]) {
 
 	//compute moment of inertia matrix
-	double inertia_mat[3][3];
-	mom_inertia(r, il, ih, inertia_mat);
+	Matrix inertia_mat = mom_inertia(r, il, ih);
 
 	// compute inverse of moment of inertia matrix
-	double inv_mom_inert[3][3];
-	inv(inertia_mat, inv_mom_inert);
+	Matrix inv_mom_inert = inverse(inertia_mat);
 
 	// compute angular momentum vector body with respect to its center
 	// of mass position and velocity
-	double llx, lly, llz;
-	measure_L(r, il, ih, &llx, &lly, &llz);
+	Vector L = measure_L(r, il, ih);
 
-	double xx = inv_mom_inert[0][0], yy = inv_mom_inert[1][1], zz = inv_mom_inert[2][2], xy = inv_mom_inert[0][1], xz = inv_mom_inert[0][2], yz = inv_mom_inert[1][2];
 	// compute spin vector
-	double ox = xx * llx + xy * lly + xz * llz;
-	double oy = xy * llx + yy * lly + yz * llz;
-	double oz = xz * llx + yz * lly + zz * llz;
-	*omx = ox;
-	*omy = oy;
-	*omz = oz;
 	eigenvalues(inertia_mat, eigs);
+	return inv_mom_inert*L;
 }
 
 // adjust ks and gamma  and k_heat
@@ -1572,24 +1246,17 @@ void adjust_ks(struct reb_simulation *const r, int npert, double ksnew,
 	// struct reb_particle* particles = r->particles;
 	int il = 0;
 	int ih = r->N - npert;
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
-	double xmid, ymid, zmid;
+	Vector CoM = compute_com(r, il, ih);
 	int NC = 0;
 	for (int i = 0; i < NS; i++) {
 		// compute spring mid point from central position
-		spr_xyz_mid(r, springs[i], CoM, &xmid, &ymid, &zmid);
-		double rmid = sqrt(xmid * xmid + ymid * ymid + zmid * zmid);
-		// printf("%.2f %.2f %.2f\n",xmid,ymid,zmid);
-		// printf("%.2f %.2f %.2f\n",rmid,rmin,rmax);
-		// double thetamid = asin(zmid/rmid); // latitude angle
-		// if you want to make an oval inside region you can use this angle
+		Vector x_mid = spr_mid(r, springs[i], CoM);
+		double rmid = x_mid.len();
 		if ((rmid >= rmin) && (rmid <= rmax)) {
 			springs[i].ks = ksnew;
 			springs[i].gamma = gammanew;
 			springs[i].k_heat = kheatnew;
 			NC++;
-			// printf("hello\n");
 		}
 	}
 	printf("adjust_ks: number of springs changed %d\n", NC);
@@ -1605,19 +1272,19 @@ void adjust_ks(struct reb_simulation *const r, int npert, double ksnew,
 // inside==0 then outside
 void adjust_ks_abc(struct reb_simulation *const r, int npert, double ksnew,
 		double gammanew, double kheatnew, double a, double b, double c,
-		double x0, double y0, double z0, int inside) {
-	// struct reb_particle* particles = r->particles;
+		Vector x0, int inside) {
+
 	int il = 0;
 	int ih = r->N - npert;
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
-	double xmid, ymid, zmid;
+	Vector CoM = compute_com(r, il, ih);
 	int NC = 0;
 	for (int i = 0; i < NS; i++) {
 		// compute spring mid point from central position
-		spr_xyz_mid(r, springs[i], CoM, &xmid, &ymid, &zmid);
-		double rmid2 = pow((xmid - x0) / a, 2.0) + pow((ymid - y0) / b, 2.0)
-				+ pow((zmid - z0) / c, 2.0);
+		Vector x_mid = spr_mid(r, springs[i], CoM);
+		Vector x = x_mid - x0;
+		double rmid2 = pow(x.getX() / a, 2.0)
+					 + pow(x.getY() / b, 2.0)
+					 + pow(x.getZ() / c, 2.0);
 		if ((rmid2 <= 1.0) && (inside == 1)) {
 			springs[i].ks = ksnew;
 			springs[i].gamma = gammanew;
@@ -1642,21 +1309,20 @@ void adjust_ks_abc(struct reb_simulation *const r, int npert, double ksnew,
 // inside==0 then outside
 void adjust_ks_abc_fac(struct reb_simulation *const r, int npert, double ks_fac,
 		double gamma_fac, double kheat_fac, int mm, double phi0, double a,
-		double b, double c, double x0, double y0, double z0, int inside) {
-	// struct reb_particle* particles = r->particles;
+		double b, double c, Vector x0, int inside) {
 	int il = 0;
 	int ih = r->N - npert;
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
-	double xmid, ymid, zmid;
+	Vector CoM = compute_com(r, il, ih);
 	int NC = 0;
 	for (int i = 0; i < NS; i++) {
 		// compute spring mid point from central position
-		spr_xyz_mid(r, springs[i], CoM, &xmid, &ymid, &zmid);
-		double rmid2 = pow((xmid - x0) / a, 2.0) + pow((ymid - y0) / b, 2.0)
-				+ pow((zmid - z0) / c, 2.0);
-		double phi = atan2(ymid - y0, xmid - x0);
-		// double theta = acos(zmid-z0);
+		Vector x_mid = spr_mid(r, springs[i], CoM);
+		Vector x = x_mid - x0;
+		double rmid2 = pow(x.getX() / a, 2.0)
+					 + pow(x.getY() / b, 2.0)
+					 + pow(x.getZ() / c, 2.0);
+		double phi = atan2(x.getY(), x.getX());
+
 		double angfac = cos(mm * (phi - phi0));
 		if ((rmid2 <= 1.0) && (inside == 1)) {
 			springs[i].ks *= 1.0 + ks_fac * angfac;
@@ -1683,21 +1349,20 @@ void adjust_ks_abc_fac(struct reb_simulation *const r, int npert, double ks_fac,
 // inside==1 then inside ellipsoid
 // inside==0 then outside
 void adjust_mass_abc(struct reb_simulation *const r, int npert, double mfac,
-		double a, double b, double c, double x0, double y0, double z0,
-		int inside) {
+		double a, double b, double c, Vector x0, int inside) {
 	struct reb_particle *particles = r->particles;
 	int il = 0;
 	int ih = r->N - npert;
 	int ncore = 0;
-	double CoM[3];
-	compute_com(r, il, ih, CoM);
+	Vector CoM = compute_com(r, il, ih);
 	double rfac = pow(mfac, 1.0 / 2.0); // interesting choice!!!!
 	for (int i = il; i < ih; i++) {
-		double x = particles[i].x - CoM[0];
-		double y = particles[i].y - CoM[1];
-		double z = particles[i].z - CoM[2];
-		double rmid2 = pow((x - x0) / a, 2.0) + pow((y - y0) / b, 2.0)
-				+ pow((z - z0) / c, 2.0);
+		Vector x = {particles[i].x, particles[i].y, particles[i].z};
+		x -= CoM;
+		x -= x0;
+		double rmid2 = pow(x.getX() / a, 2.0)
+					 + pow(x.getY() / b, 2.0)
+					 + pow(x.getZ() / c, 2.0);
 		if (inside == 1) {
 			if (rmid2 < 1.0) {
 				ncore++; // numbers of nodes in core
@@ -2027,7 +1692,8 @@ void rmshape_vertices(struct reb_simulation *const r, int N_bennu) {
 // fill particles within a bennu's shape given by a set of particles 
 //  already read in 
 // spacing set by parameter dist: no closer particles allowed
-void rand_bennu(struct reb_simulation *const r, double dist, double total_mass) {
+void rand_bennu(struct reb_simulation *const r, double dist,
+		double total_mass) {
 	struct reb_particle pt;
 	// we assume that bennu shape model vertices have already been read in
 	// and they are currently [0,N-1]
@@ -2310,23 +1976,23 @@ void stretch(struct reb_simulation *const r, int il, int ih, double scalex,
 // rotate the body so that z is along biggest eigenvalue, x along smallest!
 // seems to work!
 void rotate_to_principal(struct reb_simulation *const r, int il, int ih) {
-	double inertia_mat[3][3];
-	mom_inertia(r, il, ih, inertia_mat); // get moment of inertial matrix
-	printf("I matrix %.3f %.3f %.3f %.3f %.3f %.3f\n", inertia_mat[0][0], inertia_mat[1][1], inertia_mat[2][2], inertia_mat[0][1], inertia_mat[0][2], inertia_mat[1][2]);
+	Matrix inertia_mat = mom_inertia(r, il, ih); // get moment of inertial matrix
+	std::cout.precision(3);
+	std::cout << "Moment of inertia: " << inertia_mat << std::endl;
 	double eigs[3];
 	eigenvalues(inertia_mat, eigs);
 	printf("I eigenvalues %.3f %.3f %.3f\n", eigs[0], eigs[1], eigs[2]);
 
-	double eigvec1[3], eigvec2[3], eigvec3[3];
-	eigenvecs(inertia_mat, eigs[2], eigvec1); // note order eig3 here
-	printf("evec1 %.3f %.3f %.3f\n", eigvec1[0], eigvec1[1], eigvec1[2]);
-	eigenvecs(inertia_mat, eigs[1], eigvec2);
-	printf("evec2 %.3f %.3f %.3f\n", eigvec2[0], eigvec2[1], eigvec2[2]);
-	eigenvecs(inertia_mat, eigs[0], eigvec3); // eig1 here
-	printf("evec3 %.3f %.3f %.3f\n", eigvec3[0], eigvec3[1], eigvec3[2]);
+	Vector eigvec1 = eigenvector(inertia_mat, eigs[2]); // note order eig3 here
+	printf("evec1 %.3f %.3f %.3f\n", eigvec1.getX(), eigvec1.getY(), eigvec1.getZ());
+	Vector eigvec2 = eigenvector(inertia_mat, eigs[1]);
+	printf("evec2 %.3f %.3f %.3f\n", eigvec2.getX(), eigvec2.getY(), eigvec2.getZ());
+	Vector eigvec3 = eigenvector(inertia_mat, eigs[0]); // eig1 here
+	printf("evec3 %.3f %.3f %.3f\n", eigvec3.getX(), eigvec3.getY(), eigvec3.getZ());
 
-	// TEMPORARY TO REDUCE CHANGES IN COMMIT
-	double ex1 = eigvec1[0], ex2 = eigvec2[0], ex3 = eigvec3[0], ey1 = eigvec1[1], ey2 = eigvec2[1], ey3 = eigvec3[1], ez1 = eigvec1[2], ez2 = eigvec2[2], ez3 = eigvec3[2];
+	double ex1 = eigvec1.getX(), ex2 = eigvec2.getX(), ex3 = eigvec3.getX(), ey1 =
+			eigvec1.getY(), ey2 = eigvec2.getY(), ey3 = eigvec3.getY(), ez1 = eigvec1.getZ(),
+			ez2 = eigvec2.getZ(), ez3 = eigvec3.getZ();
 
 	struct reb_particle *particles = r->particles;
 	for (int i = il; i < ih; i++) {
@@ -2349,11 +2015,11 @@ void rotate_to_principal(struct reb_simulation *const r, int il, int ih) {
 		particles[i].vz = vzr;
 	}
 
-	mom_inertia(r, il, ih, inertia_mat); // get moment of inertial matrix
-	printf("I matrix %.3f %.3f %.3f %.3f %.3f %.3f\n", inertia_mat[0][0], inertia_mat[1][1], inertia_mat[2][2], inertia_mat[0][1], inertia_mat[0][2], inertia_mat[1][2]);
+	inertia_mat = mom_inertia(r, il, ih); // get moment of inertial matrix
+	std::cout.precision(3);
+	std::cout << "I matrix: \n" << inertia_mat << std::endl;
 	eigenvalues(inertia_mat, eigs);
-	printf("I eigenvalues %.3f %.3f %.3f\n", eigs[0], eigs[1], eigs[2]);
-
+	std::cout << "I eigenvalues: " << eigs[0] << ", " << eigs[1] << ", " << eigs[2] << std::endl;
 }
 
 // multiply a vector by a matrix, helper routine for above

@@ -9,6 +9,7 @@
 
 #include <stdbool.h>
 #include "particle.h"
+#include "matrix_math.h"
 
 // Spring structure
 typedef struct spring {
@@ -28,26 +29,6 @@ typedef struct coord {
 	double ly;
 	double lz;
 } coord;
-
-// Stress tensor for each node
-typedef struct stress_tensor {
-	// Stress tensor
-	double sigxx;
-	double sigyy;
-	double sigzz;
-	double sigxy;
-	double sigyz;
-	double sigxz;
-
-	// Eigenvalues of stress tensor, from largest to smallest
-	double eig1;
-	double eig2;
-	double eig3;
-
-	double maxF;  // max Force of a spring
-	int s_index;  // index of spring giving max Force
-	bool fail;  // is there material failure
-} stress_tensor;
 
 typedef struct node {
 	int surf;  // is 1 if is a surface node
@@ -85,12 +66,9 @@ int add_spring(struct reb_simulation *const n_body_sim, int particle_1,
 void add_spring_helper(spring spr);
 // Get length of passed spring
 double spring_length(struct reb_simulation *const n_body_sim, spring spr);
-// Compute spring midpoint location from arbitrary center in spherical coordinates
-void spr_sph_mid(struct reb_simulation *const n_body_sim, spring spr,
-		double center[3], double *rmid, double *thetamid, double *phimid);
 // Compute spring midpoint location from arbitrary center in Cartesian coordinates
-void spr_xyz_mid(struct reb_simulation *const n_body_sim, spring spr,
-		double center[3], double *xmid, double *thetamid, double *phimid);
+Vector spr_mid(struct reb_simulation *const n_body_sim, spring spr,
+		Vector center);
 // Returns strain on given spring
 double strain(struct reb_simulation *const n_body_sim, spring spr);
 // Connects springs between all particles closer than dist in index range i_low -> i_high-1
@@ -99,23 +77,6 @@ void connect_springs_dist(struct reb_simulation *const n_body_sim,
 // Set damping coefficient of all springs
 void set_gamma(double new_gamma);
 void connect_springs_dist_nodemax();
-
-/****************************/
-/*  Mathematical Operations */
-/****************************/
-
-// Get inverse of 3x3 symmetric matrix
-void inv(double matrix[3][3], double inverse[3][3]);
-// Get determinant of 3x3 symmetric matrix
-double det(double matrix[3][3]);
-// Get eigenvalues of symmetric matrix (in decreasing order)
-void eigenvalues(double matrix[3][3], double eigs[3]);
-// Calculate eigenvector of matrix corresponding to given eigenvalue
-void eigenvecs(double matrix[3][3], double eigval, double eigvec[3]);
-// Helper function to find eigenvectors
-void eigvec_helper(double matrix[3][3], double eigvec[3], double len);
-// Check if 3x3 matrix is symmetric
-bool isSym(double matrix[3][3]);
 
 /****************************************/
 /* !!!!!! Unsorted operations !!!!!!!!! */
@@ -179,12 +140,9 @@ void move_resolved(struct reb_simulation *r, double dx, double dy, double dz,
 double sum_mass(struct reb_simulation *const r, int il, int ih);
 double dEdt(struct reb_simulation *const r, struct spring spr);
 double dEdt_total(struct reb_simulation *const r);
-void compute_com(struct reb_simulation *const n_body_sim, int il, int ih,
-		double CoM[3]);
-void compute_cov(struct reb_simulation *const r, int il, int ih, double *vxc,
-		double *vyc, double *vzc);
-void compute_Lorb(struct reb_simulation *const r, int il, int ih, int npert,
-		double *llx, double *lly, double *llz);
+Vector compute_com(struct reb_simulation *const n_body_sim, int il, int ih);
+void compute_cov(struct reb_simulation *const r, int il, int ih, double *vxc, double *vyc, double *vzc);
+void compute_Lorb(struct reb_simulation *const r, int il, int ih, int npert, double *llx, double *lly, double *llz);
 double mindist();
 void centerbody(struct reb_simulation *const r, int il, int ih);
 void rand_football();
@@ -195,12 +153,10 @@ void rand_football_from_sphere();
 double Young_mesh(struct reb_simulation *const r, int il, int ih, double rmin,
 		double rmax);
 double Young_mesh_big(struct reb_simulation *const r, int il, int ih);
-void spin(struct reb_simulation *const r, int il, int ih, double omegax,
-		double omegay, double omegaz);
+void spin(struct reb_simulation *const r, int il, int ih, Vector omega);
 void make_binary_spring();
-void mom_inertia(struct reb_simulation *const n_body_sim, int i_low, int i_high, double inertia[3][3]);
-void measure_L(struct reb_simulation *const r, int il, int ih, double *llx,
-		double *lly, double *llz);
+Matrix mom_inertia(struct reb_simulation *const n_body_sim, int i_low, int i_high);
+Vector measure_L(struct reb_simulation *const r, int il, int ih);
 void measure_L_origin();
 void compute_semi(struct reb_simulation *const r, int il, int ih, int im1,
 		double *aa, double *meanmo, double *ee, double *ii, double *LL);
@@ -211,8 +167,7 @@ double mean_L(struct reb_simulation *const r);
 void spring_init(struct reb_simulation *r);
 void output_png();
 void output_png_single();
-void body_spin(struct reb_simulation *const r, int il, int ih, double *omx,
-		double *omy, double *omz, double eigs[3]);
+Vector body_spin(struct reb_simulation *const r, int il, int ih, double eigs[3]);
 void print_tab();
 void print_bin();
 void print_heat();
