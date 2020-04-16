@@ -14,16 +14,16 @@ ifeq ($(OS), Linux)
 endif
 
 ifeq ($(OS), Darwin)
-	OPT+= -I/usr/local/include -Wall -g #-Wsign-compare
+	OPT+= -I/usr/local/include -Wall -g
 	PREDEF+= -D_APPLE
 	LIB+= -L/usr/local/lib
 endif
 
 ifeq ($(MPI), 1)
-	CC=mpic++
+	CPP=mpic++
 	PREDEF+= -DMPI
 else
-	CC=g++
+	CPP=g++
 endif
 
 ifeq ($(FFTW), 1)
@@ -50,7 +50,7 @@ endif
 
 ifeq ($(OPENMP), 1)
 	PREDEF+= -DOPENMP
-	ifeq ($(CC), icc)
+	ifeq ($(CPP), icc)
 		OPT+= -openmp
 		LIB+= -openmp
 	else
