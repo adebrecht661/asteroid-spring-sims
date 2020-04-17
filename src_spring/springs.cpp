@@ -1,30 +1,12 @@
-#ifdef __cplusplus
-# 	ifdef __GNUC__
-#		define restrict __restrict__
-#	else
-#		define restrict
-#	endif
-#endif
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
 #include <cmath>
-#include <time.h>
-#include <sys/time.h>
-#include <stdbool.h>
 #include <iostream>
 extern "C" {
 #include "rebound.h"
 }
-#include "springs.h"
 #include "stress.h"
-#include "tools.h"
-#include "output.h"
-#include "kepcart.h"
 #include "physics.h"
 #include "matrix_math.h"
+#include "springs.h"
 
 extern int num_springs; // Current number of springs
 extern stress_tensor *stressvec; // Array of stresses for each particle

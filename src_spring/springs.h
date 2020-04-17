@@ -22,8 +22,8 @@ typedef struct spring {
 extern struct spring *springs;	// Array to store springs
 extern int num_springs;			// Number of springs
 extern int num_perts;			// Number of perturbing point masses
-extern double min_sep;	// Minimum separation between particles in simulation
-extern double max_spring_dist;// Maximum separation for particles to be connected by spring
+extern double min_sep;			// Minimum separation between particles in simulation
+extern double max_spring_dist;	// Maximum separation for particles to be connected by spring
 extern double gamma_all;		// Gamma of all springs
 
 /*********************/

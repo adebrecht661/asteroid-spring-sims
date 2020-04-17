@@ -19,6 +19,10 @@ using std::string;
 
 extern int num_springs; // Total number of springs
 
+/******************/
+/* Input routines */
+/******************/
+
 // Read springs in from specified file
 void read_springs(string fileroot, int index) {
 	// Set filename
@@ -115,6 +119,10 @@ void read_vertex_file(struct reb_simulation* n_body_sim, string filename) {
 		n_body_sim->particles[i].r = min_dist / 4.0;
 	}
 }
+
+/***********/
+/* Helpers */
+/***********/
 
 // Helper function to pad ints
 string zero_pad_int(int width, int num)
