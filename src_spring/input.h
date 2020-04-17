@@ -1,6 +1,8 @@
 /*
  * input.h
  *
+ * Input routines to read in springs, particles, vertices from specified files
+ *
  *  Created on: Apr 15, 2020
  *      Author: alex
  */

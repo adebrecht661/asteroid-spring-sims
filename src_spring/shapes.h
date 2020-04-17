@@ -1,7 +1,7 @@
 /*
- * distributions.h
+ * shapes.h
  *
- *	Begun
+ *	Create and modify distributions of particles
  *
  *  Created on: Apr 3, 2020
  *      Author: alex
