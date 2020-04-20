@@ -17,7 +17,7 @@
 // Declare a single identity matrix
 double identity[3][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
 double zero_vec[3] = { 0, 0, 0 };
-double zero_mat[3][3] = {{0,0,0},{0,0,0},{0,0,0}};
+double zero_mat[3][3] = { { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 } };
 const Matrix I = Matrix(identity);
 const Vector zero_vector(zero_vec);
 const Matrix zero_matrix(zero_mat);
@@ -46,7 +46,7 @@ Vector::Vector(std::initializer_list<double> list) {
 	std::copy(list.begin(), list.end(), this->array);
 }
 
-Vector::Vector(const Vector& vector) {
+Vector::Vector(const Vector &vector) {
 	*this = vector;
 }
 
@@ -64,8 +64,8 @@ Matrix::Matrix(double array[3][3]) {
 
 Matrix::Matrix(std::initializer_list<std::initializer_list<double>> list) {
 	int i = 0, j = 0;
-	for (const auto& l : list) {
-		for (const auto& v : l) {
+	for (const auto &l : list) {
+		for (const auto &v : l) {
 			this->array[i][j] = v;
 			j++;
 		}
@@ -74,7 +74,7 @@ Matrix::Matrix(std::initializer_list<std::initializer_list<double>> list) {
 	}
 }
 
-Matrix::Matrix(const Matrix& matrix) {
+Matrix::Matrix(const Matrix &matrix) {
 	*this = matrix;
 }
 
@@ -139,18 +139,22 @@ double Vector::len() {
 }
 
 double dot(Vector lhs, Vector rhs) {
-	return lhs.getX() * rhs.getX() + lhs.getY() * rhs.getY() + lhs.getZ() * rhs.getZ();
+	return lhs.getX() * rhs.getX() + lhs.getY() * rhs.getY()
+			+ lhs.getZ() * rhs.getZ();
 }
 
 Vector cross(Vector lhs, Vector rhs) {
-	return Vector({-lhs.getY() * rhs.getZ() + lhs.getZ() * rhs.getY(), -lhs.getZ() * rhs.getX() + lhs.getX() * rhs.getZ(), -lhs.getX() * rhs.getY() + lhs.getY() * rhs.getX()});
+	return Vector(
+			{ -lhs.getY() * rhs.getZ() + lhs.getZ() * rhs.getY(), -lhs.getZ()
+					* rhs.getX() + lhs.getX() * rhs.getZ(), -lhs.getX()
+					* rhs.getY() + lhs.getY() * rhs.getX() });
 }
 
 Matrix outer(Vector lhs, Vector rhs) {
 	double mat[3][3];
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
-			mat[i][j] = lhs.array[i]*lhs.array[j];
+			mat[i][j] = lhs.array[i] * lhs.array[j];
 		}
 	}
 	return Matrix(mat);
@@ -171,11 +175,11 @@ Vector eigenvector(Matrix mat, double eigval) {
 	Matrix inv_mat = inverse(mat); // inverse
 
 	// Initialize eigenvector
-	Vector eigvec({ 1.0, 1.0, 1.0 });
+	Vector eigvec( { 1.0, 1.0, 1.0 });
 
 	// Iterate LHS of eigenvector eqn of inverse
 	for (int i = 0; i < N_ITS; i++) {
-		double length = (inv_mat*eigvec).len();
+		double length = (inv_mat * eigvec).len();
 		// Normalize length of eigenvector at each loop
 		eigvec /= length;
 	}
@@ -187,7 +191,7 @@ Vector eigenvector(Matrix mat, double eigval) {
 	Vector eigvec1 = eigvec;
 
 	// Reinitialize eigenvector
-	eigvec = Vector({ 1.0, -0.5, 0.5 });
+	eigvec = Vector( { 1.0, -0.5, 0.5 });
 
 	// Calculate LHS of eigenvector eqn for inverse matrix with new initial eigenvector
 	for (int i = 0; i < N_ITS; i++) {
@@ -209,7 +213,9 @@ Vector eigenvector(Matrix mat, double eigval) {
 
 // Compute inverse of 3x3 symmetric matrix
 Matrix inverse(Matrix mat) {
-	return (1.0 / det(mat))*(0.5*(pow(trace(mat),2.0) - trace(mat*mat))*I - mat*trace(mat) + mat*mat);
+	return (1.0 / det(mat))
+			* (0.5 * (pow(trace(mat), 2.0) - trace(mat * mat)) * I
+					- mat * trace(mat) + mat * mat);
 }
 
 // Compute determinant of 3x3 matrix
@@ -217,8 +223,10 @@ double det(Matrix mat) {
 
 	// Return determinant
 	return mat.getXX() * (mat.getYY() * mat.getZZ() - mat.getZY() * mat.getYZ())
-		 + mat.getXY() * (mat.getYZ() * mat.getZX() - mat.getYX() * mat.getZZ())
-		 + mat.getXZ() * (mat.getZY() * mat.getYX() - mat.getZX() * mat.getYY());
+			+ mat.getXY()
+					* (mat.getYZ() * mat.getZX() - mat.getYX() * mat.getZZ())
+			+ mat.getXZ()
+					* (mat.getZY() * mat.getYX() - mat.getZX() * mat.getYY());
 }
 
 // Return eigenvalues of symmetric matrix
@@ -230,25 +238,28 @@ void eigenvalues(Matrix mat, double eigs[3]) {
 
 	// Check if matrix is symmetric
 	if (!mat.isSym()) {
-		std::cerr << "Matrix isn't symmetric. Can't be diagonalized with this routine." << std::endl;
+		std::cerr
+				<< "Matrix isn't symmetric. Can't be diagonalized with this routine."
+				<< std::endl;
 		return;
 	}
 
 	// Recipe from Wikipedia for eigenvalues of a symmetric matrix
-	double p1 = mat.getXY() * mat.getYX() + mat.getYZ() * mat.getZY() + mat.getXZ() * mat.getZX();
+	double p1 = mat.getXY() * mat.getYX() + mat.getYZ() * mat.getZY()
+			+ mat.getXZ() * mat.getZX();
 
 	// Matrix is diagonal.
 	if (p1 == 0) {
 		// Make sure eigenvalues are in order
-		eigs[0] = std::max({mat.getXX(), mat.getYY(), mat.getZZ()});
-		eigs[2] = std::min({mat.getXX(), mat.getYY(), mat.getZZ()});
+		eigs[0] = std::max( { mat.getXX(), mat.getYY(), mat.getZZ() });
+		eigs[2] = std::min( { mat.getXX(), mat.getYY(), mat.getZZ() });
 		eigs[1] = trace(mat) - eigs[0] - eigs[2];
 		// Matrix isn't diagonal
 	} else {
 		// Helper variables
 		double q = trace(mat) / 3.0;
-		double p2 = pow(mat.getXX() - q, 2.0) + pow(mat.getYY() - q, 2.0) + pow(mat.getZZ() - q, 2.0)
-				+ 2.0 * p1;
+		double p2 = pow(mat.getXX() - q, 2.0) + pow(mat.getYY() - q, 2.0)
+				+ pow(mat.getZZ() - q, 2.0) + 2.0 * p1;
 		double p = sqrt(p2 / 6.0);
 
 		Matrix B = (1.0 / p) * (mat - q * I);
@@ -278,9 +289,26 @@ double trace(Matrix mat) {
 // Check if 3x3 matrix is symmetric
 bool Matrix::isSym() {
 	return (this->array[0][1] == this->array[1][0]
-		 && this->array[0][2] == this->array[2][0]
-		 && this->array[1][2] == this->array[2][1]);
+			&& this->array[0][2] == this->array[2][0]
+			&& this->array[1][2] == this->array[2][1]);
 }
+
+Matrix getRotMatX(double angle) {
+	return Matrix(
+			{ { 1, 0, 0 }, { 0, cos(angle), -sin(angle) }, { 0, sin(angle), cos(
+					angle) } });
+}
+
+Matrix getRotMatY(double angle) {
+	return Matrix( { { cos(angle), 0, sin(angle) }, { 0, 1, 0 }, { -sin(angle),
+			0, cos(angle) } });
+}
+
+Matrix getRotMatZ(double angle) {
+	return Matrix( { { cos(angle), -sin(angle), 0 },
+			{ sin(angle), cos(angle), 0 }, { 0, 0, 1 } });
+}
+
 /********************/
 /* Vector Operators */
 /********************/
@@ -337,7 +365,7 @@ Vector operator*(Matrix lhs, Vector rhs) {
 	Vector res;
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
-			res.array[i] += lhs.array[i][j]*rhs.array[j];
+			res.array[i] += lhs.array[i][j] * rhs.array[j];
 		}
 	}
 	return res;
@@ -348,7 +376,7 @@ Vector operator*(double scalar, Vector rhs) {
 }
 
 void operator+=(Vector &lhs, double scalar) {
-	double scalar_vec[3] = {scalar, scalar, scalar};
+	double scalar_vec[3] = { scalar, scalar, scalar };
 	Vector rhs(scalar_vec);
 	lhs = lhs - rhs;
 }
@@ -358,7 +386,7 @@ void operator+=(Vector &lhs, Vector rhs) {
 }
 
 void operator-=(Vector &lhs, double scalar) {
-	double scalar_vec[3] = {scalar, scalar, scalar};
+	double scalar_vec[3] = { scalar, scalar, scalar };
 	Vector rhs(scalar_vec);
 	lhs = lhs - rhs;
 }
@@ -375,7 +403,7 @@ void operator/=(Vector &lhs, double scalar) {
 	lhs = lhs / scalar;
 }
 
-std::ostream& operator<<(std::ostream& os, const Vector& vec) {
+std::ostream& operator<<(std::ostream &os, const Vector &vec) {
 	os << "<" << vec.getX() << ", " << vec.getY() << ", " << vec.getZ() << ">";
 	return os;
 }
@@ -433,7 +461,7 @@ Matrix operator*(Matrix lhs, Matrix rhs) {
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
 			for (int k = 0; k < 3; k++) {
-				res.array[i][j] += lhs.array[i][k]*rhs.array[k][j];
+				res.array[i][j] += lhs.array[i][k] * rhs.array[k][j];
 			}
 		}
 	}
@@ -456,9 +484,10 @@ void operator-=(Matrix &lhs, Matrix rhs) {
 	lhs = lhs - rhs;
 }
 
-std::ostream& operator<<(std::ostream& os, const Matrix& mat) {
-	os << "[" << mat.getXX() << ", " << mat.getXY() << ", " << mat.getXZ() << "\n" <<
-				 mat.getYX() << ", " << mat.getYY() << ", " << mat.getYZ() << "\n" <<
-				 mat.getZX() << ", " << mat.getZY() << ", " << mat.getZZ() << "]";
+std::ostream& operator<<(std::ostream &os, const Matrix &mat) {
+	os << "[" << mat.getXX() << ", " << mat.getXY() << ", " << mat.getXZ()
+			<< "\n" << mat.getYX() << ", " << mat.getYY() << ", " << mat.getYZ()
+			<< "\n" << mat.getZX() << ", " << mat.getZY() << ", " << mat.getZZ()
+			<< "]";
 	return os;
 }
