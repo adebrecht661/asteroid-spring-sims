@@ -14,12 +14,12 @@ typedef struct spring {
 	double k;		// Spring constant
 	double rs0;		// Rest length
 	double gamma; 	// Damping coefficient
-	double k_heat;  // Heat diffusion coefficient
+	double k_heat;  // Heat diffusion coefficient (actually thermal conductance????? W/K vs W/m*K)
 	int particle_1;	// Attached to particle 1
 	int particle_2;	// Attached to particle 2
 } spring;
 
-extern struct spring *springs;	// Array to store springs
+extern struct spring* springs;	// Array to store springs
 extern int num_springs;			// Number of springs
 extern int num_perts;			// Number of perturbing point masses
 extern double min_sep;			// Minimum separation between particles in simulation
