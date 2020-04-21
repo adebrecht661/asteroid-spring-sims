@@ -1,6 +1,8 @@
 /*
  * Matrix.cpp
  *
+ * Various matrix and vector methods
+ *
  *  Created on: Mar 26, 2020
  *      Author: alex
  */
@@ -26,34 +28,39 @@ const Matrix zero_matrix(zero_mat);
 /* Constructors */
 /****************/
 
+// Null constructor
 Vector::Vector() {
-	// null constructor
 }
 
+// Construct from scalar
 Vector::Vector(double scalar) {
 	for (int i = 0; i < 3; i++) {
 		this->array[i] = scalar;
 	}
 }
 
+// Construct from array
 Vector::Vector(double array[3]) {
 	for (int i = 0; i < 3; i++) {
 		this->array[i] = array[i];
 	}
 }
 
+// Construct from initializer list
 Vector::Vector(std::initializer_list<double> list) {
 	std::copy(list.begin(), list.end(), this->array);
 }
 
+// Copy constructor
 Vector::Vector(const Vector &vector) {
 	*this = vector;
 }
 
+// Null constructor
 Matrix::Matrix() {
-	// null constructor
 }
 
+// Construct from array
 Matrix::Matrix(double array[3][3]) {
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
@@ -62,6 +69,7 @@ Matrix::Matrix(double array[3][3]) {
 	}
 }
 
+// Construct from initializer list of initializer lists
 Matrix::Matrix(std::initializer_list<std::initializer_list<double>> list) {
 	int i = 0, j = 0;
 	for (const auto &l : list) {
@@ -74,6 +82,7 @@ Matrix::Matrix(std::initializer_list<std::initializer_list<double>> list) {
 	}
 }
 
+// Construct from initializer list of (row) vectors
 Matrix::Matrix(std::initializer_list<Vector> list) {
 	int i = 0;
 	for (const auto &l : list) {
@@ -84,6 +93,7 @@ Matrix::Matrix(std::initializer_list<Vector> list) {
 	i++;
 }
 
+// Copy constructor
 Matrix::Matrix(const Matrix &matrix) {
 	*this = matrix;
 }
@@ -144,15 +154,18 @@ double Matrix::getZZ() const {
 /* Misc Functions */
 /******************/
 
+// Return length of vector
 double Vector::len() {
 	return sqrt(dot(*this, *this));
 }
 
+// Return dot product of vectors
 double dot(Vector lhs, Vector rhs) {
 	return lhs.getX() * rhs.getX() + lhs.getY() * rhs.getY()
 			+ lhs.getZ() * rhs.getZ();
 }
 
+// Return cross product of vectors
 Vector cross(Vector lhs, Vector rhs) {
 	return Vector(
 			{ -lhs.getY() * rhs.getZ() + lhs.getZ() * rhs.getY(), -lhs.getZ()
@@ -160,6 +173,7 @@ Vector cross(Vector lhs, Vector rhs) {
 					* rhs.getY() + lhs.getY() * rhs.getX() });
 }
 
+// Return outer product of vectors
 Matrix outer(Vector lhs, Vector rhs) {
 	double mat[3][3];
 	for (int i = 0; i < 3; i++) {
@@ -292,6 +306,7 @@ void eigenvalues(Matrix mat, double eigs[3]) {
 	}
 }
 
+// Return trace of matrix
 double trace(Matrix mat) {
 	return mat.getXX() + mat.getYY() + mat.getZZ();
 }
@@ -303,17 +318,20 @@ bool Matrix::isSym() {
 			&& this->array[1][2] == this->array[2][1]);
 }
 
+// Return rotation matrix for rotation about X axis
 Matrix getRotMatX(double angle) {
 	return Matrix(
 			{ { 1, 0, 0 }, { 0, cos(angle), -sin(angle) }, { 0, sin(angle), cos(
 					angle) } });
 }
 
+// Return rotation matrix for rotation about Y axis
 Matrix getRotMatY(double angle) {
 	return Matrix( { { cos(angle), 0, sin(angle) }, { 0, 1, 0 }, { -sin(angle),
 			0, cos(angle) } });
 }
 
+// Return rotation matrix for rotation about Z axis
 Matrix getRotMatZ(double angle) {
 	return Matrix( { { cos(angle), -sin(angle), 0 },
 			{ sin(angle), cos(angle), 0 }, { 0, 0, 1 } });
@@ -323,6 +341,7 @@ Matrix getRotMatZ(double angle) {
 /* Vector Operators */
 /********************/
 
+// Add two vectors
 Vector Vector::operator+(Vector rhs) {
 	Vector res;
 	for (int i = 0; i < 3; i++) {
@@ -331,6 +350,7 @@ Vector Vector::operator+(Vector rhs) {
 	return res;
 }
 
+// Add a scalar to a vector
 Vector Vector::operator+(double scalar) {
 	Vector res;
 	for (int i = 0; i < 3; i++) {
@@ -339,6 +359,16 @@ Vector Vector::operator+(double scalar) {
 	return res;
 }
 
+// Negate a vector (unary operation)
+Vector Vector::operator-() {
+	Vector res;
+	for (int i = 0; i < 3; i++) {
+		res.array[i] = -this->array[i];
+	}
+	return res;
+}
+
+// Subtract two vectors
 Vector Vector::operator-(Vector rhs) {
 	Vector res;
 	for (int i = 0; i < 3; i++) {
@@ -347,6 +377,7 @@ Vector Vector::operator-(Vector rhs) {
 	return res;
 }
 
+// Subtract a scalar from a vector
 Vector Vector::operator-(double scalar) {
 	Vector res;
 	for (int i = 0; i < 3; i++) {
@@ -355,6 +386,7 @@ Vector Vector::operator-(double scalar) {
 	return res;
 }
 
+// Multiply a vector by a scalar (scalar on rhs)
 Vector Vector::operator*(double scalar) {
 	Vector res;
 	for (int i = 0; i < 3; i++) {
@@ -363,6 +395,7 @@ Vector Vector::operator*(double scalar) {
 	return res;
 }
 
+// Divide a vector by a scalar
 Vector Vector::operator/(double scalar) {
 	Vector res;
 	for (int i = 0; i < 3; i++) {
@@ -371,6 +404,7 @@ Vector Vector::operator/(double scalar) {
 	return res;
 }
 
+// Multiply a matrix by a vector
 Vector operator*(Matrix lhs, Vector rhs) {
 	Vector res;
 	for (int i = 0; i < 3; i++) {
@@ -381,38 +415,46 @@ Vector operator*(Matrix lhs, Vector rhs) {
 	return res;
 }
 
+// Multiply a vector by a scalar (scalar on lhs)
 Vector operator*(double scalar, Vector rhs) {
 	return rhs * scalar;
 }
 
+// Add scalar to vector with assignment
 void operator+=(Vector &lhs, double scalar) {
 	double scalar_vec[3] = { scalar, scalar, scalar };
 	Vector rhs(scalar_vec);
 	lhs = lhs - rhs;
 }
 
+// Add two vectors with assignment
 void operator+=(Vector &lhs, Vector rhs) {
 	lhs = lhs + rhs;
 }
 
+// Subtract scalar from vector with assignment
 void operator-=(Vector &lhs, double scalar) {
 	double scalar_vec[3] = { scalar, scalar, scalar };
 	Vector rhs(scalar_vec);
 	lhs = lhs - rhs;
 }
 
+// Subtract two vectors with assignment
 void operator-=(Vector &lhs, Vector rhs) {
 	lhs = lhs - rhs;
 }
 
+// Multiply vector by scalar with assignment
 void operator*=(Vector &lhs, double scalar) {
 	lhs = lhs * scalar;
 }
 
+// Divide vector by scalar with assignment
 void operator/=(Vector &lhs, double scalar) {
 	lhs = lhs / scalar;
 }
 
+// Stream output for nicely formatted vector
 std::ostream& operator<<(std::ostream &os, const Vector &vec) {
 	os << "<" << vec.getX() << ", " << vec.getY() << ", " << vec.getZ() << ">";
 	return os;
@@ -422,6 +464,7 @@ std::ostream& operator<<(std::ostream &os, const Vector &vec) {
 /* Matrix Operators */
 /********************/
 
+// Add two matrices
 Matrix Matrix::operator+(Matrix rhs) {
 	Matrix res;
 	for (int i = 0; i < 3; i++) {
@@ -432,6 +475,7 @@ Matrix Matrix::operator+(Matrix rhs) {
 	return res;
 }
 
+// Subtract two matrices
 Matrix Matrix::operator-(Matrix rhs) {
 	Matrix res;
 	for (int i = 0; i < 3; i++) {
@@ -442,6 +486,7 @@ Matrix Matrix::operator-(Matrix rhs) {
 	return res;
 }
 
+// Multiply matrix by scalar (scalar on rhs)
 Matrix Matrix::operator*(double scalar) {
 	Matrix res;
 	for (int i = 0; i < 3; i++) {
@@ -452,6 +497,7 @@ Matrix Matrix::operator*(double scalar) {
 	return res;
 }
 
+// Divide matrix by scalar
 Matrix Matrix::operator/(double scalar) {
 	Matrix res;
 	for (int i = 0; i < 3; i++) {
@@ -462,10 +508,12 @@ Matrix Matrix::operator/(double scalar) {
 	return res;
 }
 
+// Multiply matrix by scalar (scalar on lhs)
 Matrix operator*(double scalar, Matrix rhs) {
 	return rhs * scalar;
 }
 
+// Multiply two matrices
 Matrix operator*(Matrix lhs, Matrix rhs) {
 	Matrix res;
 	for (int i = 0; i < 3; i++) {
@@ -478,22 +526,27 @@ Matrix operator*(Matrix lhs, Matrix rhs) {
 	return res;
 }
 
+// Multiply matrix by scalar with assignment
 void operator*=(Matrix &lhs, double scalar) {
 	lhs = lhs * scalar;
 }
 
+// Divide matrix by scalar with assignment
 void operator/=(Matrix &lhs, double scalar) {
 	lhs = lhs / scalar;
 }
 
+// Add two matrices with assignment
 void operator+=(Matrix &lhs, Matrix rhs) {
 	lhs = lhs - rhs;
 }
 
+// Subtract two matrices with assignment
 void operator-=(Matrix &lhs, Matrix rhs) {
 	lhs = lhs - rhs;
 }
 
+// Stream output operator for nicely formatted matrix print
 std::ostream& operator<<(std::ostream &os, const Matrix &mat) {
 	os << "[" << mat.getXX() << ", " << mat.getXY() << ", " << mat.getXZ()
 			<< "\n" << mat.getYX() << ", " << mat.getYY() << ", " << mat.getYZ()

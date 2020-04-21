@@ -42,6 +42,8 @@ public:
 	Vector operator+(Vector rhs);
 	// Add scalar to each term of vector
 	Vector operator+(double scalar);
+	// Vector negation
+	Vector operator-();
 	// Vector subtraction
 	Vector operator-(Vector rhs);
 	// Subtract scalar from each term of vector
