@@ -11,6 +11,7 @@
 #define SRC_SPRING_PHYSICS_H_
 
 #include "matrix_math.h"
+#include "springs.h"
 
 extern double L_EPS;
 

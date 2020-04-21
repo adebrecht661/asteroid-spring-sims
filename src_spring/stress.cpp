@@ -3,6 +3,7 @@
 extern "C" {
 #include "rebound.h"
 }
+#include "matrix_math.h"
 #include "physics.h"
 #include "springs.h"
 #include "stress.h"
