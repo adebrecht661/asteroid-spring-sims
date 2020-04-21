@@ -1,252 +1,178 @@
-
-#ifdef __cplusplus
-# 	ifdef __GNUC__
-#		define restrict __restrict__
-#	else
-#		define restrict
-#	endif
-#endif
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
 #include <cmath>
-#include <time.h>
-#include <sys/time.h>
+#include <iostream>
 extern "C" {
 #include "rebound.h"
 }
-#include "spring.h"
-#include "tools.h"
-#include "output.h"
-#include "kepcart.h"
+#include "physics.h"
+#include "springs.h"
 #include "stress.h"
-#include "matrix_math.h"
 
-extern int NS; // number of springs
-struct stress_tensor *stressvec; // global so can be reached by all routines here
+extern int num_springs; // Number of springs
+struct stress_tensor *stresses; // Stress at each node (particle)
 
-// convension should be tensile stress is negative
-// update the stress tensor, create it if does not exist
-// assuming total volume = 4/3pi (used to normalize) is a constant
-void update_stresstensor(struct reb_simulation *const r) {
-	static int first = 0;
-	if (first == 0) {
-		first = 1;
-		stressvec = malloc(r->N * sizeof(struct stress_tensor));
-	}
-	for (int i = 0; i < r->N; i++) { // over nodes
-		stressvec[i].sigxx = 0.0;
-		stressvec[i].sigyy = 0.0;
-		stressvec[i].sigzz = 0.0;
-		stressvec[i].sigxy = 0.0;
-		stressvec[i].sigyz = 0.0;
-		stressvec[i].sigxz = 0.0;
-		stressvec[i].eig1 = 0.0;
-		stressvec[i].eig2 = 0.0;
-		stressvec[i].eig3 = 0.0;
-		stressvec[i].maxF = 0.0;
-		stressvec[i].s_index = -1;
-		stressvec[i].fail = 0;
+// Convention is that tensile stress is negative
+// Update the stress tensor
+// Create it if it does not exist
+// Caution: Assumes total volume = 4/3 pi is a constant (used to normalize)
+void update_stress(struct reb_simulation *const n_body_sim) {
+	// Allocate stress if unallocated
+	if (!stresses) {
+		stresses = malloc(n_body_sim->N * sizeof(struct stress_tensor));
 	}
 
-	for (int k = 0; k < NS; k++) { // over springs
-		int ii = springs[k].i;
-		int jj = springs[k].j;
-		double Fx, Fy, Fz, Lx, Ly, Lz;
-		spring_force_one(r, k, &Fx, &Fy, &Fz, &Lx, &Ly, &Lz); // compute spring force
-		// sum over springs onto each node
-		stressvec[ii].sigxx += Fx * Lx;
-		stressvec[jj].sigxx -= Fx * Lx;
-		stressvec[ii].sigyy += Fy * Ly;
-		stressvec[jj].sigyy -= Fy * Ly;
-		stressvec[ii].sigzz += Fz * Lz;
-		stressvec[jj].sigzz -= Fz * Lz;
-		stressvec[ii].sigxy += Fx * Ly;
-		stressvec[jj].sigxy -= Fx * Ly;
-		stressvec[ii].sigyz += Fy * Lz;
-		stressvec[jj].sigyz -= Fy * Lz;
-		stressvec[ii].sigxz += Fx * Lz;
-		stressvec[jj].sigxz -= Fx * Lz;
-		// signs should give negative stress for tensile stress
-		double Fmag = sqrt(Fx * Fx + Fy * Fy + Fz * Fz);
-		if (Fmag > stressvec[ii].maxF) {
-			stressvec[ii].maxF = Fmag; // keep track of which spring has max force
-			stressvec[ii].s_index = k;
+	// Initialize stresses for each node
+	for (int i = 0; i < n_body_sim->N; i++) {
+		stresses[i].stress = zero_matrix;
+		stresses[i].eigs[0] = 0.0;
+		stresses[i].eigs[1] = 0.0;
+		stresses[i].eigs[2] = 0.0;
+		stresses[i].max_force = 0.0;
+		stresses[i].max_force_spring = -1;
+		stresses[i].failing = false;
+	}
+
+	// Calculate stress from each spring
+	for (int k = 0; k < num_springs; k++) {
+		// Get particles
+		int ii = springs[k].particle_1;
+		int jj = springs[k].particle_2;
+
+		// Calculate force and length vector of spring k
+		Vector F = spring_i_force(n_body_sim, k);
+		Vector L = spring_r(n_body_sim, springs[k]);
+
+		// Add stresses to each node
+		// Tensile stress should be negative
+		stresses[ii].stress += outer(F, L);
+		stresses[jj].stress -= outer(F, L);
+
+		// Keep track of which spring is applying maximum force
+		double F_mag = F.len();
+		if (F_mag > stresses[ii].max_force) {
+			stresses[ii].max_force = F_mag;
+			stresses[ii].max_force_spring = k;
 		}
-		if (Fmag > stressvec[jj].maxF) {
-			stressvec[jj].maxF = Fmag;
-			stressvec[jj].s_index = k;
+		if (F_mag > stresses[jj].max_force) {
+			stresses[jj].max_force = F_mag;
+			stresses[jj].max_force_spring = k;
 		}
 	}
 
-	double vol = 4.0 * M_PI / (3.0 * (double) r->N); // volume of a node depends on number of particles
-	// we have R=1 for our masses, so the volume is 4pi/3 in units of R^3
-	for (int i = 0; i < r->N; i++) { // normalize
-		stressvec[i].sigxx /= vol;
-		stressvec[i].sigyy /= vol;
-		stressvec[i].sigzz /= vol;
-		stressvec[i].sigxy /= vol;
-		stressvec[i].sigyz /= vol;
-		stressvec[i].sigxz /= vol;
+	// Normalize the stress
+	// We set R = 1 for our masses, so the total volume is 4/3 pi
+	// Volume of a single node depends on number of particles
+	double vol = 4.0 * M_PI / (3.0 * (double) n_body_sim->N);
+	for (int i = 0; i < n_body_sim->N; i++) {
+		stresses[i].stress /= vol;
 	}
-	for (int i = 0; i < r->N; i++) { // compute and store eigenvalues for each node!
+
+	// Compute and store eigenvalues for each node
+	for (int i = 0; i < n_body_sim->N; i++) {
 		double eigs[3];
-		double stress_mat[3][3];
-		stress_mat[0][0] = stressvec[i].sigxx;
-		stress_mat[1][1] = stressvec[i].sigyy;
-		stress_mat[2][2] = stressvec[i].sigzz;
-		stress_mat[0][1] = stress_mat[1][0] = stressvec[i].sigxy;
-		stress_mat[0][2] = stress_mat[2][0] = stressvec[i].sigyz;
-		stress_mat[1][2] = stress_mat[2][1] = stressvec[i].sigxz;
-		eigenvalues(stress_mat,	eigs); // eig>=eig2>=eig3
-		stressvec[i].eig1 = eigs[0];
-		stressvec[i].eig2 = eigs[1];
-		stressvec[i].eig3 = eigs[2];
+		eigenvalues(stresses[i].stress, eigs);
+		stresses[i].eigs = eigs; // Supposedly C++ deep copies arrays (as opposed to pointers), so this should work
 	}
 }
 
-// check for failure at all nodes 
-// sigt_I is tensile strength of interior (these are negative)
-// sigt_S is tensile strength of shell
-// we need to know if the particle was originally in shell or interior
-// we can't use current radius as particles are going to move! 
-// decide if particle is in interior by whether particle mass is below pmass_div
-// return number of failed nodes
-int markfailure(struct reb_simulation *const r, int npert, double pmass_div,
-		double sigt_I, double sigt_S) {
-	int il = 0;
-	int ih = r->N - npert;
-	int nfail = 0;
-	for (int i = il; i < ih; i++) {
-		double m = r->particles[i].m;
-		double sigt;
-		// if particle is in interior by whether particle mass is below pmass_div
-		if (m > pmass_div)
-			sigt = sigt_I; // in that case this is failure tensile stress
-		else
-			sigt = sigt_S;
+// Check for failure at all nodes
+// tens_str_int is tensile strength of interior (these are negative)
+// tens_str_surf is tensile strength of shell
+// Note: we need to know if the particle was originally in shell or interior
+// Decide if particle is in interior by whether particle mass is below pmass_div
+// Caution: we can't use current radius as particles are going to move!
+// Return number of failed nodes
+int mark_failed_nodes(struct reb_simulation *const n_body_sim, double mass_div,
+		double tens_str_int, double tens_str_surf) {
+	// Get particle indices
+	int i_low = 0;
+	int i_high = n_body_sim->N - num_perts;
 
-		double tau1 = stressvec[i].eig1;
-		double tau3 = stressvec[i].eig3;
-		int fail = 0;
+	// Init number of failures
+	int n_fail = 0;
+
+	// Determine if node fails
+	for (int i = i_low; i < i_high; i++) {
+		// Get particle mass and tensile strength
+		double m = n_body_sim->particles[i].m;
+		double tens_str;
+		// Particle is interior if mass is above pmass_div
+		if (m > mass_div) {
+			tens_str = tens_str_int;
+		} else {
+			tens_str = tens_str_surf;
+		}
+
+		// Compare stress eigenvalues to failure conditions
+		double tau1 = stresses[i].eigs[0];
+		double tau3 = stresses[i].eigs[2];
+		bool fail = false;
 		double tau13 = tau1 - tau3;
-		if ((tau1 < -3.0 * tau3) && (tau3 < sigt))
-			fail = 1;
-		if ((tau1 >= -3.0 * tau3) && (tau13 * tau13 + 8.0 * sigt * tau13 > 0))
-			fail = 1;
-		if (fail == 1) {
-			stressvec[i].fail = 1;
-			nfail++;
+		if (((tau1 < -3.0 * tau3) && (tau3 < tens_str))
+				|| ((tau1 >= -3.0 * tau3)
+						&& (tau13 * tau13 + 8.0 * tens_str * tau13 > 0)))
+			fail = true;
+		if (fail) {
+			stresses[i].failing = 1;
+			n_fail++;
 		}
 	}
-	if (nfail > 0)
-		printf("markfailure: nfail=%d\n", nfail);
 
-	return nfail;
+	// Return number of failed nodes
+	if (n_fail > 0)
+		std::cout << "markfailure: " << n_fail << " nodes failed." << std::endl;
+
+	return n_fail;
 }
 
-// here is the hard part
-void killsprings(struct reb_simulation *const r, int npert) {
-	int il = 0;
-	int ih = r->N - npert;
-	for (int i = il; i < ih; i++) {
-		if (stressvec[i].fail == 1) {
-			int s_index = stressvec[i].s_index; // spring with max force amplitude on it
-			springs[s_index].ks = 0.0;   // spring dead
-			springs[s_index].gamma = 0.0;
+// Compute Young's modulus of springs using midpoints of springs from center of mass in radial range [r_min,r_max]
+// Equation 20 by Kot et al. 2014 -> sum_i [k_i L_i^2]/(6V)
+// Uses rest lengths
+// Only computes center of mass using particles in range [i_low,i_high)
+double Young_mesh(struct reb_simulation *const n_body_sim, int i_low,
+		int i_high, double r_min, double r_max) {
+	// Initialize sum
+	double sum = 0.0;
+
+	// Find center of mass of requested particles
+	Vector CoM = compute_com(n_body_sim, i_low, i_high);
+
+	// Calculate sum
+	for (int i = 0; i < num_springs; i++) {
+		Vector x_mid = spr_mid(n_body_sim, springs[i], CoM);
+
+		// If center of spring is within requested shell, update sum
+		double dist_from_CoM = x_mid.len();
+		if ((dist_from_CoM < r_max) && (dist_from_CoM > r_min)) {
+			double k = springs[i].k;
+			double len = springs[i].rs0;
+			sum += k * len * len;
 		}
 	}
+
+	// Calculate volume of shell
+	double volume = (4.0 * M_PI / 3.0) * (pow(r_max, 3.0) - pow(r_min, 3.0));
+
+	// Return Young's modulus
+	return sum / (6.0 * volume);
 }
 
-#define L_EPS 1e-6; // softening for spring length
-// return the spring force vector for spring i
-// to get force on particle j multiply by mass of particle j
-// also return length vector between particle i and j as Lx,Ly,Lz
-void spring_force_one(struct reb_simulation *const r, int i, double *Fx,
-		double *Fy, double *Fz, double *Lx, double *Ly, double *Lz) {
+// Calculate Young's modulus of entire simulation
+// Equation 20 by Kot et al. 2014 -> sum_i [k_i L_i^2]/(6V)
+// Uses rest lengths
+double Young_full_mesh() {
+	// Initialize sum
+	double sum = 0.0;
 
-	double L = spring_length(r, springs[i]) + L_EPS
-	; // spring length
-	double rs0 = springs[i].rs0; // rest length
-	int ii = springs[i].i;
-	int jj = springs[i].j;
-	double dx = r->particles[ii].x - r->particles[jj].x;
-	double dy = r->particles[ii].y - r->particles[jj].y;
-	double dz = r->particles[ii].z - r->particles[jj].z;
-	double mii = r->particles[ii].m;
-	double mjj = r->particles[jj].m;
-	double ks = springs[i].ks;
-	double fac = -ks * (L - rs0) / L; // L here to normalize direction
-	// accelerations are force divided by mass
-	*Fx = fac * dx;
-	*Fy = fac * dy;
-	*Fz = fac * dz;
-	*Lx = dx;
-	*Ly = dy;
-	*Lz = dz;
-
-	if (springs[i].gamma > 0.0) {  // damping force too!
-		double dvx = r->particles[ii].vx - r->particles[jj].vx;
-		double dvy = r->particles[ii].vy - r->particles[jj].vy;
-		double dvz = r->particles[ii].vz - r->particles[jj].vz;
-		double dLdt = (dx * dvx + dy * dvy + dz * dvz) / L;
-		// divide dL/dt by L to get strain rate
-		double mbar = mii * mjj / (mii + mjj); // reduced mass
-		double dampfac = springs[i].gamma * mbar * dLdt / L;
-		// factor L here to normalize dx,dy,dz
-		*Fx -= dampfac * dx;
-		*Fy -= dampfac * dy;
-		*Fz -= dampfac * dz;
-	}
-}
-
-// make a stress file name depending on numbers of tp (toprint)
-void sfilename(struct reb_simulation *const r, char *root, double tp,
-		char *fname) {
-	int xd = (int) (r->t / tp);
-	char junks[20];
-	sprintf(junks, "%d", xd);
-	sprintf(fname, "%s_", root);
-	if (xd < 100000)
-		strcat(fname, "0");
-	if (xd < 10000)
-		strcat(fname, "0");
-	if (xd < 1000)
-		strcat(fname, "0");
-	if (xd < 100)
-		strcat(fname, "0");
-	if (xd < 10)
-		strcat(fname, "0");
-	strcat(fname, junks);
-	strcat(fname, "_stress.txt");
-}
-
-// print out stress file
-// npert is number of point mass perturbers
-void print_stress(struct reb_simulation *const r, int npert, char *filename) {
-	struct reb_particle *particles = r->particles;
-
-	FILE *fpo;
-	fpo = fopen(filename, "w");
-	fprintf(fpo, "#%.2e\n", r->t);
-	int il = 0;
-	int ih = r->N - npert; // NPERT?
-	Vector CoM = compute_com(r, il, ih);
-	for (int i = il; i < ih; i++) {
-		double x = particles[i].x - CoM.getX();
-		double y = particles[i].y - CoM.getY();
-		double z = particles[i].z - CoM.getZ();
-		double m = particles[i].m;
-		fprintf(fpo, "%d %.4f %.3f %.3f %.3f ", i, m, x, y, z);
-		double eig1 = stressvec[i].eig1;
-		double eig2 = stressvec[i].eig2;
-		double eig3 = stressvec[i].eig3;
-		fprintf(fpo, " %.3f %.3f %.3f ", eig1, eig2, eig3);
-		fprintf(fpo, " %d ", stressvec[i].fail);
-		fprintf(fpo, "\n");
+	// Update sum for each spring
+	for (int i = 0; i < num_springs; i++) {
+		double k = springs[i].k;
+		double len = springs[i].rs0;
+		sum += k * len * len;
 	}
 
-}
+	// Assume sphere of radius 1
+	double volume = 4.0 * M_PI / 3.0;
 
+	// Return Young's modulus
+	return sum / (6.0 * volume);
+}
