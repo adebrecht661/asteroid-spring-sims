@@ -7,7 +7,7 @@
 
 // Orbital state in phase space (position, velocity)
 typedef struct PhaseState {
-	double x, y, z, v_x, v_y, v_z;
+	Vector x, v;
 } PhaseState;
 
 // Standard Keplerian elements:
@@ -21,12 +21,12 @@ typedef struct OrbitalElements {
 /**************************************/
 
 // Cartesian to Keplerian
-void cart_to_kep(double GM, PhaseState state, OrbitalElements *orbel);
+OrbitalElements cart_to_kep(double GM, PhaseState state);
 // Keplerian to Cartesian
-void kep_to_cart(double GM, OrbitalElements orbel, PhaseState *state);
+PhaseState kep_to_cart(double GM, OrbitalElements orbel);
 // Helper for conversion -- Get eccentric anomaly from mean anomaly
-double eccentric_anomaly(double eccentricity, double mean_anomaly); // solves kepler's eqn
+double eccentric_anomaly(double eccentricity, double mean_anomaly);
 // ... in hyperbolic case
-double eccentric_anomaly_hyperbolic(double eccentricity, double mean_anomaly); // solves kepler's eqn
+double eccentric_anomaly_hyperbolic(double eccentricity, double mean_anomaly);
 
 #endif

@@ -10,9 +10,9 @@
 OrbitalElements cart_to_kep(double GM, PhaseState state) {
 
 	// Get angular momentum
-	Vector pos = { state.x, state.y, state.z };
+	Vector pos = state.x;
 	Vector r_hat = pos / pos.len();
-	Vector vel = { state.v_x, state.v_y, state.v_z };
+	Vector vel = state.v;
 	Vector L = cross(pos, vel);
 
 	// Init return values
@@ -135,12 +135,8 @@ PhaseState kep_to_cart(double GM, OrbitalElements orb_el) {
 
 	// Set and return state vector
 	PhaseState state;
-	state.x = pos.getX();
-	state.y = pos.getY();
-	state.z = pos.getZ();
-	state.v_x = vel.getX();
-	state.v_y = vel.getY();
-	state.v_z = vel.getZ();
+	state.x = pos;
+	state.v = vel;
 
 	return state;
 }
