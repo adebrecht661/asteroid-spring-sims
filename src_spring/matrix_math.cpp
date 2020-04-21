@@ -74,6 +74,16 @@ Matrix::Matrix(std::initializer_list<std::initializer_list<double>> list) {
 	}
 }
 
+Matrix::Matrix(std::initializer_list<Vector> list) {
+	int i = 0;
+	for (const auto &l : list) {
+		this->array[i][1] = l.getX();
+		this->array[i][2] = l.getY();
+		this->array[i][3] = l.getZ();
+	}
+	i++;
+}
+
 Matrix::Matrix(const Matrix &matrix) {
 	*this = matrix;
 }

@@ -82,8 +82,10 @@ public:
 	Matrix();
 	// Construct from array
 	Matrix(double array[3][3]);
-	// Construct from initializer list
+	// Construct from initializer list of initializer lists
 	Matrix(std::initializer_list<std::initializer_list<double>> list);
+	// Construct from initializer list of (row) vectors
+	Matrix(std::initializer_list<Vector> list);
 	// Copy constructor
 	Matrix(const Matrix &matrix);
 
