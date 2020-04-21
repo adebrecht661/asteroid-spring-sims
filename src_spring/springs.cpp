@@ -12,7 +12,7 @@ extern int num_springs; // Current number of springs
 extern stress_tensor *stresses; // Array of stresses for each particle
 int NSmax = 0; // Max number of springs (size of array)
 
-#define L_EPS 1e-6; // Softening for spring length
+const double L_EPS = 1e-6; // Softening for spring length
 
 /********************/
 /* Spring functions */
@@ -286,32 +286,32 @@ void spring_forces(struct reb_simulation *const n_body_sim) {
 
 	// Get spring forces
 	for (int spring_index = 0; spring_index < num_springs; spring_index++) {
-		// Get spring lengths
-		double len = spring_r(n_body_sim, springs[spring_index]).len() + L_EPS
-		;
+
+		// Get spring properties
 		double len0 = springs[spring_index].rs0;
 		double k = springs[spring_index].k;
 
-		// Get info for spring endpoint particles
+		// Get spring length vector
+		Vector dx = spring_r(n_body_sim, springs[spring_index]);
+		double len = dx.len() + L_EPS;
+		Vector len_hat = dx / len;
+
+		// Get particle masses
 		int i = springs[spring_index].particle_1;
 		int j = springs[spring_index].particle_2;
-		Vector x_i = { particles[i].x, particles[i].y, particles[i].z };
-		Vector x_j = { particles[j].x, particles[j].y, particles[j].z };
-		Vector dx = (x_i - x_j);
-		Vector len_hat = dx / len;
 		double m_i = particles[i].m;
 		double m_j = particles[j].m;
 
 		// Calculate force from spring
-		double spring_force = -k * (len - len0);
+		Vector spring_force = -k * (len - len0) * len_hat;
 
 		// Apply elastic accelerations
-		particles[i].ax += (spring_force * len_hat / m_i).getX();
-		particles[j].ax -= (spring_force * len_hat / m_j).getX();
-		particles[i].ay += (spring_force * len_hat / m_i).getY();
-		particles[j].ay -= (spring_force * len_hat / m_i).getY();
-		particles[i].az += (spring_force * len_hat / m_i).getZ();
-		particles[j].az -= (spring_force * len_hat / m_i).getZ();
+		particles[i].ax += (spring_force / m_i).getX();
+		particles[j].ax -= (spring_force / m_j).getX();
+		particles[i].ay += (spring_force / m_i).getY();
+		particles[j].ay -= (spring_force / m_i).getY();
+		particles[i].az += (spring_force / m_i).getZ();
+		particles[j].az -= (spring_force / m_i).getZ();
 
 		// Apply damping, dependent on strain rate
 		double gamma = springs[spring_index].gamma;
@@ -322,7 +322,7 @@ void spring_forces(struct reb_simulation *const n_body_sim) {
 			Vector dv = v_i - v_j;
 
 			// Strain rate
-			double strain_rate = dot(dv, len_hat) / len;
+			double strain_rate = dot(dv, len_hat);
 
 			// Reduced mass
 			double m_red = m_i * m_j / (m_i + m_j);
