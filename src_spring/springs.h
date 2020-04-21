@@ -14,12 +14,12 @@ typedef struct spring {
 	double k;		// Spring constant
 	double rs0;		// Rest length
 	double gamma; 	// Damping coefficient
-	double k_heat;  // Heat diffusion coefficient (actually thermal conductance????? W/K vs W/m*K)
+	double k_heat;	// Heat diffusion coefficient (actually thermal conductance????? W/K vs W/m*K)
 	int particle_1;	// Attached to particle 1
 	int particle_2;	// Attached to particle 2
 } spring;
 
-extern struct spring* springs;	// Array to store springs
+extern struct spring *springs;	// Array to store springs
 extern int num_springs;			// Number of springs
 extern int num_perts;			// Number of perturbing point masses
 extern double min_sep;			// Minimum separation between particles in simulation
@@ -59,8 +59,8 @@ void make_binary_spring(struct reb_simulation *const n_body_sim, double m1,
 /* Spring properties */
 /*********************/
 
-// Get length of passed spring
-double spring_length(struct reb_simulation *const n_body_sim, spring spr);
+// Get length vector of passed spring (r_ij)
+Vector spring_r(struct reb_simulation *const n_body_sim, spring spr);
 // Get mean rest length of springs
 double mean_spring_length(struct reb_simulation *const r);
 // Mean spring constant
@@ -72,9 +72,9 @@ Vector spr_mid(struct reb_simulation *const n_body_sim, spring spr,
 double strain(struct reb_simulation *const n_body_sim, spring spr);
 // Apply spring forces to simulation
 void spring_forces(struct reb_simulation *n_body_sim);
-// Get force from spring part_1 (with damping)
+// Get force from spring i (with damping)
 Vector spring_i_force(struct reb_simulation *const n_body_sim, int i);
-// Get force from spring part_1 (without damping)
+// Get force from spring i (without damping)
 Vector spring_i_force_undamped(struct reb_simulation *const n_body_sim, int i);
 
 #endif // _SPRING_H

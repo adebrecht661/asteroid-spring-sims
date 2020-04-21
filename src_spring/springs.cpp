@@ -9,7 +9,7 @@ extern "C" {
 #include "springs.h"
 
 extern int num_springs; // Current number of springs
-extern stress_tensor *stressvec; // Array of stresses for each particle
+extern stress_tensor *stresses; // Array of stresses for each particle
 int NSmax = 0; // Max number of springs (size of array)
 
 #define L_EPS 1e-6; // Softening for spring length
@@ -59,7 +59,7 @@ int add_spring(struct reb_simulation *const n_body_sim, int particle_1,
 	// No spring connects these two indices. Create one.
 	spr.particle_1 = particle_low;
 	spr.particle_2 = particle_high;
-	spr.rs0 = spring_length(n_body_sim, spr); // rest spring length
+	spr.rs0 = spring_r(n_body_sim, spr).len(); // rest spring length
 	add_spring_helper(spr);
 	return num_springs - 1; // index of new spring!
 }
@@ -160,8 +160,8 @@ void kill_springs(struct reb_simulation *const n_body_sim) {
 
 	// Search particles for failing springs
 	for (int i = i_low; i < i_high; i++) {
-		if (stressvec[i].failing) {
-			int spring_index = stressvec[i].failing_spring_index; // spring with max force amplitude on it
+		if (stresses[i].failing) {
+			int spring_index = stresses[i].max_force_spring; // spring with max force amplitude on it
 			springs[spring_index].k = 0.0;   // spring dead
 			springs[spring_index].gamma = 0.0;
 		}
@@ -212,8 +212,8 @@ void make_binary_spring(struct reb_simulation *const n_body_sim, double mass_1,
 /* Spring properties */
 /*********************/
 
-// Return spring length
-double spring_length(struct reb_simulation *const n_body_sim, spring spr) {
+// Return spring length vector
+Vector spring_r(struct reb_simulation *const n_body_sim, spring spr) {
 	// Get simulation and spring information
 	struct reb_particle *particles = n_body_sim->particles;
 	int i = spr.particle_1;
@@ -224,7 +224,7 @@ double spring_length(struct reb_simulation *const n_body_sim, spring spr) {
 	Vector x_j = { particles[j].x, particles[j].y, particles[j].z };
 
 	// Return length of spring
-	return (x_i - x_j).len();
+	return (x_i - x_j);
 }
 
 // Compute mean rest length of springs
@@ -273,7 +273,7 @@ Vector spr_mid(struct reb_simulation *const n_body_sim, spring spr,
 
 // Return spring strain
 double strain(struct reb_simulation *const n_body_sim, spring spr) {
-	double len = spring_length(n_body_sim, spr); // Spring length
+	double len = spring_r(n_body_sim, spr).len(); // Spring length
 	return (len - spr.rs0) / spr.rs0; // Positive under extension
 }
 
@@ -287,7 +287,7 @@ void spring_forces(struct reb_simulation *const n_body_sim) {
 	// Get spring forces
 	for (int spring_index = 0; spring_index < num_springs; spring_index++) {
 		// Get spring lengths
-		double len = spring_length(n_body_sim, springs[spring_index]) + L_EPS
+		double len = spring_r(n_body_sim, springs[spring_index]).len() + L_EPS
 		;
 		double len0 = springs[spring_index].rs0;
 		double k = springs[spring_index].k;
@@ -347,7 +347,7 @@ Vector spring_i_force(struct reb_simulation *const n_body_sim,
 	reb_particle *particles = n_body_sim->particles;
 
 	// Get spring lengths
-	double len = spring_length(n_body_sim, springs[spring_index]) + L_EPS
+	double len = spring_r(n_body_sim, springs[spring_index]).len() + L_EPS
 	;
 	double len0 = springs[spring_index].rs0;
 	double k = springs[spring_index].k;
@@ -394,7 +394,7 @@ Vector spring_i_force_undamped(struct reb_simulation *const n_body_sim,
 	reb_particle *particles = n_body_sim->particles;
 
 	// Get spring lengths
-	double len = spring_length(n_body_sim, springs[spring_index]) + L_EPS
+	double len = spring_r(n_body_sim, springs[spring_index]).len() + L_EPS
 	;
 	double len0 = springs[spring_index].rs0;
 	double k = springs[spring_index].k;
