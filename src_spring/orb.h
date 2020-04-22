@@ -35,12 +35,8 @@ void quadrupole_accel(struct reb_simulation *const n_body_sim, double J2_p, doub
 /* Orbital properties of resolved body */
 /***************************************/
 
-// Compute orbital properties of resolved body with respect to i_prim
-// L is orbital angular momentum per unit mass
-void compute_orb(struct reb_simulation *const n_body_sim, int i_low, int i_high, int i_prim,
-		double *a, double *mean_motion, double *e, double *i, double *L);
-// Compute orbital properties of resolved body with respect to center of mass of multiple perturbing masses
-void compute_orb_bin(struct reb_simulation *const n_body_sim, int i_low, int i_high,
+// Compute orbital properties of resolved body with respect to center of mass of perturbing masses
+void compute_orb(struct reb_simulation *const n_body_sim, int i_low, int i_high,
 		double *a, double *mean_motion, double *e, double *i, double *L);
 
 /********/

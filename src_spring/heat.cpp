@@ -6,11 +6,14 @@ extern "C" {
 #include "springs.h"
 #include "heat.h"
 
-extern int num_springs; // number of springs
+extern spring springs[]; // Spring array
+extern int num_springs; // Number of springs
+extern int num_perts; // Number of perturbers
+node nodes[]; // Node array
 
 // Conductive heat transport over spring network
 // Update temperature on each node for the timestep with size dt
-void transport_heat(struct reb_simulation* const n_body_sim, node* nodes, double dt) {
+void transport_heat(struct reb_simulation* const n_body_sim, double dt) {
 	// Allocate and initialize array for new temperatures
 	double* delta_T = (double*) malloc(sizeof(double) * n_body_sim->N);
 	for (int k = 0; k < n_body_sim->N; k++)
@@ -42,7 +45,7 @@ void transport_heat(struct reb_simulation* const n_body_sim, node* nodes, double
 
 // Apply tidal heating to internal nodes
 // Should only raise temperature
-void heat_nodes_tidal(struct reb_simulation* const n_body_sim, node* nodes, double dt) {
+void heat_nodes_tidal(struct reb_simulation* const n_body_sim, double dt) {
 	for (int k = 0; k < num_springs; k++) {
 
 		// Get heat from each spring
@@ -62,7 +65,7 @@ void heat_nodes_tidal(struct reb_simulation* const n_body_sim, node* nodes, doub
 
 // Add a constant heating rate to each node (radiogenic)
 // dot_E_rad is energy per unit mass per unit time
-void heat_nodes_radiogenic(struct reb_simulation* n_body_sim, node* nodes,
+void heat_nodes_radiogenic(struct reb_simulation* n_body_sim,
 		double dot_E_rad) {
 
 	// Node for each non-perturbing particle

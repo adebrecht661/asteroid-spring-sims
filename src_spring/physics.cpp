@@ -16,6 +16,11 @@ extern "C" {
 #include "springs.h"
 #include "physics.h"
 
+extern int num_springs;
+extern spring springs[];
+extern int num_perts;
+extern double L_EPS;
+
 /*******************/
 /* Center routines */
 /*******************/
@@ -120,7 +125,7 @@ Matrix mom_inertia(struct reb_simulation *const n_body_sim, int i_low,
 	return inertia;
 }
 
-// Compute (spin) angular momentum vector of particles in range [il,ih) with respect to their center of mass position and velocity
+// Compute (spin) angular momentum vector of particles in range [i_low, i_high) with respect to their center of mass position and velocity
 // Caution: Can measure angular momentum of the entire system, but will be with respect to center of mass of entire system
 Vector measure_L(struct reb_simulation *const n_body_sim, int i_low,
 		int i_high) {

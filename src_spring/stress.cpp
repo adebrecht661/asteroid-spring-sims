@@ -8,8 +8,11 @@ extern "C" {
 #include "springs.h"
 #include "stress.h"
 
+extern spring springs[];
 extern int num_springs; // Number of springs
-struct stress_tensor *stresses; // Stress at each node (particle)
+extern int num_perts;
+
+stress_tensor stresses[]; // Stress at each node (particle)
 
 // Convention is that tensile stress is negative
 // Update the stress tensor

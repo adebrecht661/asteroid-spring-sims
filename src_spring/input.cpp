@@ -30,8 +30,7 @@ void read_springs(string fileroot, int index) {
 
 	// Read from file
 	std::cout << "Reading in springs from " << filename << std::endl;
-	std::ifstream spring_file;
-	spring_file.open(filename, std::ifstream::in);
+	std::ifstream spring_file(filename, std::ios::in);
 	spring spr;
 	while (spring_file.good()) {
 		spring_file >> spr.particle_1;
@@ -54,8 +53,7 @@ void read_particles(struct reb_simulation* const n_body_sim, string fileroot, in
 
 	// Read from file
 	std::cout << "Reading in particles from " << filename << std::endl;
-	std::ifstream particle_file;
-	particle_file.open(filename, std::ifstream::in);
+	std::ifstream particle_file(filename, std::ios::in);
 	struct reb_particle pt;
 	pt.ax = 0.0;
 	pt.ay = 0.0;
@@ -84,8 +82,7 @@ void read_vertex_file(struct reb_simulation* n_body_sim, string filename) {
 
 	// Read vertex into particle structure
 	struct reb_particle pt;
-	std::ifstream vertex_file;
-	vertex_file.open(filename, std::ifstream::in);
+	std::ifstream vertex_file(filename, std::ios::in);
 	pt.ax = 0.0;
 	pt.ay = 0.0;
 	pt.az = 0.0;

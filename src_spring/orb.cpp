@@ -8,6 +8,8 @@ extern "C" {
 #include "physics.h"
 #include "orb.h"
 
+extern int num_perts;
+
 // Add binary perturbers separated by distance sep in a circular orbit
 // Center of mass of new particles set to be in orbit with given orbital elements
 // r_prim is radius for display of primary
@@ -346,71 +348,9 @@ void quadrupole_accel(struct reb_simulation *const n_body_sim, double J2_p,
 /* Orbital properties of resolved body */
 /***************************************/
 
-// Compute orbital properties of resolved body (particles in range [i_low, i_high)) about particle i_prim
-// L is orbital angular momentum per unit mass
-void compute_orb(struct reb_simulation *const n_body_sim, int i_low, int i_high,
-		int i_prim, double *a, double *mean_motion, double *e, double *i,
-		double *L) {
-	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
-
-	// Get total mass of resolved body
-	double m_tot = 0.0;
-	for (int i = i_low; i < i_high; i++) {
-		m_tot += n_body_sim->particles[i].m;
-	}
-
-	// Get center of mass and velocity of resolved body
-	Vector CoM = compute_com(n_body_sim, i_low, i_high);
-	Vector CoV = compute_cov(n_body_sim, i_low, i_high);
-
-	// Get position and velocity of primary
-	Vector x0 =
-			{ particles[i_prim].x, particles[i_prim].y, particles[i_prim].z };
-	Vector v0 = { particles[i_prim].vx, particles[i_prim].vy,
-			particles[i_prim].vz };
-
-	// Displacement and relative velocity
-	Vector dv = v0 - CoV;
-	Vector dx = x0 - CoM;
-
-	// Total mass including primary
-	double M = particles[i_prim].m + m_tot;
-
-	// Gravitational potential energy per unit mass between resolved body and primary
-	double GM = n_body_sim->G * M;
-	double GPE = -GM / dx.len();
-
-	// Kinetic energy per unit mass
-	double KE = 0.5 * pow(dv.len(), 2.0);
-
-	// Total energy per unit mass
-	double E = KE + GPE;
-
-	// Semi-major axis
-	*a = -0.5 * GM / E;
-	*mean_motion = sqrt(GM / (a * a * a)); // mean motion
-
-	// Orbital angular momentum per unit mass
-	Vector r_cross_v = cross(dx, dv);
-	*L = r_cross_v.len();
-
-	// Eccentricity
-	double e2 = 1.0 - pow(*L, 2.0) / (a * GM);
-	if (e2 > 0.0) {
-		*e = sqrt(e2);
-	} else {
-		*e = 0.0;
-	}
-
-	// Inclination
-	*i = acos(r_cross_v.getZ() / *L);
-
-}
-
 // Compute orbital properties of resolved body (particles in range [i_low, i_high)) about all perturbing particles
 // L is orbital angular momentum per unit mass
-void compute_semi_bin(struct reb_simulation *const n_body_sim, int i_low,
+void compute_orb(struct reb_simulation *const n_body_sim, int i_low,
 		int i_high, double *a, double *mean_motion, double *e, double *i,
 		double *L) {
 	// Get particle info

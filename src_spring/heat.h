@@ -18,11 +18,13 @@ typedef struct node {
 } node;
 
 // Transport heat along springs
-void transport_heat(struct reb_simulation* const n_body_sim, node* nodevec, double dt);
+void transport_heat(struct reb_simulation *const n_body_sim, node nodes[],
+		double dt);
 // Apply tidal heating to internal nodes
-void heat_nodes_tidal(struct reb_simulation* const n_body_sim, node* nodevec, double dt);
+void heat_nodes_tidal(struct reb_simulation *const n_body_sim, node nodes[],
+		double dt);
 // Apply radiogenic heating to internal nodes
-void heat_nodes_radiogenic(struct reb_simulation* n_body_sim, node* nodevec,
+void heat_nodes_radiogenic(struct reb_simulation *n_body_sim, node nodes[],
 		double dot_E_rad);
 
 #endif /* SRC_SPRING_HEAT_H_ */

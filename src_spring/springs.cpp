@@ -8,10 +8,12 @@ extern "C" {
 #include "matrix_math.h"
 #include "springs.h"
 
-extern int num_springs; // Current number of springs
-extern stress_tensor *stresses; // Array of stresses for each particle
-int NSmax = 0; // Max number of springs (size of array)
+extern spring springs[];	// Array to store springs
+extern int num_springs;			// Number of springs
+extern int num_perts;			// Number of perturbing point masses
+extern stress_tensor stresses[]; // Array of stresses for each particle
 
+int NSmax = 0; // Max number of springs (size of array)
 const double L_EPS = 1e-6; // Softening for spring length
 
 /********************/

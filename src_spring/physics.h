@@ -13,8 +13,6 @@
 #include "matrix_math.h"
 #include "springs.h"
 
-extern double L_EPS;
-
 /*******************/
 /* Center routines */
 /*******************/
@@ -51,7 +49,7 @@ Vector body_spin(struct reb_simulation *const n_body_sim, int i_low, int i_high,
 void spin_body(struct reb_simulation *const n_body_sim, int i_low, int i_high,
 		Vector omega);
 // Calculate orbital angular momentum
-Vector compute_Lorb(struct reb_simulation *const r, int il, int ih, int npert);
+Vector compute_Lorb(struct reb_simulation *const n_body_sim, int i_low, int i_high);
 // Calculate non-translational kinetic energy of particles in set [i_low, i_high)
 double compute_rot_kin(struct reb_simulation *const n_body_sim, int i_low,
 		int i_high);
