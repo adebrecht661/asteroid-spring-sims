@@ -14,7 +14,7 @@
 struct node {
 	bool is_surf;	// Is node a surface node?
 	double temp;	// Temperature of node
-	double cv;		// Specific heat of node (integrated over mass of node?????)
+	double cv;		// Specific heat of node
 };
 
 // Transport heat along springs

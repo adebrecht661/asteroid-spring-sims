@@ -119,8 +119,8 @@ void read_vertex_file(reb_simulation* n_body_sim, string filename) {
 
 	// Get smallest distance between particles
 	double min_dist = mindist(n_body_sim, i_low, i_high);
+
 	// Adjust radius of each vertex particle
-	////// Why do we keep these particles???????
 	for (int i = i_low; i < i_high; i++) {
 		n_body_sim->particles[i].r = min_dist / 4.0;
 	}

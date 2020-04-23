@@ -644,7 +644,7 @@ bool* mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
 
 	// Initialize vars
 	int num_at_surf = 0;
-	bool *isSurf = (bool*) malloc(sizeof(bool) * n_body_sim->N);
+	bool is_surf[] = (bool*) malloc(sizeof(bool) * n_body_sim->N);
 
 	// Check if particles are close to surface
 	double ifac = sqrt(1.0 + slope * slope);
@@ -663,11 +663,11 @@ bool* mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
 
 		// If near surface, mark and increment
 		if ((dplus < surf_dist) || (dminus < surf_dist)) {
-			isSurf[j] = true;
+			is_surf[j] = true;
 			num_at_surf++;
 			// Otherwise, mark and shrink so only surface particles show
 		} else {
-			isSurf[j] = false;
+			is_surf[j] = false;
 			particles[j].r = 0.001;
 		}
 	}
@@ -675,7 +675,7 @@ bool* mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
 	// Return boolean array of which particles are on surface
 	std::cout << "Number of vertices on surface of cone: " << num_at_surf
 			<< std::endl;
-	return isSurf;
+	return is_surf;
 }
 
 // Mark particles near the surface of an ellipsoid defined by semi-axes x, y, z
@@ -726,7 +726,7 @@ void rm_particles(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Throw error if low index is above high index
 	if (i_low > i_high)
-		throw;
+		throw "rm_particles: Low index is above high index";
 
 	// Remove i_low repeatedly
 	// Particles are shifted downward after each removal

@@ -203,13 +203,13 @@ void make_binary_spring(reb_simulation *const n_body_sim, double mass_1,
 	// Add particle 1
 	particle.m = mass_1;
 	particle.x = sep * mass_2 / (mass_1 + mass_2);
-	particle.r = sep * 0.3; // How was this determined????
+	particle.r = sep * 0.3;
 	reb_add(n_body_sim, particle);
 
 	// Add particle 2
 	particle.m = mass_2;
 	particle.x = -sep * mass_1 / (mass_1 + mass_2);
-	particle.r *= pow(mass_1 / mass_2, 0.33333); // How was this determined?????
+	particle.r *= pow(mass_1 / mass_2, 0.33333);
 	reb_add(n_body_sim, particle);
 
 	// Spin the two particles
