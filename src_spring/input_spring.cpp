@@ -29,8 +29,8 @@ extern "C" {
 using std::string;
 using std::vector;
 
-extern int num_springs; // Total number of springs
-extern vector<node> nodes;
+extern int num_springs;		// Total number of springs
+extern vector<node> nodes;	// Node vector
 
 /******************/
 /* Input routines */
@@ -45,13 +45,15 @@ void read_springs(string fileroot, int index) {
 	std::cout << "Reading in springs from " << filename << std::endl;
 	std::ifstream spring_file(filename, std::ios::in);
 	spring spr;
-	while (spring_file.good()) {
-		spring_file >> spr.particle_1;
-		spring_file >> spr.particle_2;
-		spring_file >> spr.k;
-		spring_file >> spr.rs0;
-		spring_file >> spr.gamma;
-		spring_file >> spr.k_heat;
+	string line;
+	while (std::getline(spring_file, line)) {
+		std::istringstream input_stream(line);
+
+		if (!(input_stream >> spr.particle_1 >> spr.particle_2 >> spr.k
+				>> spr.rs0 >> spr.gamma >> spr.k_heat)) {
+			throw "I/O error in read_springs.";
+		}
+
 		// Add spring
 		add_spring_helper(spr);
 	}
@@ -73,15 +75,15 @@ void read_particles(reb_simulation *const n_body_sim, string fileroot,
 	pt.ax = 0.0;
 	pt.ay = 0.0;
 	pt.az = 0.0;
-	while (particle_file.good()) {
-		particle_file >> pt.x;
-		particle_file >> pt.y;
-		particle_file >> pt.z;
-		particle_file >> pt.vx;
-		particle_file >> pt.vy;
-		particle_file >> pt.vz;
-		particle_file >> pt.r;
-		particle_file >> pt.m;
+	string line;
+	while (std::getline(particle_file, line)) {
+		std::istringstream input_stream(line);
+
+		if (!(input_stream >> pt.x >> pt.y >> pt.z >> pt.vx >> pt.vy >> pt.vz
+				>> pt.r >> pt.m)) {
+			throw "I/O error in read_particles.";
+		}
+
 		// Add particle
 		reb_add(n_body_sim, pt);
 	}
@@ -118,11 +120,14 @@ void read_vertices(reb_simulation *n_body_sim, string filename) {
 	pt.m = 1.0; // arbitrary mass
 	pt.r = 1.0; // arbitrary radius
 	char type;
-	while (vertex_file.good()) {
-		vertex_file >> type;
-		vertex_file >> pt.x;
-		vertex_file >> pt.y;
-		vertex_file >> pt.z;
+	string line;
+	while (std::getline(vertex_file, line)) {
+		std::istringstream input_stream(line);
+
+		if (!(input_stream >> type >> pt.x >> pt.y >> pt.z)) {
+			throw "I/O error in read_vertices.";
+		}
+
 		// If line is a vertex, add it
 		if (type == 'v') {
 			reb_add(n_body_sim, pt);
