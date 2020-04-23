@@ -829,8 +829,8 @@ struct reb_simulation {
 	void *extras;
 	/** @} */
 	int NS; //ACQ number of springs
-	int *springs_ii;  // ACQ  pointers to spring connection lists
-	int *springs_jj;  // ACQ
+	int *springs_i;  // ACQ  pointers to spring connection lists
+	int *springs_j;  // ACQ
 	int *springs_c;  // ACQ spring color ?
 
 };

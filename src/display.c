@@ -1306,8 +1306,8 @@ void reb_display_prepare_data(struct reb_simulation* const r, int orbits, int sp
 // copy springs vertices into an array that can be seen by displayer ACQ
     if (springsd){
         for (int i=0;i<r_copy->NS;i++){ 
-            int ii = r_copy->springs_ii[i];
-            int jj = r_copy->springs_jj[i];
+            int ii = r_copy->springs_i[i];
+            int jj = r_copy->springs_j[i];
             struct reb_particle pii = r_copy->particles[ii];
             struct reb_particle pjj = r_copy->particles[jj];
             data->springs_v_data[2*i].x  = pii.x;
