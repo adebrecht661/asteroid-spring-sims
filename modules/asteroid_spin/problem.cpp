@@ -32,7 +32,7 @@ using std::vector;
 int num_springs;	// Global numbers of springs
 vector<spring> springs;	// Global spring array
 
-double gamma_all;		// Default damping coefficient for all springs
+double def_gamma;		// Default damping coefficient for all springs
 double t_damp;			// Time to end stronger damping coefficient
 double print_interval;	// Interval to print out spring and particle info
 string fileroot;   		// Output file base name
@@ -72,8 +72,8 @@ int main(int argc, char *argv[]) {
 		tmax = 0.0;					// Max integration time
 		print_interval = 100.0;     // Interval at which to print results
 		k = 0.005;					// Spring constant
-		gamma_all = 1.0;			// Base spring damping coefficient
-		gamma_fac = 5.0;// Factor by which initial damping is higher that gamma_all
+		def_gamma = 1.0;			// Base spring damping coefficient
+		gamma_fac = 5.0;// Factor by which initial damping is higher that gamma
 		t_damp = 1.0;				// Turn of damping at this time
 		omega = { 0, 0, 0.8 };		// Initial spin
 		max_spring_dist = 0.1;// Max distance to connect particles with springs
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
 
 	// Set up default spring parameters
 	spring default_spring;
-	default_spring.gamma = gamma_fac * gamma_all; // initial damping coefficient
+	default_spring.gamma = gamma_fac * def_gamma; // initial damping coefficient
 	default_spring.k = k; // spring constant
 
 	// Open output file - overwrites any existing files
@@ -187,7 +187,7 @@ void heartbeat(reb_simulation *const n_body_sim) {
 	// Damp initial bounce only
 	// Reset gamma at t near t_damp
 	if (abs(n_body_sim->t - t_damp) < 0.9 * n_body_sim->dt)
-		set_gamma(gamma_all);
+		set_gamma(def_gamma);
 
 	// Move reference frame to resolved body for display
 	center_sim(n_body_sim, 0, n_body_sim->N - num_perts);
