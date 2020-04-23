@@ -26,7 +26,7 @@ void write_resolved_with_E(reb_simulation *const n_body_sim, int i_low, int i_hi
 // Write information about resolved body to specified filename
 // t x y z vx vy vz omx omy omz llx lly llz Ixx Iyy Izz Ixy Iyz Ixz
 void write_resolved_no_E(reb_simulation *const n_body_sim, int i_low, int i_high,
-		string filename, double dEdt_ave);
+		string filename);
 // Write information about particle with largest x value and particle with largest z value at first print
 // t x y z vx vy vz x y z vx vy vz
 void write_resolved_2nodes(reb_simulation *const n_body_sim, int i_low,

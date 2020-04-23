@@ -17,10 +17,22 @@ extern "C" {
 
 using std::vector;
 
-extern spring springs[]; // Spring array
+extern vector<spring> springs; // Spring array
 extern int num_springs; // Number of springs
 extern int num_perts; // Number of perturbers
 vector<node> nodes; // Node array
+
+// Set up node vector
+void init_nodes(struct reb_simulation *const n_body_sim, double Cv, double T0) {
+	// Get default values
+	node def_node;
+	def_node.cv = Cv;
+	def_node.is_surf = false;
+	def_node.temp = T0;
+
+	// Init n copies of default node
+	nodes = vector<node>(n_body_sim->N, def_node);
+}
 
 // Conductive heat transport over spring network
 // Update temperature on each node for the timestep with size dt

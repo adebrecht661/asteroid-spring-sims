@@ -37,10 +37,10 @@ extern "C" {
 using std::string;
 using std::vector;
 
-extern spring springs[];
+extern vector<spring> springs;
 extern int num_springs;
 extern int num_perts;
-extern stress_tensor stresses[];
+extern vector<stress_tensor> stresses;
 extern vector<node> nodes;
 
 /********************/

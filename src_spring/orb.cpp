@@ -7,6 +7,7 @@
 #endif
 
 #include <cmath>
+#include <vector>
 extern "C" {
 #include "rebound.h"
 }
@@ -14,9 +15,13 @@ extern "C" {
 #include "springs.h"
 #include "kepcart.h"
 #include "physics.h"
+#include "heat.h"
 #include "orb.h"
 
+using std::vector;
+
 extern int num_perts;
+extern vector<node> nodes;
 
 // Add binary perturbers separated by distance sep in a circular orbit
 // Center of mass of new particles set to be in orbit with given orbital elements
@@ -86,6 +91,17 @@ double add_bin_kep(reb_simulation *const n_body_sim, double m_prim,
 	pt.r = r_1;
 	reb_add(n_body_sim, pt);
 
+	// If nodes vector has already been initialized, increase size to account for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(nodes.size() + 2, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (add_bin_kep)";
+	}
+
 	// Get orbital angular velocity (mean motion) of resolved body
 	double a = orb_el.a;
 	double omega_orb = sqrt(GM / a) / a;
@@ -108,9 +124,8 @@ double add_bin_kep(reb_simulation *const n_body_sim, double m_prim,
 //    The point mass is added at origin
 //    If extended body is rotating then it still rotates, but if orbit is tilted then obliquity will not be the same
 // Returns mean motion of new orbit
-double add_pt_mass_kep(reb_simulation *const n_body_sim, int i_low,
-		int i_high, int i_p, double mass, double radius,
-		OrbitalElements orb_el) {
+double add_pt_mass_kep(reb_simulation *const n_body_sim, int i_low, int i_high,
+		int i_p, double mass, double radius, OrbitalElements orb_el) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -174,6 +189,17 @@ double add_pt_mass_kep(reb_simulation *const n_body_sim, int i_low,
 
 	// Add new particle
 	reb_add(n_body_sim, pt);
+
+	// If nodes vector has already been initialized, increase size to account for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(nodes.size() + 1, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (add_pt_mass_kep)";
+	}
 
 	// Return mean motion of new orbit
 	double a = orb_el.a;
@@ -296,8 +322,8 @@ void drift_resolved(reb_simulation *const n_body_sim, double timestep,
 // i_p is the array index of the planet with the quadrupole moment
 // See https://en.wikipedia.org/wiki/Geopotential_model
 // Takes into account orientation of planet's north pole
-void quadrupole_accel(reb_simulation *const n_body_sim, double J2_p,
-		double R_p, double phi_p, double theta_p, int i_p) {
+void quadrupole_accel(reb_simulation *const n_body_sim, double J2_p, double R_p,
+		double phi_p, double theta_p, int i_p) {
 	// Return if particle index is out of range
 	if (i_p >= n_body_sim->N)
 		return;
@@ -358,9 +384,8 @@ void quadrupole_accel(reb_simulation *const n_body_sim, double J2_p,
 
 // Compute orbital properties of resolved body (particles in range [i_low, i_high)) about all perturbing particles
 // L is orbital angular momentum per unit mass
-void compute_orb(reb_simulation *const n_body_sim, int i_low,
-		int i_high, double *a, double *mean_motion, double *e, double *i,
-		double *L) {
+void compute_orb(reb_simulation *const n_body_sim, int i_low, int i_high,
+		double *a, double *mean_motion, double *e, double *i, double *L) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -429,8 +454,7 @@ void compute_orb(reb_simulation *const n_body_sim, int i_low,
 /********/
 
 // Compute total mass of particles in particle range [i_low, i_high)
-double sum_mass(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+double sum_mass(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 

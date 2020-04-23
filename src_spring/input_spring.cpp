@@ -13,6 +13,7 @@
  *      Author: alex
  */
 
+#include <vector>
 #include <string>
 #include <iostream>
 #include <iomanip>
@@ -22,11 +23,14 @@ extern "C" {
 }
 #include "springs.h"
 #include "shapes.h" // For mindist - nowhere good for misc functions
+#include "heat.h"
 #include "input_spring.h"
 
 using std::string;
+using std::vector;
 
 extern int num_springs; // Total number of springs
+extern vector<node> nodes;
 
 /******************/
 /* Input routines */
@@ -56,9 +60,11 @@ void read_springs(string fileroot, int index) {
 }
 
 // Read particles in from specified file
-void read_particles(reb_simulation* const n_body_sim, string fileroot, int index) {
+void read_particles(reb_simulation *const n_body_sim, string fileroot,
+		int index) {
 	// Set filename
-	string filename = fileroot + "_" + zero_pad_int(6, index) + "_particles.txt";
+	string filename = fileroot + "_" + zero_pad_int(6, index)
+			+ "_particles.txt";
 
 	// Read from file
 	std::cout << "Reading in particles from " << filename << std::endl;
@@ -81,11 +87,22 @@ void read_particles(reb_simulation* const n_body_sim, string fileroot, int index
 	}
 	particle_file.close();
 	std::cout << "Read " << n_body_sim->N << " particles." << std::endl;
+
+	// If nodes vector has already been initialized, increase size to account for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(nodes.size() + n_body_sim->N, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (read_particles)";
+	}
 }
 
 // Read in a vertex (shape) file from filename
 // File is ASCII in form "char x y z", where char is v if line defines a vertex and x, y, z are vertex positions in units of km
-void read_vertex_file(reb_simulation* n_body_sim, string filename) {
+void read_vertices(reb_simulation *n_body_sim, string filename) {
 	// Get current number of particles
 	int i_low = n_body_sim->N;
 
@@ -115,7 +132,8 @@ void read_vertex_file(reb_simulation* n_body_sim, string filename) {
 
 	// Get new number of particles
 	int i_high = n_body_sim->N;
-	std::cout << "Read " << i_high - i_low << " vertices from " << filename << std::endl;
+	std::cout << "Read " << i_high - i_low << " vertices from " << filename
+			<< std::endl;
 
 	// Get smallest distance between particles
 	double min_dist = mindist(n_body_sim, i_low, i_high);
@@ -131,9 +149,8 @@ void read_vertex_file(reb_simulation* n_body_sim, string filename) {
 /***********/
 
 // Helper function to pad ints
-string zero_pad_int(int width, int num)
-{
-    std::ostringstream ss;
-    ss << std::setw( width ) << std::setfill( '0' ) << num;
-    return ss.str();
+string zero_pad_int(int width, int num) {
+	std::ostringstream ss;
+	ss << std::setw(width) << std::setfill('0') << num;
+	return ss.str();
 }

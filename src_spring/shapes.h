@@ -53,13 +53,13 @@ void stretch_xyz(reb_simulation *const n_body_sim, int i_low, int i_high,
 /*****************/
 
 // Mark surface particles and shrink interior particles of arbitrary shape defined by particles in set [i_low, i_high)
-bool* mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
+void mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
 		int i_low, int i_high, double surf_dist);
 // Mark surface particles and shrink interior particles of cone of radius and height
-bool* mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
+void mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
 		double surf_dist, double radius, double height);
 // Mark surface particles and shrink interior particles of ellipsoid with semi-axes x, y, z
-bool* mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
+void mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
 		double surf_dist, double x, double y, double z);
 
 /***********/

@@ -17,9 +17,10 @@ struct node {
 	double cv;		// Specific heat of node
 };
 
+// Set up node vector
+void init_nodes(struct reb_simulation *const n_body_sim, double Cv, double T0);
 // Transport heat along springs
-void transport_heat(reb_simulation *const n_body_sim, node nodes[],
-		double dt);
+void transport_heat(reb_simulation *const n_body_sim, node nodes[], double dt);
 // Apply tidal heating to internal nodes
 void heat_nodes_tidal(reb_simulation *const n_body_sim, node nodes[],
 		double dt);

@@ -12,9 +12,10 @@
 extern "C" {
 #include "rebound.h"
 }
+#include "matrix_math.h"
 #include "stress.h"
 #include "physics.h"
-#include "matrix_math.h"
+#include "heat.h"
 #include "springs.h"
 
 using std::vector;
@@ -22,7 +23,8 @@ using std::vector;
 extern vector<spring> springs;		// Array to store springs
 extern int num_springs;			// Number of springs
 extern int num_perts;			// Number of perturbing point masses
-extern stress_tensor stresses[];		// Array of stresses for each particle
+extern vector<stress_tensor> stresses;		// Array of stresses for each particle
+extern vector<node> nodes;
 
 int NSmax = 0; // Max number of springs (size of array)
 extern const double L_EPS = 1e-6; // Softening for spring length
@@ -45,8 +47,8 @@ void del_spring(reb_simulation *const n_body_sim, int spring_index) {
 // Set the natural distance of the spring to the current interparticle distance
 // Spring constant is not scaled
 // Return -1 if no spring created because you're trying to connect a particle to itself
-int add_spring(reb_simulation *const n_body_sim, int particle_1,
-		int particle_2, spring spr) {
+int add_spring(reb_simulation *const n_body_sim, int particle_1, int particle_2,
+		spring spr) {
 	int particle_low, particle_high;
 
 	// Don't add spring if vertices are the same
@@ -93,8 +95,8 @@ void add_spring_helper(spring spr) {
 
 // Connect springs to all particles with interparticle distances less than max_dist apart for particle index range [i_low,i_high-1]
 // Spring is added with rest length at current length
-void connect_springs_dist(reb_simulation *const n_body_sim,
-		double max_dist, int i_low, int i_high, spring spr) {
+void connect_springs_dist(reb_simulation *const n_body_sim, double max_dist,
+		int i_low, int i_high, spring spr) {
 	// Get particle info from sim
 	reb_particle *particles = n_body_sim->particles;
 
@@ -217,6 +219,17 @@ void make_binary_spring(reb_simulation *const n_body_sim, double mass_1,
 
 	// Connect particles with a spring
 	connect_springs_dist(n_body_sim, sep * 1.1, i_low, i_high, spring_vals);
+
+	// If nodes vector has already been initialized, increase size to account for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(nodes.size() + 2, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (make_binary_spring)";
+	}
 }
 
 /*********************/
@@ -267,8 +280,7 @@ double mean_k(reb_simulation *const n_body_sim) {
 }
 
 // Compute spring midpoint location from arbitrary center (Cartesian coordinates)
-Vector spr_mid(reb_simulation *const n_body_sim, spring spr,
-		Vector center) {
+Vector spr_mid(reb_simulation *const n_body_sim, spring spr, Vector center) {
 	// Get simulation and spring information
 	reb_particle *particles = n_body_sim->particles;
 	int i = spr.particle_1;
@@ -352,8 +364,7 @@ void spring_forces(reb_simulation *const n_body_sim) {
 
 // Return the spring force vector for spring spring_index
 // Divide by mass to get acceleration of particle i or j
-Vector spring_i_force(reb_simulation *const n_body_sim,
-		int spring_index) {
+Vector spring_i_force(reb_simulation *const n_body_sim, int spring_index) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 

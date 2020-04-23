@@ -17,11 +17,17 @@
 
 #include <cfloat>
 #include <cmath>
+#include <vector>
 extern "C" {
 #include "rebound.h"
 }
 #include "springs.h"
+#include "heat.h"
 #include "shapes.h"
+
+using std::vector;
+
+extern vector<node> nodes;
 
 /**************/
 /* Generators */
@@ -29,8 +35,8 @@ extern "C" {
 
 // Create an approximately uniform random particle distribution with total_mass within rectangular prism given by lengths x, y, z
 // No particles closer than min_dist created
-void rand_rectangle(reb_simulation *const n_body_sim, double min_dist,
-		double x, double y, double z, double total_mass) {
+void rand_rectangle(reb_simulation *const n_body_sim, double min_dist, double x,
+		double y, double z, double total_mass) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -78,6 +84,17 @@ void rand_rectangle(reb_simulation *const n_body_sim, double min_dist,
 
 	// Get current number of particles
 	N = n_body_sim->N;
+
+	// If nodes vector has already been initialized, increase size to account for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(N, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (rand_rectangle)";
+	}
 
 	// Adjust mass of each particle so that they sum to desired total mass
 	double particle_mass = total_mass / (N - i_0);
@@ -145,6 +162,17 @@ void rand_rectangle_2d(reb_simulation *const n_body_sim, double min_dist,
 	// Get current number of particles
 	N = n_body_sim->N;
 
+	// If nodes vector has already been initialized, increase size to account for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(N, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (rand_rectangle_2d)";
+	}
+
 	// Adjust mass of each particle so that they sum to desired total mass
 	double particle_mass = total_mass / (N - i_0);
 	for (int i = i_0; i < N; i++) {
@@ -160,8 +188,8 @@ void rand_rectangle_2d(reb_simulation *const n_body_sim, double min_dist,
 
 // Create an approximately uniform random particle distribution with total_mass within a cone given by base radius, height
 // No particles closer than min_dist created
-void rand_cone(reb_simulation *const n_body_sim, double min_dist,
-		double radius, double height, double total_mass) {
+void rand_cone(reb_simulation *const n_body_sim, double min_dist, double radius,
+		double height, double total_mass) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -218,6 +246,17 @@ void rand_cone(reb_simulation *const n_body_sim, double min_dist,
 	// Get current number of particles
 	N = n_body_sim->N;
 
+	// If nodes vector has already been initialized, increase size to account for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(N, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (rand_cone)";
+	}
+
 	// Adjust mass of each particle so that sums to desired total mass
 	double particle_mass = total_mass / (N - i_0);
 	for (int i = i_0; i < N; i++) {
@@ -233,8 +272,8 @@ void rand_cone(reb_simulation *const n_body_sim, double min_dist,
 
 // Create an approximately uniform random particle distribution with total_mass within an ellipsoid shape given by semi-axes x, y, z
 // No particles closer than min_dist created
-void rand_ellipsoid(reb_simulation *const n_body_sim, double min_dist,
-		double x, double y, double z, double total_mass) {
+void rand_ellipsoid(reb_simulation *const n_body_sim, double min_dist, double x,
+		double y, double z, double total_mass) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -287,6 +326,17 @@ void rand_ellipsoid(reb_simulation *const n_body_sim, double min_dist,
 
 	// Get current number of particles
 	N = n_body_sim->N;
+
+	// If nodes vector has already been initialized, increase size to account for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(N, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (rand_ellipsoid)";
+	}
 
 	// Adjust mass of each particle so that they sum to desired total mass
 	double particle_mass = total_mass / (N - i_0);
@@ -368,6 +418,17 @@ void hcp_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 	// Get current number of particles
 	N = n_body_sim->N;
 
+	// If nodes vector has already been initialized, increase size to account for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(N, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (hcp_ellipsoid)";
+	}
+
 	// Adjust mass of each particle so that they sum to desired total mass
 	// Adjust radius of each particle so they have radius of 1/4 smallest distance between any particles
 	double particle_mass = total_mass / (N - i_0);
@@ -384,8 +445,8 @@ void hcp_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 
 // Create an ellipsoid of particles using a cubic lattice with total_mass, semi-axes x, y, z
 // No particles closer than min_dist created
-void cubic_ellipsoid(reb_simulation *n_body_sim, double min_dist,
-		double x, double y, double z, double total_mass) {
+void cubic_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
+		double y, double z, double total_mass) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -442,6 +503,17 @@ void cubic_ellipsoid(reb_simulation *n_body_sim, double min_dist,
 
 	// Get current number of particles
 	N = n_body_sim->N;
+
+	// If nodes vector has already been initialized, increase size to account for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(N, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (cubic_ellipsoid)";
+	}
 
 	// Adjust mass of each particle so that they sum to desired total mass
 	// Adjust radius of each particle so they have radius of 1/4 smallest distance between any particles
@@ -520,6 +592,17 @@ void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 	// Get current number of particles
 	N = n_body_sim->N;
 
+	// If nodes vector has already been initialized, increase size to account for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(N, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (rand_shape)";
+	}
+
 	// Adjust mass of each particle so that they sum to desired total mass
 	double particle_mass = total_mass / (N - i_0);
 	for (int i = i_0; i < N; i++) {
@@ -561,25 +644,25 @@ void stretch_xyz(reb_simulation *const n_body_sim, int i_low, int i_high,
 /*****************/
 
 // Create and fill array that marks particles that are within surf_dist of the surface of arbitrary shape
-bool* mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
-		int i_low, int i_high, double surf_dist) {
+// Shape vertices are [i_low, i_high)
+void mark_surf_shrink_int_shape(reb_simulation *const n_body_sim, int i_low,
+		int i_high, double surf_dist) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
 	// Initialize vars
+	// Check size of node vector
 	int num_at_surf = 0;
-	bool is_surf[] = (bool*) malloc(sizeof(bool) * n_body_sim->N);
+	if ((int) nodes.size() != n_body_sim->N - i_high + i_low) {
+		throw "mark_surf_shrink_int_shape: Nodes vector is incorrectly sized. Have you added or removed particles (other than shape particles) since initializing it?";
+	}
 
 	// Find particles at surface
 	// 0 to i_low
-	for (int j = 0; j < i_low; j++) {
-
-		// Get index after removal of shape particles and initialize
-		int i = j;
-		is_surf[i] = false;
+	for (int i = 0; i < i_low; i++) {
 
 		// Get current position
-		Vector x = { particles[j].x, particles[j].y, particles[j].z };
+		Vector x = { particles[i].x, particles[i].y, particles[i].z };
 
 		// Determine closest particle in shape vertices
 		int nearest_particle = nearest_to_point(n_body_sim, i_low, i_high, x);
@@ -591,11 +674,12 @@ bool* mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
 
 		// If near surface, set true and add to number of surface particles
 		if (dx.len() < surf_dist) {
-			is_surf[i] = true;
+			nodes[i].is_surf = true;
 			num_at_surf++;
 			// Otherwise, shrink particle so only surface is visible
 		} else {
-			particles[j].r = 0.001;
+			nodes[i].is_surf = false;
+			particles[i].r = 0.001;
 		}
 	}
 
@@ -618,11 +702,11 @@ bool* mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
 
 		// If near surface, set true and add to number of surface particles
 		if (dx.len() < surf_dist) {
-			is_surf[i] = true;
+			nodes[i].is_surf = true;
 			num_at_surf++;
 			// Otherwise, shrink particle so only surface is visible
 		} else {
-			is_surf[i] = false;
+			nodes[i].is_surf = false;
 			particles[j].r = 0.001;
 		}
 	}
@@ -630,11 +714,10 @@ bool* mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
 	// Return boolean array of which particles are on surface
 	std::cout << "Number of vertices on surface of shape: " << num_at_surf
 			<< std::endl;
-	return is_surf;
 }
 
 // Mark particles near the surface of a cone
-bool* mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
+void mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
 		double surf_dist, double radius, double height) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -644,16 +727,18 @@ bool* mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
 
 	// Initialize vars
 	int num_at_surf = 0;
-	bool is_surf[] = (bool*) malloc(sizeof(bool) * n_body_sim->N);
+	if ((int) nodes.size() != n_body_sim->N) {
+		throw "mark_surf_shrink_int_cone: Nodes vector is incorrectly sized. Have you added or removed particles since initializing it?";
+	}
 
 	// Check if particles are close to surface
 	double ifac = sqrt(1.0 + slope * slope);
-	for (int j = 0; j < n_body_sim->N; j++) {
+	for (int i = 0; i < n_body_sim->N; i++) {
 
 		// Get particle location and cone location
-		double x = particles[j].x;
-		double y = particles[j].y;
-		double z = particles[j].z;
+		double x = particles[i].x;
+		double y = particles[i].y;
+		double z = particles[i].z;
 		double cur_rad = sqrt(x * x + y * y);
 		double max_height = height - cur_rad * slope;
 
@@ -663,30 +748,31 @@ bool* mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
 
 		// If near surface, mark and increment
 		if ((dplus < surf_dist) || (dminus < surf_dist)) {
-			is_surf[j] = true;
+			nodes[i].is_surf = true;
 			num_at_surf++;
 			// Otherwise, mark and shrink so only surface particles show
 		} else {
-			is_surf[j] = false;
-			particles[j].r = 0.001;
+			nodes[i].is_surf = false;
+			particles[i].r = 0.001;
 		}
 	}
 
 	// Return boolean array of which particles are on surface
 	std::cout << "Number of vertices on surface of cone: " << num_at_surf
 			<< std::endl;
-	return is_surf;
 }
 
 // Mark particles near the surface of an ellipsoid defined by semi-axes x, y, z
-bool* mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
+void mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
 		double surf_dist, double x, double y, double z) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
 	// Initialize vars
 	int num_at_surf = 0;
-	bool *isSurf = (bool*) malloc(sizeof(bool) * n_body_sim->N);
+	if ((int) nodes.size() != n_body_sim->N) {
+		throw "mark_surf_shrink_int_ellipsoid: Nodes vector is incorrectly sized. Have you added or removed particles since initializing it?";
+	}
 
 	// Check if particle is close to surface
 	for (int i = 0; i < n_body_sim->N; i++) {
@@ -702,11 +788,11 @@ bool* mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
 
 		// If at surface, mark and increment number of surface particles
 		if ((dist < surf_dist) && (dist > 0)) {
-			isSurf[i] = true;
+			nodes[i].is_surf = true;
 			num_at_surf++;
 			// Otherwise, shrink so that only surface is visible
 		} else {
-			isSurf[i] = false;
+			nodes[i].is_surf = false;
 			n_body_sim->particles[i].r = 0.001;
 		}
 	}
@@ -714,7 +800,6 @@ bool* mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
 	// Return boolean array of which particles are on surface
 	std::cout << "Number of vertices on surface of ellipsoid: " << num_at_surf
 			<< std::endl;
-	return isSurf;
 }
 
 /***********/
@@ -722,8 +807,7 @@ bool* mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
 /***********/
 
 // Remove particles [i_low, i_high)
-void rm_particles(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+void rm_particles(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Throw error if low index is above high index
 	if (i_low > i_high)
 		throw "rm_particles: Low index is above high index";
@@ -796,8 +880,7 @@ int nearest_to_point(reb_simulation *n_body_sim, int i_low, int i_high,
 }
 
 // Return minimum radius of particles in index range [i_low, i_high)
-double min_radius(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+double min_radius(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -815,8 +898,7 @@ double min_radius(reb_simulation *const n_body_sim, int i_low,
 }
 
 // Return maximum radius of particles in index range [i_low, i_high)
-double max_radius(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+double max_radius(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 

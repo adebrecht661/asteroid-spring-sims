@@ -22,7 +22,7 @@ void read_springs(string fileroot, int index);
 // Read particles from fileroot_%06d_particles.txt
 void read_particles(reb_simulation* const n_body_sim, string fileroot, int index);
 // Read vertices from filename
-void read_vertex_file(reb_simulation* n_body_sim, string filename);
+void read_vertices(reb_simulation* n_body_sim, string filename);
 
 /***********/
 /* Helpers */
