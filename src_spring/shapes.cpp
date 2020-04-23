@@ -568,7 +568,7 @@ bool* mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
 
 	// Initialize vars
 	int num_at_surf = 0;
-	bool *isSurf = (bool*) malloc(sizeof(bool) * n_body_sim->N);
+	bool is_surf[] = (bool*) malloc(sizeof(bool) * n_body_sim->N);
 
 	// Find particles at surface
 	// 0 to i_low
@@ -576,7 +576,7 @@ bool* mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
 
 		// Get index after removal of shape particles and initialize
 		int i = j;
-		isSurf[i] = false;
+		is_surf[i] = false;
 
 		// Get current position
 		Vector x = { particles[j].x, particles[j].y, particles[j].z };
@@ -591,7 +591,7 @@ bool* mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
 
 		// If near surface, set true and add to number of surface particles
 		if (dx.len() < surf_dist) {
-			isSurf[i] = true;
+			is_surf[i] = true;
 			num_at_surf++;
 			// Otherwise, shrink particle so only surface is visible
 		} else {
@@ -618,11 +618,11 @@ bool* mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
 
 		// If near surface, set true and add to number of surface particles
 		if (dx.len() < surf_dist) {
-			isSurf[i] = true;
+			is_surf[i] = true;
 			num_at_surf++;
 			// Otherwise, shrink particle so only surface is visible
 		} else {
-			isSurf[i] = false;
+			is_surf[i] = false;
 			particles[j].r = 0.001;
 		}
 	}
@@ -630,7 +630,7 @@ bool* mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
 	// Return boolean array of which particles are on surface
 	std::cout << "Number of vertices on surface of shape: " << num_at_surf
 			<< std::endl;
-	return isSurf;
+	return is_surf;
 }
 
 // Mark particles near the surface of a cone
@@ -655,11 +655,11 @@ bool* mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
 		double y = particles[j].y;
 		double z = particles[j].z;
 		double cur_rad = sqrt(x * x + y * y);
-		double max_height = cur_rad * slope;
+		double max_height = height - cur_rad * slope;
 
-		// Distances to surface??????
-		double dplus = abs(z + max_height - height) / ifac;
-		double dminus = abs(z - max_height + height) / ifac;
+		// Distances to surface
+		double dplus = abs(z - max_height) / ifac;
+		double dminus = abs(z + max_height) / ifac;
 
 		// If near surface, mark and increment
 		if ((dplus < surf_dist) || (dminus < surf_dist)) {
