@@ -13,7 +13,7 @@
 #include "matrix_math.h"
 
 // Stress tensor for each node
-typedef struct stress_tensor {
+struct stress_tensor {
 	// Stress tensor
 	Matrix stress;
 
@@ -23,15 +23,15 @@ typedef struct stress_tensor {
 	double max_force;  // Max force on a spring
 	int max_force_spring;  // Index of spring giving max force
 	bool failing;  // Is there material failure?
-} stress_tensor;
+};
 
 // Update stress tensor for each node
-void update_stress(struct reb_simulation *const n_body_sim);
+void update_stress(reb_simulation *const n_body_sim);
 // Mark nodes that have surpassed tensile strength (internal and surface nodes differ in strength)
-int mark_failed_nodes(struct reb_simulation *const n_body_sim, double mass_div,
+int mark_failed_nodes(reb_simulation *const n_body_sim, double mass_div,
 		double tens_str_int, double tens_str_surf);
 // Calculate Young's modulus of springs with midpoints inside radius range [r_min, r_max] from center of mass of particles in set [i_low, i_high)
-double Young_mesh(struct reb_simulation *const n_body_sim, int i_low,
+double Young_mesh(reb_simulation *const n_body_sim, int i_low,
 		int i_high, double r_min, double r_max);
 // Calculate Young's modulus of complete simulation
 // Caution: Assumes radius = 1

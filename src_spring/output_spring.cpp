@@ -1,11 +1,22 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 /*
  * output.cpp
+ *
+ * Output routines
  *
  *  Created on: Apr 15, 2020
  *      Author: alex
  */
 
 #include <cmath>
+#include <vector>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -20,14 +31,17 @@ extern "C" {
 #include "heat.h"
 #include "shapes.h"
 #include "orb.h"
-#include "input.h" // For padding function - nowhere good for misc functions
-#include "output.h"
+#include "input_spring.h" // For padding function - nowhere good for misc functions
+#include "output_spring.h"
+
+using std::string;
+using std::vector;
 
 extern spring springs[];
 extern int num_springs;
 extern int num_perts;
 extern stress_tensor stresses[];
-extern node nodes[];
+extern vector<node> nodes;
 
 /********************/
 /* Output functions */
@@ -35,8 +49,8 @@ extern node nodes[];
 
 // Write out positions and velocities of surface particles
 // Can write at multiple times
-void write_surf_part(struct reb_simulation *const n_body_sim, int i_low,
-		int i_high, bool is_surf, string filename) {
+void write_surf_part(reb_simulation *const n_body_sim, int i_low, int i_high,
+		bool is_surf[], string filename) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -78,7 +92,7 @@ void write_surf_part(struct reb_simulation *const n_body_sim, int i_low,
 }
 
 // Write out information for an extended body with indices [i_low, i_high)
-void write_resolved_with_E(struct reb_simulation *const n_body_sim, int i_low,
+void write_resolved_with_E(reb_simulation *const n_body_sim, int i_low,
 		int i_high, string filename, double dEdt_ave) {
 
 	// Open output file to append (created if it doesn't exist)
@@ -145,7 +159,7 @@ void write_resolved_with_E(struct reb_simulation *const n_body_sim, int i_low,
 
 // Write out information for an extended body with indices [i_low, i_high)
 // No energy terms
-void write_resolved_no_E(struct reb_simulation *const n_body_sim, int i_low,
+void write_resolved_no_E(reb_simulation *const n_body_sim, int i_low,
 		int i_high, string filename) {
 
 	// Open output file to append (created if it doesn't exist)
@@ -193,7 +207,7 @@ void write_resolved_no_E(struct reb_simulation *const n_body_sim, int i_low,
 // The first node has largest x value at initial time
 // The second node has largest z value at initial time
 // Same nodes are printed each time after they are chosen
-void write_resolved_2nodes(struct reb_simulation *const n_body_sim, int i_low,
+void write_resolved_2nodes(reb_simulation *const n_body_sim, int i_low,
 		int i_high, string filename) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -238,13 +252,14 @@ void write_resolved_2nodes(struct reb_simulation *const n_body_sim, int i_low,
 
 // Write out information for a point mass with particle index i_pert
 // pert_num is count of perturbing particle
-void write_pt_mass(struct reb_simulation *const n_body_sim, int i_pert,
-		int pert_num, string filename) {
+void write_pt_mass(reb_simulation *const n_body_sim, int i_pert, int pert_num,
+		string filename) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Record whether it's the first run for each particle
-	static bool first[num_perts];
+	const int max_perts = 100;
+	static bool first[max_perts];
 
 	// Initialize boolean array
 	static bool first_run = true;
@@ -276,8 +291,7 @@ void write_pt_mass(struct reb_simulation *const n_body_sim, int i_pert,
 }
 
 // Write information about resolved body orbiting one or more point particles
-void write_resolved_orb(struct reb_simulation *const n_body_sim,
-		string filename) {
+void write_resolved_orb(reb_simulation *const n_body_sim, string filename) {
 
 	// Open output file to append (created if it doesn't exist)
 	std::ofstream outfile(filename, std::ios::out | std::ios::app);
@@ -346,10 +360,9 @@ void write_resolved_orb(struct reb_simulation *const n_body_sim,
 }
 
 // Write out resolved body and point particle info
-void write_resolved_bin(struct reb_simulation *const n_body_sim,
-		string filename) {
+void write_resolved_bin(reb_simulation *const n_body_sim, string filename) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Get particle with largest radius
 	static int part_largest_r = -1;
@@ -450,7 +463,7 @@ void write_resolved_bin(struct reb_simulation *const n_body_sim,
 }
 
 // Write out springs to a file
-void write_springs(struct reb_simulation *const n_body_sim, string fileroot,
+void write_springs(reb_simulation *const n_body_sim, string fileroot,
 		int index) {
 	// Set filename
 	string filename = fileroot + "_" + zero_pad_int(6, index) + "_springs.txt";
@@ -472,7 +485,7 @@ void write_springs(struct reb_simulation *const n_body_sim, string fileroot,
 }
 
 // Write out particles to file
-void write_particles(struct reb_simulation *const n_body_sim, string fileroot,
+void write_particles(reb_simulation *const n_body_sim, string fileroot,
 		int index) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -498,9 +511,9 @@ void write_particles(struct reb_simulation *const n_body_sim, string fileroot,
 }
 
 // Write node temperature file
-void write_nodes(struct reb_simulation *const n_body_sim, string filename) {
+void write_nodes(reb_simulation *const n_body_sim, string filename) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Open output file to append (created if it doesn't exist)
 	std::ofstream outfile(filename, std::ios::out | std::ios::app);
@@ -552,9 +565,9 @@ void write_nodes(struct reb_simulation *const n_body_sim, string filename) {
 }
 
 // Write out stress file
-void write_stresses(struct reb_simulation *const n_body_sim, string filename) {
+void write_stresses(reb_simulation *const n_body_sim, string filename) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Open output file to append (created if it doesn't exist)
 	std::ofstream outfile(filename, std::ios::out | std::ios::app);
@@ -580,8 +593,8 @@ void write_stresses(struct reb_simulation *const n_body_sim, string filename) {
 		Vector x = { particles[i].x, particles[i].y, particles[i].z };
 		Vector dx = x - CoM;
 		outfile << i << "\t" << std::setprecision(4) << particles[i].m << "\t"
-				<< std::setprecision(3) << particles[i].x << "\t"
-				<< particles[i].y << "\t" << particles[i].z << "\t";
+				<< std::setprecision(3) << dx.getX() << "\t" << dx.getY()
+				<< "\t" << dx.getZ() << "\t";
 		outfile << std::setprecision(3) << stresses[i].eigs[0] << "\t"
 				<< stresses[i].eigs[1] << "\t" << stresses[i].eigs[2] << "\t";
 		outfile << stresses[i].failing << "\n";
@@ -593,21 +606,21 @@ void write_stresses(struct reb_simulation *const n_body_sim, string filename) {
 /* Filename helpers */
 /********************/
 
-// make a node file name depending on numbers of tp
-string node_filename(struct reb_simulation *const n_body_sim, string root,
-		double num_to_print) {
+// Make a node filename dependent on interval at which to print
+string node_filename(reb_simulation *const n_body_sim, string root,
+		double print_interval) {
 	// Get integer file number
-	int xd = (int) (n_body_sim->t / num_to_print);
+	int xd = (int) (n_body_sim->t / print_interval);
 
 	// Return filename
 	return root + "_" + zero_pad_int(6, xd) + "_node.txt";
 }
 
-// make a stress file name depending on numbers of tp (toprint)
-string stress_filename(struct reb_simulation *const n_body_sim, string root,
-		double num_to_print) {
+// Make a stress filename dependent on interval at which to print
+string stress_filename(reb_simulation *const n_body_sim, string root,
+		double print_interval) {
 	// Get integer file number
-	int xd = (int) (n_body_sim->t / num_to_print);
+	int xd = (int) (n_body_sim->t / print_interval);
 
 	// Return filename
 	return root + "_" + zero_pad_int(6, xd) + "_stress.txt";

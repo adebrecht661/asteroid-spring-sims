@@ -1,7 +1,15 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 /*
  * physics.cpp
  *
- * Not completely done yet
+ * Various physics routines
  *
  *  Created on: Apr 2, 2020
  *      Author: alex
@@ -19,17 +27,17 @@ extern "C" {
 extern int num_springs;
 extern spring springs[];
 extern int num_perts;
-extern double L_EPS;
+extern const double L_EPS;
 
 /*******************/
 /* Center routines */
 /*******************/
 
 // Compute center of mass coordinates in particle range [i_low,i_high)
-Vector compute_com(struct reb_simulation *const n_body_sim, int i_low,
+Vector compute_com(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get simulation information and initialize sums
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 	double m_tot = 0.0;
 	Vector x_times_m(zero_vec);
 
@@ -45,10 +53,10 @@ Vector compute_com(struct reb_simulation *const n_body_sim, int i_low,
 }
 
 // Compute center of velocity of particles in particle range [i_low,i_high)
-Vector compute_cov(struct reb_simulation *const n_body_sim, int i_low,
+Vector compute_cov(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get simulation information and initialize sums
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 	Vector v_times_m(zero_vec);
 	double m_tot = 0.0;
 
@@ -75,7 +83,7 @@ void subtract_com(reb_simulation *const n_body_sim, int i_low, int i_high) {
 
 // Recenter frame of resolved body on its center of velocity
 // Caution: only affects particles in set [i_low, i_high)
-void subtract_cov(struct reb_simulation *const n_body_sim, int i_low,
+void subtract_cov(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Find center of velocity of resolved body
 	Vector CoV = compute_cov(n_body_sim, i_low, i_high);
@@ -86,7 +94,7 @@ void subtract_cov(struct reb_simulation *const n_body_sim, int i_low,
 
 // Move simulation to coordinate frame of body defined by particles [i_low,i_high)
 // Shifts all particles
-void center_sim(struct reb_simulation *const n_body_sim, int i_low,
+void center_sim(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Find CoM of request particles
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
@@ -104,7 +112,7 @@ void center_sim(struct reb_simulation *const n_body_sim, int i_low,
 /***********************/
 
 // Compute the moment of inertia tensor of particles in range [i_low,i_high) with respect to center of mass
-Matrix mom_inertia(struct reb_simulation *const n_body_sim, int i_low,
+Matrix mom_inertia(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get particle information and initialize inertia matrix
 	reb_particle *particles = n_body_sim->particles;
@@ -127,10 +135,10 @@ Matrix mom_inertia(struct reb_simulation *const n_body_sim, int i_low,
 
 // Compute (spin) angular momentum vector of particles in range [i_low, i_high) with respect to their center of mass position and velocity
 // Caution: Can measure angular momentum of the entire system, but will be with respect to center of mass of entire system
-Vector measure_L(struct reb_simulation *const n_body_sim, int i_low,
+Vector measure_L(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Find center of mass and center of velocity
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
@@ -156,7 +164,7 @@ Vector measure_L(struct reb_simulation *const n_body_sim, int i_low,
 
 // Compute spin vector of body with particles in range [i_low,i_high) using inverse of moment of inertia matrix
 // Also returns eigenvalues of moment of inertia matrix, eigs[0] >= eigs[1] >= eigs[2]
-Vector body_spin(struct reb_simulation *const n_body_sim, int i_low, int i_high,
+Vector body_spin(reb_simulation *const n_body_sim, int i_low, int i_high,
 		double eigs[3]) {
 
 	// Compute moment of inertia matrix
@@ -174,7 +182,7 @@ Vector body_spin(struct reb_simulation *const n_body_sim, int i_low, int i_high,
 }
 
 // Start particles in range [i_low,i_high) spinning with vector omega about their center of mass
-void spin_body(struct reb_simulation *const n_body_sim, int i_low, int i_high,
+void spin_body(reb_simulation *const n_body_sim, int i_low, int i_high,
 		Vector omega) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -203,9 +211,9 @@ void spin_body(struct reb_simulation *const n_body_sim, int i_low, int i_high,
 
 // Compute the orbital angular momentum vector of particles in range [i_low,i_high)
 // About central mass if number of perturbers is 1, otherwise about the center of mass of all the perturbers
-Vector compute_Lorb(struct reb_simulation *const n_body_sim, int i_low,
+Vector compute_Lorb(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 	static int first = 0;
 	static double tm = 0.0;  // its mass
 
@@ -246,10 +254,10 @@ Vector compute_Lorb(struct reb_simulation *const n_body_sim, int i_low,
 
 // Compute non-translational kinetic energy of particles in range [i_low,i_high)
 // Caution: Includes kinetic energy in vibration as well as rotation
-double compute_rot_kin(struct reb_simulation *const n_body_sim, int i_low,
+double compute_rot_kin(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Find center of velocity of requested particles
 	Vector CoV = compute_cov(n_body_sim, i_low, i_high);
@@ -268,10 +276,10 @@ double compute_rot_kin(struct reb_simulation *const n_body_sim, int i_low,
 }
 
 // Compute (spin) angular momentum vector of all particles in range [i_low, i_high) with respect to origin
-Vector measure_L_origin(struct reb_simulation *const n_body_sim, int i_low,
+Vector measure_L_origin(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Calculate angular momentum
 	Vector L;
@@ -288,9 +296,9 @@ Vector measure_L_origin(struct reb_simulation *const n_body_sim, int i_low,
 // Rotate a body with particle indices [i_low, i_high) about center of mass using Euler angles
 // Rotates both position and velocity
 // Center of mass position and velocity is not changed
-void rotate_body(struct reb_simulation *const n_body_sim, int i_low, int i_high,
+void rotate_body(reb_simulation *const n_body_sim, int i_low, int i_high,
 		double alpha, double beta, double gamma) {
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Compute center of mass and velocity
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
@@ -332,10 +340,10 @@ void rotate_body(struct reb_simulation *const n_body_sim, int i_low, int i_high,
 
 // Rotate all particles in set [i_low, i_high) about origin
 // Rotates both position and velocity
-void rotate_origin(struct reb_simulation *const n_body_sim, int i_low,
+void rotate_origin(reb_simulation *const n_body_sim, int i_low,
 		int i_high, double alpha, double beta, double gamma) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Set rotation matrices
 	Matrix Rz1 = getRotMatZ(alpha); // Rotate about z
@@ -370,10 +378,10 @@ void rotate_origin(struct reb_simulation *const n_body_sim, int i_low,
 }
 
 // Rotate particles so that z is along biggest eigenvalue, x along smallest
-void rotate_to_principal(struct reb_simulation *const n_body_sim, int i_low,
+void rotate_to_principal(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Calculate moment of inertia matrix
 	Matrix inertia_mat = mom_inertia(n_body_sim, i_low, i_high);
@@ -439,7 +447,7 @@ void rotate_to_principal(struct reb_simulation *const n_body_sim, int i_low,
 /*******************/
 
 // Sum total momentum of particles
-Vector total_mom(struct reb_simulation *const n_body_sim, int i_low,
+Vector total_mom(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get particle info, initialize momentum vector
 	reb_particle *particles = n_body_sim->particles;
@@ -456,7 +464,7 @@ Vector total_mom(struct reb_simulation *const n_body_sim, int i_low,
 }
 
 // Shift the position and velocity of a resolved body with particles in set [i_low, i_high) by dx, dv
-void move_resolved(struct reb_simulation *const n_body_sim, Vector dx,
+void move_resolved(reb_simulation *const n_body_sim, Vector dx,
 		Vector dv, int i_low, int i_high) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -477,7 +485,7 @@ void move_resolved(struct reb_simulation *const n_body_sim, Vector dx,
 /********************/
 
 // Compute power lost in damping from a specific spring
-double dEdt(struct reb_simulation *const n_body_sim, spring spr) {
+double dEdt(reb_simulation *const n_body_sim, spring spr) {
 	// Get damping coefficient and particle info
 	reb_particle *particles = n_body_sim->particles;
 	double gamma = spr.gamma;
@@ -513,7 +521,7 @@ double dEdt(struct reb_simulation *const n_body_sim, spring spr) {
 }
 
 // Compute power lost to damping over all springs
-double dEdt_total(struct reb_simulation *const n_body_sim) {
+double dEdt_total(reb_simulation *const n_body_sim) {
 	// Initialize sum
 	double power_loss = 0.0;
 
@@ -527,7 +535,7 @@ double dEdt_total(struct reb_simulation *const n_body_sim) {
 }
 
 // Compute total potential energy in spring network
-double spring_potential_energy(struct reb_simulation *const n_body_sim) {
+double spring_potential_energy(reb_simulation *const n_body_sim) {
 	// Init total potential energy
 	double SPE = 0.0;
 
@@ -535,7 +543,7 @@ double spring_potential_energy(struct reb_simulation *const n_body_sim) {
 	for (int i = 0; i < num_springs; i++) {
 		// Get length and spring constant
 		double len0 = springs[i].rs0;
-		double len = spring_r(n_body_sim, springs[i]) + L_EPS;
+		double len = spring_r(n_body_sim, springs[i]).len() + L_EPS;
 		double k = springs[i].k;
 
 		// Add to potential energy
@@ -547,7 +555,7 @@ double spring_potential_energy(struct reb_simulation *const n_body_sim) {
 }
 
 // Compute total gravitational potential energy between particles in range [i_low, i_high)
-double grav_potential_energy(struct reb_simulation *const n_body_sim, int i_low,
+double grav_potential_energy(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -576,7 +584,7 @@ double grav_potential_energy(struct reb_simulation *const n_body_sim, int i_low,
 /********/
 
 // Zero all particle accelerations
-void zero_accel(struct reb_simulation *const n_body_sim) {
+void zero_accel(reb_simulation *const n_body_sim) {
 	for (int i = 0; i < (n_body_sim->N); i++) {
 		n_body_sim->particles[i].ax = 0.0;
 		n_body_sim->particles[i].ay = 0.0;
@@ -585,10 +593,10 @@ void zero_accel(struct reb_simulation *const n_body_sim) {
 }
 
 // Multiply all masses to the right of x_min by factor m_fac, then rescale
-void adjust_mass_side(struct reb_simulation *const n_body_sim, double m_fac,
+void adjust_mass_side(reb_simulation *const n_body_sim, double m_fac,
 		double x_min) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 	int i_low = 0;
 	int i_high = n_body_sim->N - num_perts;
 

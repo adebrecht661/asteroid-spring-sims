@@ -1,4 +1,13 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 #include <cmath>
+#include <vector>
 #include <iostream>
 extern "C" {
 #include "rebound.h"
@@ -8,20 +17,22 @@ extern "C" {
 #include "springs.h"
 #include "stress.h"
 
+using std::vector;
+
 extern spring springs[];
 extern int num_springs; // Number of springs
 extern int num_perts;
 
-stress_tensor stresses[]; // Stress at each node (particle)
+vector<stress_tensor> stresses; // Stress at each node (particle)
 
 // Convention is that tensile stress is negative
 // Update the stress tensor
 // Create it if it does not exist
 // Caution: Assumes total volume = 4/3 pi is a constant (used to normalize)
-void update_stress(struct reb_simulation *const n_body_sim) {
+void update_stress(reb_simulation *const n_body_sim) {
 	// Allocate stress if unallocated
-	if (!stresses) {
-		stresses = malloc(n_body_sim->N * sizeof(struct stress_tensor));
+	if (!stresses.size()) {
+		stresses.resize(n_body_sim->N);
 	}
 
 	// Initialize stresses for each node
@@ -74,7 +85,9 @@ void update_stress(struct reb_simulation *const n_body_sim) {
 	for (int i = 0; i < n_body_sim->N; i++) {
 		double eigs[3];
 		eigenvalues(stresses[i].stress, eigs);
-		stresses[i].eigs = eigs; // Supposedly C++ deep copies arrays (as opposed to pointers), so this should work
+		for (int j = 0; j < 3; j++) {
+			stresses[i].eigs[j] = eigs[j];
+		}
 	}
 }
 
@@ -85,7 +98,7 @@ void update_stress(struct reb_simulation *const n_body_sim) {
 // Decide if particle is in interior by whether particle mass is below pmass_div
 // Caution: we can't use current radius as particles are going to move!
 // Return number of failed nodes
-int mark_failed_nodes(struct reb_simulation *const n_body_sim, double mass_div,
+int mark_failed_nodes(reb_simulation *const n_body_sim, double mass_div,
 		double tens_str_int, double tens_str_surf) {
 	// Get particle indices
 	int i_low = 0;
@@ -132,7 +145,7 @@ int mark_failed_nodes(struct reb_simulation *const n_body_sim, double mass_div,
 // Equation 20 by Kot et al. 2014 -> sum_i [k_i L_i^2]/(6V)
 // Uses rest lengths
 // Only computes center of mass using particles in range [i_low,i_high)
-double Young_mesh(struct reb_simulation *const n_body_sim, int i_low,
+double Young_mesh(reb_simulation *const n_body_sim, int i_low,
 		int i_high, double r_min, double r_max) {
 	// Initialize sum
 	double sum = 0.0;

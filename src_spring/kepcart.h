@@ -6,15 +6,15 @@
  */
 
 // Orbital state in phase space (position, velocity)
-typedef struct PhaseState {
+struct PhaseState {
 	Vector x, v;
-} PhaseState;
+};
 
 // Standard Keplerian elements:
 // Semimajor axis, eccentricity, inclination, longitude of ascending node, argument of periapsis, mean anomaly
-typedef struct OrbitalElements {
+struct OrbitalElements {
 	double a, e, i, long_asc_node, arg_peri, mean_anom;
-} OrbitalElements;
+};
 
 /**************************************/
 /* Keplerian to Cartesian conversions */

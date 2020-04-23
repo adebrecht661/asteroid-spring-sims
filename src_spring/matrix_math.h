@@ -50,6 +50,8 @@ public:
 	Vector operator-(double scalar);
 	// Multiply vector by scalar, scalar RHS
 	Vector operator*(double scalar);
+	// Multiply vector by vector (element by element - see below for other types)
+	Vector operator*(Vector rhs);
 	// Matrix-vector multiplication
 	friend Vector operator*(Matrix lhs, Vector rhs);
 	// Divide vector by scalar
@@ -143,6 +145,9 @@ Matrix outer(Vector lhs, Vector rhs);
 
 // Multiply vector by scalar, scalar LHS
 Vector operator*(double scalar, Vector rhs);
+// Subtract vector from scalar
+// Casts scalar to vector
+Vector operator-(double scalar, Vector rhs);
 // Add scalar and assign
 // Casts scalar to vector
 void operator+=(Vector &lhs, double scalar);

@@ -1,3 +1,11 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 #include <cmath>
 extern "C" {
 #include "rebound.h"
@@ -16,11 +24,11 @@ extern int num_perts;
 // Orbital elements refer to orbit of resolved body (particles [0,N)) about binary
 // The resolved body is assumed to be alone and at origin
 // Returns mean motion of resolved body around binary
-double add_bin_kep(struct reb_simulation *const n_body_sim, double m_prim,
+double add_bin_kep(reb_simulation *const n_body_sim, double m_prim,
 		double r_prim, double m_ratio, double sep, OrbitalElements orb_el) {
 
 	// Initialize particle
-	struct reb_particle pt;
+	reb_particle pt;
 	pt.ax = 0.0;
 	pt.ay = 0.0;
 	pt.az = 0.0;
@@ -100,14 +108,14 @@ double add_bin_kep(struct reb_simulation *const n_body_sim, double m_prim,
 //    The point mass is added at origin
 //    If extended body is rotating then it still rotates, but if orbit is tilted then obliquity will not be the same
 // Returns mean motion of new orbit
-double add_pt_mass_kep(struct reb_simulation *const n_body_sim, int i_low,
+double add_pt_mass_kep(reb_simulation *const n_body_sim, int i_low,
 		int i_high, int i_p, double mass, double radius,
 		OrbitalElements orb_el) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Initialize particle
-	struct reb_particle pt;
+	reb_particle pt;
 	pt.m = mass;
 	pt.r = radius;
 	pt.ax = 0;
@@ -176,10 +184,10 @@ double add_pt_mass_kep(struct reb_simulation *const n_body_sim, int i_low,
 // (Beauge, Michtchenko, Ferraz-Mello 2006, MNRAS 365, 1160)
 // Maintains center of mass of binary
 // Note: If inv_tau_a > 0, they are drifting apart
-void drift_bin(struct reb_simulation *const n_body_sim, double timestep,
+void drift_bin(reb_simulation *const n_body_sim, double timestep,
 		double inv_tau_a, double inv_tau_e, int part_1, int part_2) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Get masses
 	double m1 = particles[part_1].m;
@@ -231,10 +239,10 @@ void drift_bin(struct reb_simulation *const n_body_sim, double timestep,
 
 // Drift orbits of a particle and a resolved body
 // See drift_bin for description of inv_tau_a, inv_tau_e
-void drift_resolved(struct reb_simulation *const n_body_sim, double timestep,
+void drift_resolved(reb_simulation *const n_body_sim, double timestep,
 		double inv_tau_a, double inv_tau_e, int i_part, int i_low, int i_high) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Get mass of particle and resolved body
 	double m1 = particles[i_part].m;
@@ -288,7 +296,7 @@ void drift_resolved(struct reb_simulation *const n_body_sim, double timestep,
 // i_p is the array index of the planet with the quadrupole moment
 // See https://en.wikipedia.org/wiki/Geopotential_model
 // Takes into account orientation of planet's north pole
-void quadrupole_accel(struct reb_simulation *const n_body_sim, double J2_p,
+void quadrupole_accel(reb_simulation *const n_body_sim, double J2_p,
 		double R_p, double phi_p, double theta_p, int i_p) {
 	// Return if particle index is out of range
 	if (i_p >= n_body_sim->N)
@@ -350,11 +358,11 @@ void quadrupole_accel(struct reb_simulation *const n_body_sim, double J2_p,
 
 // Compute orbital properties of resolved body (particles in range [i_low, i_high)) about all perturbing particles
 // L is orbital angular momentum per unit mass
-void compute_orb(struct reb_simulation *const n_body_sim, int i_low,
+void compute_orb(reb_simulation *const n_body_sim, int i_low,
 		int i_high, double *a, double *mean_motion, double *e, double *i,
 		double *L) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Get total mass of resolved body
 	double m_tot = 0.0;
@@ -398,14 +406,14 @@ void compute_orb(struct reb_simulation *const n_body_sim, int i_low,
 	*a = -0.5 * GM / E;
 
 	// Mean motion
-	*mean_motion = sqrt(GM / (a * a * a));
+	*mean_motion = sqrt(GM / (*a * *a * *a));
 
 	// Orbital angular momentum per unit mass
 	Vector r_cross_v = cross(dx, dv);
 	*L = r_cross_v.len();
 
 	// Eccentricity
-	double e2 = 1.0 - pow(*L, 2.0) / (a * GM);
+	double e2 = 1.0 - pow(*L, 2.0) / (*a * GM);
 	if (e2 > 0.0) {
 		*e = sqrt(e2);
 	} else {
@@ -421,10 +429,10 @@ void compute_orb(struct reb_simulation *const n_body_sim, int i_low,
 /********/
 
 // Compute total mass of particles in particle range [i_low, i_high)
-double sum_mass(struct reb_simulation *const n_body_sim, int i_low,
+double sum_mass(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Sum masses of each particle
 	double m_tot = 0.0;

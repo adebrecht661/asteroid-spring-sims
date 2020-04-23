@@ -1,4 +1,13 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 #include <cmath>
+#include <vector>
 #include <iostream>
 extern "C" {
 #include "rebound.h"
@@ -8,20 +17,22 @@ extern "C" {
 #include "matrix_math.h"
 #include "springs.h"
 
-extern spring springs[];	// Array to store springs
+using std::vector;
+
+extern vector<spring> springs;		// Array to store springs
 extern int num_springs;			// Number of springs
 extern int num_perts;			// Number of perturbing point masses
-extern stress_tensor stresses[]; // Array of stresses for each particle
+extern stress_tensor stresses[];		// Array of stresses for each particle
 
 int NSmax = 0; // Max number of springs (size of array)
-const double L_EPS = 1e-6; // Softening for spring length
+extern const double L_EPS = 1e-6; // Softening for spring length
 
 /********************/
 /* Spring functions */
 /********************/
 
 // Delete spring at spring_index
-void del_spring(struct reb_simulation *const n_body_sim, int spring_index) {
+void del_spring(reb_simulation *const n_body_sim, int spring_index) {
 	// Overwrite spring at index with last spring, and reduce count (last spring is still present at original location)
 	if (num_springs > 0) {
 		springs[spring_index] = springs[num_springs - 1];
@@ -34,7 +45,7 @@ void del_spring(struct reb_simulation *const n_body_sim, int spring_index) {
 // Set the natural distance of the spring to the current interparticle distance
 // Spring constant is not scaled
 // Return -1 if no spring created because you're trying to connect a particle to itself
-int add_spring(struct reb_simulation *const n_body_sim, int particle_1,
+int add_spring(reb_simulation *const n_body_sim, int particle_1,
 		int particle_2, spring spr) {
 	int particle_low, particle_high;
 
@@ -72,7 +83,7 @@ void add_spring_helper(spring spr) {
 	// If max size is smaller than current size, increase
 	while (NSmax <= num_springs) {
 		NSmax += 128;
-		springs = (spring*) realloc(springs, sizeof(spring) * NSmax);
+		springs.resize(springs.size() + 128);
 	}
 
 	// Add spring to end of array, update count
@@ -82,7 +93,7 @@ void add_spring_helper(spring spr) {
 
 // Connect springs to all particles with interparticle distances less than max_dist apart for particle index range [i_low,i_high-1]
 // Spring is added with rest length at current length
-void connect_springs_dist(struct reb_simulation *const n_body_sim,
+void connect_springs_dist(reb_simulation *const n_body_sim,
 		double max_dist, int i_low, int i_high, spring spr) {
 	// Get particle info from sim
 	reb_particle *particles = n_body_sim->particles;
@@ -121,10 +132,8 @@ void set_gamma(double new_gamma) {
 }
 
 // Adjust spring constant, damping coefficient, and heat diffusion coefficient for springs with midpoints between r_min and r_max from center of mass
-void adjust_spring_props(struct reb_simulation *const n_body_sim, double new_k,
+void adjust_spring_props(reb_simulation *const n_body_sim, double new_k,
 		double new_gamma, double new_k_heat, double r_min, double r_max) {
-	// Get particle and index info
-	struct reb_particle *particles = n_body_sim->particles;
 
 	// Search all particles
 	int i_low = 0;
@@ -155,7 +164,7 @@ void adjust_spring_props(struct reb_simulation *const n_body_sim, double new_k,
 }
 
 // Kill springs that have failed
-void kill_springs(struct reb_simulation *const n_body_sim) {
+void kill_springs(reb_simulation *const n_body_sim) {
 	// Set particle index boundaries
 	int i_low = 0;
 	int i_high = n_body_sim->N - num_perts;
@@ -172,14 +181,14 @@ void kill_springs(struct reb_simulation *const n_body_sim) {
 
 // Make a binary with two masses mass_1, mass_2 spinning with vector omega, separated by distance sep and connected with spring spring_vals
 // Center of mass is set to origin
-void make_binary_spring(struct reb_simulation *const n_body_sim, double mass_1,
+void make_binary_spring(reb_simulation *const n_body_sim, double mass_1,
 		double mass_2, double sep, Vector omega, spring spring_vals) {
 	// Get particle info
 	int i_low = n_body_sim->N;
 	int i_high = i_low + 2;
 
 	// Declare new particle
-	struct reb_particle particle;
+	reb_particle particle;
 
 	// Set particle defaults
 	particle.ax = 0.0;
@@ -215,9 +224,9 @@ void make_binary_spring(struct reb_simulation *const n_body_sim, double mass_1,
 /*********************/
 
 // Return spring length vector
-Vector spring_r(struct reb_simulation *const n_body_sim, spring spr) {
+Vector spring_r(reb_simulation *const n_body_sim, spring spr) {
 	// Get simulation and spring information
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 	int i = spr.particle_1;
 	int j = spr.particle_2;
 
@@ -244,7 +253,7 @@ double mean_spring_length() {
 }
 
 // Return mean spring constant of all springs
-double mean_k(struct reb_simulation *const n_body_sim) {
+double mean_k(reb_simulation *const n_body_sim) {
 	// Init vars
 	double k_tot = 0.0;
 
@@ -258,10 +267,10 @@ double mean_k(struct reb_simulation *const n_body_sim) {
 }
 
 // Compute spring midpoint location from arbitrary center (Cartesian coordinates)
-Vector spr_mid(struct reb_simulation *const n_body_sim, spring spr,
+Vector spr_mid(reb_simulation *const n_body_sim, spring spr,
 		Vector center) {
 	// Get simulation and spring information
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 	int i = spr.particle_1;
 	int j = spr.particle_2;
 
@@ -274,7 +283,7 @@ Vector spr_mid(struct reb_simulation *const n_body_sim, spring spr,
 }
 
 // Return spring strain
-double strain(struct reb_simulation *const n_body_sim, spring spr) {
+double strain(reb_simulation *const n_body_sim, spring spr) {
 	double len = spring_r(n_body_sim, spr).len(); // Spring length
 	return (len - spr.rs0) / spr.rs0; // Positive under extension
 }
@@ -282,7 +291,7 @@ double strain(struct reb_simulation *const n_body_sim, spring spr) {
 // Calculate spring forces using viscoelastic model
 // Clavet et al. '05, "Particle-based Viscoelastic Fluid Simulation"
 // Eurographics/ACM SIGGRAPH Symposium on Computer Animation
-void spring_forces(struct reb_simulation *const n_body_sim) {
+void spring_forces(reb_simulation *const n_body_sim) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -343,14 +352,13 @@ void spring_forces(struct reb_simulation *const n_body_sim) {
 
 // Return the spring force vector for spring spring_index
 // Divide by mass to get acceleration of particle i or j
-Vector spring_i_force(struct reb_simulation *const n_body_sim,
+Vector spring_i_force(reb_simulation *const n_body_sim,
 		int spring_index) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
 	// Get spring lengths
-	double len = spring_r(n_body_sim, springs[spring_index]).len() + L_EPS
-	;
+	double len = spring_r(n_body_sim, springs[spring_index]).len() + L_EPS;
 	double len0 = springs[spring_index].rs0;
 	double k = springs[spring_index].k;
 
@@ -390,14 +398,13 @@ Vector spring_i_force(struct reb_simulation *const n_body_sim,
 }
 
 // Return the spring force vector for spring i, ignoring damping
-Vector spring_i_force_undamped(struct reb_simulation *const n_body_sim,
+Vector spring_i_force_undamped(reb_simulation *const n_body_sim,
 		int spring_index) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
 	// Get spring lengths
-	double len = spring_r(n_body_sim, springs[spring_index]).len() + L_EPS
-	;
+	double len = spring_r(n_body_sim, springs[spring_index]).len() + L_EPS;
 	double len0 = springs[spring_index].rs0;
 	double k = springs[spring_index].k;
 
@@ -408,8 +415,6 @@ Vector spring_i_force_undamped(struct reb_simulation *const n_body_sim,
 	Vector x_j = { particles[j].x, particles[j].y, particles[j].z };
 	Vector dx = (x_i - x_j);
 	Vector len_hat = dx / len;
-	double m_i = particles[i].m;
-	double m_j = particles[j].m;
 
 	// Calculate force from spring
 	return -k * (len - len0) * len_hat;

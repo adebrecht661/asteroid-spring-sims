@@ -86,9 +86,9 @@ Matrix::Matrix(std::initializer_list<std::initializer_list<double>> list) {
 Matrix::Matrix(std::initializer_list<Vector> list) {
 	int i = 0;
 	for (const auto &l : list) {
-		this->array[i][1] = l.getX();
-		this->array[i][2] = l.getY();
-		this->array[i][3] = l.getZ();
+		this->array[i][0] = l.getX();
+		this->array[i][1] = l.getY();
+		this->array[i][2] = l.getZ();
 	}
 	i++;
 }
@@ -395,6 +395,15 @@ Vector Vector::operator*(double scalar) {
 	return res;
 }
 
+// Multiply two vectors (element by element)
+Vector Vector::operator*(Vector rhs) {
+	Vector res;
+	for (int i = 0; i < 3; i++) {
+		res.array[i] = this->array[i] * rhs.array[i];
+	}
+	return res;
+}
+
 // Divide a vector by a scalar
 Vector Vector::operator/(double scalar) {
 	Vector res;
@@ -413,6 +422,11 @@ Vector operator*(Matrix lhs, Vector rhs) {
 		}
 	}
 	return res;
+}
+
+// Subtract a vector from a scalar
+Vector operator-(double scalar, Vector rhs) {
+	return -(rhs - scalar);
 }
 
 // Multiply a vector by a scalar (scalar on lhs)

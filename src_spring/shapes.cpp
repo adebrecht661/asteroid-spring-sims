@@ -1,3 +1,11 @@
+#ifdef __cplusplus
+# 	ifdef __GNUC__
+#		define restrict __restrict__
+#	else
+#		define restrict
+#	endif
+#endif
+
 /*
  * shapes.cpp
  *
@@ -21,10 +29,10 @@ extern "C" {
 
 // Create an approximately uniform random particle distribution with total_mass within rectangular prism given by lengths x, y, z
 // No particles closer than min_dist created
-void rand_rectangle(struct reb_simulation *const n_body_sim, double min_dist,
+void rand_rectangle(reb_simulation *const n_body_sim, double min_dist,
 		double x, double y, double z, double total_mass) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Guess at number of random particles we need to generate
 	int n_part = 40.0 * x * y * z / pow(min_dist, 3.0);
@@ -32,7 +40,7 @@ void rand_rectangle(struct reb_simulation *const n_body_sim, double min_dist,
 			<< std::endl;
 
 	// Set up particle defaults
-	struct reb_particle pt;
+	reb_particle pt;
 	pt.ax = 0.0;
 	pt.ay = 0.0;
 	pt.az = 0.0;
@@ -86,7 +94,7 @@ void rand_rectangle(struct reb_simulation *const n_body_sim, double min_dist,
 
 // Create an approximately uniform random particle distribution with total_mass within rectangle (2D) given by lengths x, y
 // No particles closer than min_dist created
-void rand_rectangle_2d(struct reb_simulation *const n_body_sim, double min_dist,
+void rand_rectangle_2d(reb_simulation *const n_body_sim, double min_dist,
 		double x, double y, double total_mass) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -96,7 +104,7 @@ void rand_rectangle_2d(struct reb_simulation *const n_body_sim, double min_dist,
 	printf("rand_rectangle_2d: n_part=%d\n", n_part);
 
 	// Set particle defaults
-	struct reb_particle pt;
+	reb_particle pt;
 	pt.ax = 0.0;
 	pt.ay = 0.0;
 	pt.az = 0.0;
@@ -152,7 +160,7 @@ void rand_rectangle_2d(struct reb_simulation *const n_body_sim, double min_dist,
 
 // Create an approximately uniform random particle distribution with total_mass within a cone given by base radius, height
 // No particles closer than min_dist created
-void rand_cone(struct reb_simulation *const n_body_sim, double min_dist,
+void rand_cone(reb_simulation *const n_body_sim, double min_dist,
 		double radius, double height, double total_mass) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -164,7 +172,7 @@ void rand_cone(struct reb_simulation *const n_body_sim, double min_dist,
 	int n_part = 40 * pow(2.0 * radius / min_dist, 3.0);
 
 	// Set defaults for particles
-	struct reb_particle pt;
+	reb_particle pt;
 	pt.ax = 0.0;
 	pt.ay = 0.0;
 	pt.az = 0.0;
@@ -225,7 +233,7 @@ void rand_cone(struct reb_simulation *const n_body_sim, double min_dist,
 
 // Create an approximately uniform random particle distribution with total_mass within an ellipsoid shape given by semi-axes x, y, z
 // No particles closer than min_dist created
-void rand_ellipsoid(struct reb_simulation *const n_body_sim, double min_dist,
+void rand_ellipsoid(reb_simulation *const n_body_sim, double min_dist,
 		double x, double y, double z, double total_mass) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -236,7 +244,7 @@ void rand_ellipsoid(struct reb_simulation *const n_body_sim, double min_dist,
 			<< std::endl;
 
 	// Set particle defaults
-	struct reb_particle pt;
+	reb_particle pt;
 	pt.ax = 0.0;
 	pt.ay = 0.0;
 	pt.az = 0.0;
@@ -295,13 +303,13 @@ void rand_ellipsoid(struct reb_simulation *const n_body_sim, double min_dist,
 
 // Create an ellipsoid of particles using hexagonal close-packed lattice with total_mass, semi-axes x, y, z
 // No particles closer than min_dist created
-void hcp_ellipsoid(struct reb_simulation *n_body_sim, double min_dist, double x,
+void hcp_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 		double y, double z, double total_mass) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Set particle defaults
-	struct reb_particle pt;
+	reb_particle pt;
 	pt.vx = 0;
 	pt.ax = 0;
 	pt.vy = 0;
@@ -376,13 +384,13 @@ void hcp_ellipsoid(struct reb_simulation *n_body_sim, double min_dist, double x,
 
 // Create an ellipsoid of particles using a cubic lattice with total_mass, semi-axes x, y, z
 // No particles closer than min_dist created
-void cubic_ellipsoid(struct reb_simulation *n_body_sim, double min_dist,
+void cubic_ellipsoid(reb_simulation *n_body_sim, double min_dist,
 		double x, double y, double z, double total_mass) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
 	// Set particle defaults
-	struct reb_particle pt;
+	reb_particle pt;
 	pt.vx = 0;
 	pt.vy = 0;
 	pt.vz = 0;
@@ -451,7 +459,7 @@ void cubic_ellipsoid(struct reb_simulation *n_body_sim, double min_dist,
 
 // Create an approximately uniform random particle distribution with total_mass within shape given by a set of vertices already read in (stored in particles)
 // No particles closer than min_dist created
-void rand_shape(struct reb_simulation *const n_body_sim, double min_dist,
+void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 		double total_mass) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -468,7 +476,7 @@ void rand_shape(struct reb_simulation *const n_body_sim, double min_dist,
 	int n_part = 40 * pow(2.0 * max_r_shape / min_dist, 3.0);
 
 	// Set particle defaults
-	struct reb_particle pt;
+	reb_particle pt;
 	pt.ax = 0.0;
 	pt.ay = 0.0;
 	pt.az = 0.0;
@@ -529,7 +537,7 @@ void rand_shape(struct reb_simulation *const n_body_sim, double min_dist,
 /*************/
 
 // Rescale by same factor in each direction
-void stretch(struct reb_simulation *const n_body_sim, int i_low, int i_high,
+void stretch(reb_simulation *const n_body_sim, int i_low, int i_high,
 		double scale) {
 	for (int i = i_low; i < i_high; i++) {
 		n_body_sim->particles[i].x *= scale;
@@ -539,7 +547,7 @@ void stretch(struct reb_simulation *const n_body_sim, int i_low, int i_high,
 }
 
 // Rescale by different factor in each direction
-void stretch_xyz(struct reb_simulation *const n_body_sim, int i_low, int i_high,
+void stretch_xyz(reb_simulation *const n_body_sim, int i_low, int i_high,
 		double x_scale, double y_scale, double z_scale) {
 	for (int i = i_low; i < i_high; i++) {
 		n_body_sim->particles[i].x *= x_scale;
@@ -553,7 +561,7 @@ void stretch_xyz(struct reb_simulation *const n_body_sim, int i_low, int i_high,
 /*****************/
 
 // Create and fill array that marks particles that are within surf_dist of the surface of arbitrary shape
-bool* mark_surf_shrink_int_shape(struct reb_simulation *const n_body_sim,
+bool* mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
 		int i_low, int i_high, double surf_dist) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -626,7 +634,7 @@ bool* mark_surf_shrink_int_shape(struct reb_simulation *const n_body_sim,
 }
 
 // Mark particles near the surface of a cone
-bool* mark_surf_shrink_int_cone(struct reb_simulation *const n_body_sim,
+bool* mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
 		double surf_dist, double radius, double height) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -671,7 +679,7 @@ bool* mark_surf_shrink_int_cone(struct reb_simulation *const n_body_sim,
 }
 
 // Mark particles near the surface of an ellipsoid defined by semi-axes x, y, z
-bool* mark_surf_shrink_int_ellipsoid(struct reb_simulation *const n_body_sim,
+bool* mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
 		double surf_dist, double x, double y, double z) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -714,7 +722,7 @@ bool* mark_surf_shrink_int_ellipsoid(struct reb_simulation *const n_body_sim,
 /***********/
 
 // Remove particles [i_low, i_high)
-void rm_particles(struct reb_simulation *const n_body_sim, int i_low,
+void rm_particles(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Throw error if low index is above high index
 	if (i_low > i_high)
@@ -731,7 +739,7 @@ void rm_particles(struct reb_simulation *const n_body_sim, int i_low,
 
 // Is position x,y,z within the shape given by vertices [i_low, i_high-1]?
 // r_min, r_max are the maximum and minimum radii of shape vertices, to short-circuit test
-bool within_shape(struct reb_simulation *n_body_sim, int i_low, int i_high,
+bool within_shape(reb_simulation *n_body_sim, int i_low, int i_high,
 		double r_min, double r_max, Vector pos) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -763,7 +771,7 @@ bool within_shape(struct reb_simulation *n_body_sim, int i_low, int i_high,
 
 // Return index of closest particle to position x,y,z within [i_low, i_high)
 // Caution: Origin might not be center of body
-int nearest_to_point(struct reb_simulation *n_body_sim, int i_low, int i_high,
+int nearest_to_point(reb_simulation *n_body_sim, int i_low, int i_high,
 		Vector pos) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -772,7 +780,7 @@ int nearest_to_point(struct reb_simulation *n_body_sim, int i_low, int i_high,
 	double dist = DBL_MAX;
 
 	// Find nearest particle
-	int i_0;
+	int i_0 = -1;
 	for (int i = i_low; i < i_high; i++) {
 		Vector part_pos = { particles[i].x, particles[i].y, particles[i].z };
 		Vector dx = part_pos - pos;
@@ -788,7 +796,7 @@ int nearest_to_point(struct reb_simulation *n_body_sim, int i_low, int i_high,
 }
 
 // Return minimum radius of particles in index range [i_low, i_high)
-double min_radius(struct reb_simulation *const n_body_sim, int i_low,
+double min_radius(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -807,7 +815,7 @@ double min_radius(struct reb_simulation *const n_body_sim, int i_low,
 }
 
 // Return maximum radius of particles in index range [i_low, i_high)
-double max_radius(struct reb_simulation *const n_body_sim, int i_low,
+double max_radius(reb_simulation *const n_body_sim, int i_low,
 		int i_high) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
@@ -826,9 +834,9 @@ double max_radius(struct reb_simulation *const n_body_sim, int i_low,
 }
 
 // Compute the shortest distance between any pair of particles in range [i_low, i_high)
-double mindist(struct reb_simulation *const n_body_sim, int i_low, int i_high) {
+double mindist(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Find shortest distance
 	double min_dist = DBL_MAX;
