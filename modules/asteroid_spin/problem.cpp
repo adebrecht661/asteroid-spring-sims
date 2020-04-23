@@ -10,217 +10,218 @@
  * resolved mass spring model
  * using the leap frog integrator. 
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <math.h>
 #include <cmath>
-#include <time.h>
-#include <sys/time.h>
+#include <vector>
+#include <string>
+#include <iostream>
+#include <iomanip>
+#include <fstream>
 extern "C" {
 #include "rebound.h"
 }
-#include "tools.h"
-#include "output.h"
-#include "spring.h"
 #include "matrix_math.h"
+#include "input_spring.h"
+#include "output_spring.h"
+#include "springs.h"
+#include "physics.h"
+#include "stress.h"
 
-int NS;  // global numbers of springs
-struct spring *springs;
-void reb_springs(struct reb_simulation *const r);  // to pass springs to display
-void read_particles_i(struct reb_simulation* const n_body_sim, char* filename);
+using std::string;
+using std::vector;
 
-double gamma_all; // for gamma  of all springs
-double t_damp;    // end faster damping, relaxation
-double t_print;   // for table printout 
-char froot[30];   // output files
-int npert = 0;
+int num_springs;	// Global numbers of springs
+vector<spring> springs;	// Global spring array
 
-// passed to rebound so you can have forces other than gravity
-void additional_forces(struct reb_simulation *r) {
-	zero_accel(r); // because gravity routines in rebound set acceleration and if you don't
-				   // call a gravity routine you need to zero the acceleration array
-	spring_forces(r); // springs
+double gamma_all;		// Default damping coefficient for all springs
+double t_damp;			// Time to end stronger damping coefficient
+double print_interval;	// Interval to print out spring and particle info
+string fileroot;   		// Output file base name
+int num_perts = 0;		// Number of perturbers
 
-}
-
-void heartbeat(struct reb_simulation *const r);
+// Forward declarations
+void additional_forces(reb_simulation *n_body_sim);
+void heartbeat(reb_simulation *const n_body_sim);
+void reb_springs(reb_simulation *const n_body_sim);
 
 int main(int argc, char *argv[]) {
-	struct reb_simulation *const r = reb_create_simulation();
-	struct spring spring_mesh; // spring parameters for mesh
-	// Setup constants
-	r->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
-	// r->gravity	= REB_GRAVITY_BASIC;
-	r->gravity = reb_simulation::REB_GRAVITY_NONE;
-	r->boundary = reb_simulation::REB_BOUNDARY_NONE;
-	r->G = 1;
-	r->additional_forces = additional_forces; // spring forces
-	// setup callback function for additional forces
-	// double mball = 1.0;          // total mass of ball
-	double rball = 1.0;          // radius of a ball
-	double tmax = 0.0;  // if 0 integrate forever
+	// Create rebound simulation
+	reb_simulation *const n_body_sim = reb_create_simulation();
 
-// things to set!  can be read in with parameter file
+	// Set rebound constants
+	n_body_sim->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
+	n_body_sim->gravity = reb_simulation::REB_GRAVITY_NONE;
+	n_body_sim->boundary = reb_simulation::REB_BOUNDARY_NONE;
+	n_body_sim->G = 1;
+	n_body_sim->additional_forces = additional_forces;
+
+	// Max integration time
+	// (0 = integrate forever)
+	double tmax = 0.0;
+
+	// Values to set
 	double dt = 0.000;
-	double omegaz = 0.0;
-	double ks = 0.0;
+	Vector omega = 0.0;
+	double k = 0.0;
 	double gamma_fac = 0;
-	double mesh_distance = 0.0; //  max distance for connecting springs
+	double max_spring_dist = 0.0;
 
+	// 1 argument, no filename passed
 	if (argc == 1) {
-		strcpy(froot, "a2");   // to make output files
-		dt = 1e-2;    // Timestep
-		tmax = 0.0;     // max integration time
-		t_print = 100.0;     // printouts
-		ks = 0.005;   // spring constant
-		// spring damping
-		gamma_all = 1.0;    // final damping coeff
-		gamma_fac = 5.0;    // factor initial gamma is higher that gamma_all
-		t_damp = 1.0;    // gamma from initial gamma
-						 // to gamma_all for all springs at this time
-		omegaz = 0.8;    // initial spin
-		mesh_distance = 0.1; //  max distance for connecting springs
+		fileroot = "a2";			// Output file basename
+		dt = 1e-2;					// Integration timestep
+		tmax = 0.0;					// Max integration time
+		print_interval = 100.0;     // Interval at which to print results
+		k = 0.005;					// Spring constant
+		gamma_all = 1.0;			// Base spring damping coefficient
+		gamma_fac = 5.0;// Factor by which initial damping is higher that gamma_all
+		t_damp = 1.0;				// Turn of damping at this time
+		omega = { 0, 0, 0.8 };		// Initial spin
+		max_spring_dist = 0.1;// Max distance to connect particles with springs
+		// More than one argument, filename to read from
+	} else {
+		throw "Error: Reading in from file not currently implemented.";
 	}
 
-/// end parameters of things to set /////////////////////////
+	// Set more rebound parameters
+	n_body_sim->dt = dt;								// Integration timestep
+	double rball = 1.0;								// Radius of resolved body
+	const double boxsize = 3.2 * rball;					// Size of display box
+	reb_configure_box(n_body_sim, boxsize, 1, 1, 1);// Configure rebound box (last three arguments are number of root boxes in x,y,z directions)
+	n_body_sim->softening = 1e-6;			// Gravitational softening length
 
-	r->dt = dt; // set integration timestep
-	const double boxsize = 3.2 * rball;    // display
-	reb_configure_box(r, boxsize, 1, 1, 1);
-	r->softening = 1e-6;	// Gravitational softening length
+	// Set up default spring parameters
+	spring default_spring;
+	default_spring.gamma = gamma_fac * gamma_all; // initial damping coefficient
+	default_spring.k = k; // spring constant
 
-	// properties of springs
-	spring_mesh.gamma = gamma_fac * gamma_all; // initial damping coefficient
-	spring_mesh.ks = ks; // spring constant
+	// Open output file - overwrites any existing files
+	std::ofstream outfile(fileroot + "_run.txt",
+			std::ios::out | std::ios::trunc);
 
-	FILE *fpr;
-	char fname[200];
-	sprintf(fname, "%s_run.txt", froot);
-	fpr = fopen(fname, "w");
+	// Start with no springs
+	num_springs = 0;
 
-	NS = 0; // start with no springs
+	// Read in particles here
+	read_particles(n_body_sim, fileroot, 0);
 
-	// read in a particle distribution  here!!!!
-	read_particles_i(r, "input.txt");  // read in routine below
-	// format is  &x, &y, &z, &vx, &vy, &vz, &rad, &m);
+	// Get index range for resolved body
+	int i_low = 0;
+	int i_high = n_body_sim->N;
 
-	int i_low = 0;  // index range for resolved body
-	int i_high = r->N;
+	// Move reference frame to resolved body
+	subtract_com(n_body_sim, i_low, i_high);
 
-	subtractcom(r, i_low, i_high);  // move reference frame to resolved body
+	// Make relative velocity zero
+	subtract_cov(n_body_sim, i_low, i_high);
 
-	// rotate_to_principal(r, il, ih); // rotate to principal axes
+	// Add spin to resolved body
+	spin_body(n_body_sim, i_low, i_high, omega);
 
-	// spin it
-	subtractcov(r, i_low, i_high); // center of velocity subtracted
-	Vector omega = {0, 0, omegaz};
-	spin(r, i_low, i_high, omega); // change one of these zeros to tilt it!
-	// can spin about non principal axis
-	subtractcov(r, i_low, i_high); // center of velocity subtracted
-	double speriod = abs(2.0 * M_PI / omegaz);
-	printf("spin period %.6f\n", speriod);
-	fprintf(fpr, "spin period %.6f\n", speriod);
+	// Should not have added any velocity??????
+	//subtract_cov(n_body_sim, i_low, i_high);
 
-	// make springs, all pairs connected within interparticle distance mesh_distance
-	connect_springs_dist(r, mesh_distance, i_low, i_high, spring_mesh);
+	// Print spin period to file
+	double speriod = abs(2.0 * M_PI / omega.len());
+	std::cout << "Spin period: " << std::setprecision(6) << speriod << "\n";
+	outfile << "spin period " << std::setprecision(6) << speriod << "\n";
 
-	double ddr = 0.4; // mini radius  for computing Young modulus
-	double Emush = Young_mesh(r, i_low, i_high, 0.0, ddr); // compute from springs out to ddr
-	double Emush_big = Young_mesh_big(r, i_low, i_high);
-	printf("ddr = %.3f mush_distance =%.3f\n", ddr, mesh_distance);
-	printf("Youngs_modulus %.6f\n", Emush);
-	printf("Youngs_modulus_big %.6f\n", Emush_big);
-	fprintf(fpr, "Youngs_modulus %.6f\n", Emush);
-	fprintf(fpr, "Youngs_modulus_big %.6f\n", Emush_big);
-	fprintf(fpr, "mush_distance %.4f\n", mesh_distance);
-	double LL = mean_L(r);  // mean spring length
-	printf("mean_L  %.4f\n", LL);
-	fprintf(fpr, "mean_L %.4f\n", LL);
+	// Make springs
+	// Connect all particles within max_spring_dist
+	connect_springs_dist(n_body_sim, max_spring_dist, i_low, i_high,
+			default_spring);
 
-	// ratio of numbers of particles to numbers of springs for resolved body
-	double Nratio = (double) NS / (i_high - i_low);
-	printf("N=%d NS=%d NS/N=%.1f\n", r->N, NS, Nratio);
-	fprintf(fpr, "N %d\n", r->N);
-	fprintf(fpr, "NS %d\n", NS);
-	fprintf(fpr, "NS/N %.1f\n", Nratio);
+	// Print Young's modulus
+	double r = 0.4; 					// Radius for computing Young modulus
+	double E_mesh = Young_mesh(n_body_sim, i_low, i_high, 0.0, r);
+	double E_mesh_all = Young_full_mesh();
+	std::cout << std::setprecision(3) << "r = " << r << " mesh_distance = "
+			<< max_spring_dist << "\n";
+	std::cout << std::setprecision(6) << "Youngs_modulus " << E_mesh
+			<< "\nYoungs_modulus_all " << E_mesh_all << "\n";
+	outfile << std::setprecision(6) << "Youngs_modulus " << E_mesh
+			<< "\nYoungs_modulus_big " << E_mesh_all << "\n";
 
-	fclose(fpr);
+	// Print max spring distance and mean spring length
+	outfile << std::setprecision(4) << "mesh_distance " << max_spring_dist
+			<< "\n";
+	double L = mean_spring_length();
+	std::cout << std::setprecision(4) << "mean_L " << L << "\n";
+	outfile << std::setprecision(4) << "mean_L " << L << "\n";
 
-	reb_springs(r); // pass spring index list to display
-	r->heartbeat = heartbeat;
-	centerbody(r, i_low, i_high);  // move reference frame to resolved body
+	// Ratio of numbers of particles to numbers of springs for resolved body
+	double Nratio = (double) num_springs / (i_high - i_low);
+	std::cout << "N = " << n_body_sim->N << ", NS = " << num_springs
+			<< ", NS/N = " << Nratio << std::endl;
+	outfile << "N " << n_body_sim->N << "\n";
+	outfile << "NS " << num_springs << "\n";
+	outfile << std::setprecision(1) << "NS/N " << Nratio << "\n";
+	outfile.close();
 
-	// max integration time
-	if (tmax == 0.0)
-		reb_integrate(r, INFINITY);
-	else
-		reb_integrate(r, tmax);
+	// Pass springs to rebound for display
+	reb_springs(n_body_sim);
+
+	// Set up calls for every integration timestep
+	n_body_sim->heartbeat = heartbeat;
+
+	// Move reference frame to resolved body
+	center_sim(n_body_sim, i_low, i_high);
+
+	// Integrate rebound simulation
+	if (tmax == 0.0) {
+		reb_integrate(n_body_sim, INFINITY);
+	} else {
+		reb_integrate(n_body_sim, tmax);
+	}
 }
 
-void heartbeat(struct reb_simulation *const r) {
-	static int first = 0;
-	static char extendedfile[50];
-	if (first == 0) {
-		first = 1;
-		sprintf(extendedfile, "%s_ext.txt", froot);
-	}
-	if (reb_output_check(r, 10.0 * r->dt)) {
-		reb_output_timing(r, 0);
-	}
-	if (fabs(r->t - t_damp) < 0.9 * r->dt)
-		set_gamma(gamma_all);
-	// damp initial bounce only
-	// reset gamma only at t near t_damp
+// Do this every rebound timestep
+void heartbeat(reb_simulation *const n_body_sim) {
+	// Get filename once
+	static string extendedfile = fileroot + "_ext.txt";
 
-	// stuff to do every timestep
-	centerbody(r, 0, r->N - npert); // move reference frame to resolved body for display
-	if (reb_output_check(r, t_print)) {
-		int index = (int) (r->t / t_print);
+	// Every 10 timesteps, output rebound timing info
+	if (reb_output_check(n_body_sim, 10.0 * n_body_sim->dt)) {
+		reb_output_timing(n_body_sim, 0);
+	}
+
+	// Damp initial bounce only
+	// Reset gamma at t near t_damp
+	if (abs(n_body_sim->t - t_damp) < 0.9 * n_body_sim->dt)
+		set_gamma(gamma_all);
+
+	// Move reference frame to resolved body for display
+	center_sim(n_body_sim, 0, n_body_sim->N - num_perts);
+
+	// Check if we've hit a print time
+	if (reb_output_check(n_body_sim, print_interval)) {
+		// If so, set file index and write out spring and particle info
+		int index = (int) (n_body_sim->t / print_interval);
 		if (index > 0) {
-			write_springs(r, froot, index);
-			write_particles(r, froot, index);
+			write_springs(n_body_sim, fileroot, index);
+			write_particles(n_body_sim, fileroot, index);
 		}
 	}
-
 }
 
-// make a spring index list for display
-void reb_springs(struct reb_simulation *const r) {
-	r->NS = NS;
-	r->springs_ii = (int*) malloc(NS * sizeof(int));
-	r->springs_jj = (int*) malloc(NS * sizeof(int));
-	for (int i = 0; i < NS; i++) {
-		r->springs_ii[i] = springs[i].i;
-		r->springs_jj[i] = springs[i].j;
+// Make a spring index list for display
+void reb_springs(reb_simulation *const n_body_sim) {
+	// Set number of springs and initialize arrays for spring-particle interface
+	n_body_sim->NS = num_springs;
+	n_body_sim->springs_i = (int*) malloc(num_springs * sizeof(int));
+	n_body_sim->springs_j = (int*) malloc(num_springs * sizeof(int));
+
+	// For each spring, note particle indices
+	for (int i = 0; i < num_springs; i++) {
+		n_body_sim->springs_i[i] = springs[i].particle_1;
+		n_body_sim->springs_j[i] = springs[i].particle_2;
 	}
 }
 
-void read_particles_i(struct reb_simulation *const r, char *filename) {
-	printf("\n reading in particles %s\n", filename);
-	FILE *fpi;
-	fpi = fopen(filename, "r");
-	char string[300];
-	struct reb_particle pt;
-	pt.ax = 0.0;
-	pt.ay = 0.0;
-	pt.az = 0.0;
-	double x, y, z, vx, vy, vz, m, rad;
-	while (fgets(string, 300, fpi) != NULL) {
-		sscanf(string, "%lf %lf %lf %lf %lf %lf %lf %lf\n", &x, &y, &z, &vx,
-				&vy, &vz, &rad, &m);
-		pt.x = x;
-		pt.y = y;
-		pt.z = z;
-		pt.vx = vx;
-		pt.vy = vy;
-		pt.vz = vz;
-		pt.r = rad;
-		pt.m = m;
-		reb_add(r, pt);
-	}
-	fclose(fpi);
-	printf("read_particles: N=%d\n", r->N);
-}
+// Passed to rebound so you can have forces other than gravity
+void additional_forces(reb_simulation *n_body_sim) {
+	// If you're not using gravity routines in rebound (i.e. REB_GRAVITY_NONE), need to initialize particle accelerations
+	zero_accel(n_body_sim);
 
+	// Apply spring forces
+	spring_forces(n_body_sim);
+}

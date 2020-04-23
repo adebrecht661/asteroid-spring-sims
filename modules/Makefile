@@ -5,14 +5,18 @@ include Makefile.defs
 LIB+=-L/usr/X11/lib -L../src/
 LINKER+=-lrebound
 OPT+=-Wl,-rpath,./
-INCLUDES+=-I/usr/X11/include -I../src/ -I../src_spring/
+INCLUDES+= -I../src/ -I../src_spring/
 
 MYSOURCES=../src_spring/matrix_math.cpp \
-		  ../src_spring/spring.cpp \
+		  ../src_spring/springs.cpp \
 		  ../src_spring/kepcart.cpp \
 		  ../src_spring/heat.cpp \
 		  ../src_spring/orb.cpp \
-		  ../src_spring/m_output.cpp
+		  ../src_spring/input_spring.cpp \
+		  ../src_spring/physics.cpp \
+		  ../src_spring/shapes.cpp \
+		  ../src_spring/stress.cpp \
+		  ../src_spring/output_spring.cpp
 MYOBJECTS=$(MYSOURCES:.cpp=.o)
 MYHEADERS=$(MYSOURCES:.cpp=.h)
 
