@@ -16,7 +16,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
-#include <libconfig.h++>
+#include "libconfig.h++"
 extern "C" {
 #include "rebound.h"
 }
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
 	cfg.readFile("problem.cfg");
 
 	// Get scales
-	read_scales(cfg);
+	read_scales(&cfg);
 
 	// Vars read in
 	double r_ball, t_max, dt, max_spring_dist, gamma_fac, k, omega_in[3];

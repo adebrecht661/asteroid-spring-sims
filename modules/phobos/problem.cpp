@@ -55,6 +55,10 @@ double R_plus = 1.0;
 double theta_plus = 0.0;
 double phi_plus = 0.0;
 
+// Global scales
+double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
+		p_scale, L_scale, a_scale, F_scale, E_scale, dEdt_scale, P_scale;
+
 void additional_forces(struct reb_simulation *r) {
 	spring_forces(r); // spring forces
 	quadrupole_accel(r, J2_plus, R_plus, phi_plus, theta_plus,

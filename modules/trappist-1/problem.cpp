@@ -43,6 +43,10 @@ string fileroot;   // output files
 int num_perts;
 double itaua, itaue;
 
+// Global scales
+double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
+		p_scale, L_scale, a_scale, F_scale, E_scale, dEdt_scale, P_scale;
+
 void heartbeat(struct reb_simulation *const r);
 
 void additional_forces(struct reb_simulation *r) {

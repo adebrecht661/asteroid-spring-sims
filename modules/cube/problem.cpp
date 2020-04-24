@@ -59,31 +59,34 @@ int main(int argc, char *argv[]) {
 	cfg.readFile("problem.cfg");
 
 	// Read and output scale info
-	read_scales(cfg);
+	read_scales(&cfg);
 
 	// Vars read in
 	double cube_mass, cube_side_len, t_max, dt, min_part_dist,
 			max_short_spring_fac, max_med_spring_fac, max_long_spring_fac,
 			gamma_fac, k_short, k_med, k_long;
 
-	cfg.lookupValue("fileroot", fileroot);
-	cfg.lookupValue("dt", dt);
-	cfg.lookupValue("cube_mass", cube_mass);
-	cfg.lookupValue("cube_side_len", cube_side_len);
-	cfg.lookupValue("t_max", t_max);
-	cfg.lookupValue("print_interval", print_interval);
-	cfg.lookupValue("min_part_dist", min_part_dist);
-	cfg.lookupValue("max_short_spring_fac", max_short_spring_fac);
-	cfg.lookupValue("max_med_spring_fac", max_med_spring_fac);
-	cfg.lookupValue("max_long_spring_fac", max_long_spring_fac);
-	cfg.lookupValue("k_short", k_short);
-	cfg.lookupValue("k_med", k_med);
-	cfg.lookupValue("k_long", k_long);
-	cfg.lookupValue("gamma", def_gamma);
-	cfg.lookupValue("damp_fac", gamma_fac);
-	cfg.lookupValue("t_damp", t_damp);
-	cfg.lookupValue("surf_dist", surf_dist);
-	cfg.lookupValue("pressure", pressure);
+	if (!(cfg.lookupValue("fileroot", fileroot) && cfg.lookupValue("dt", dt)
+			&& cfg.lookupValue("cube_mass", cube_mass)
+			&& cfg.lookupValue("cube_side_len", cube_side_len)
+			&& cfg.lookupValue("t_max", t_max)
+			&& cfg.lookupValue("print_interval", print_interval)
+			&& cfg.lookupValue("min_part_dist", min_part_dist)
+			&& cfg.lookupValue("max_short_spring_fac", max_short_spring_fac)
+			&& cfg.lookupValue("max_med_spring_fac", max_med_spring_fac)
+			&& cfg.lookupValue("max_long_spring_fac", max_long_spring_fac)
+			&& cfg.lookupValue("k_short", k_short)
+			&& cfg.lookupValue("k_med", k_med)
+			&& cfg.lookupValue("k_long", k_long)
+			&& cfg.lookupValue("gamma", def_gamma)
+			&& cfg.lookupValue("damp_fac", gamma_fac)
+			&& cfg.lookupValue("t_damp", t_damp)
+			&& cfg.lookupValue("surf_dist", surf_dist)
+			&& cfg.lookupValue("pressure", pressure))) {
+		throw "Failed to read in problem.cfg. Exiting.";
+	} else {
+		std::cout << "Read in problem.cfg." << std::endl;
+	}
 
 	std::cout << "Read in problem.cfg" << std::endl;
 

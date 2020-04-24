@@ -2,10 +2,10 @@ export OPENGL=1
 
 include Makefile.defs
 
-LIB+=-L../src/ -L../libconfig/lib/.libs/
-LINKER+=-lrebound -lconfig
+LIB+=-L../src/ -L../libconfig/lib/.libs/ -L../../libconfig/lib/.libs/
+LINKER+=-lrebound -lconfig++
 OPT+=-Wl,-rpath,./
-INCLUDES+= -I../src/ -I../src_spring/ -I../libconfig/lib/.libs/
+INCLUDES+= -I../src/ -I../src_spring/ -I../libconfig/lib/ -I../../libconfig/lib/
 
 MYSOURCES=../src_spring/matrix_math.cpp \
 		  ../src_spring/springs.cpp \
@@ -34,4 +34,4 @@ $(EXECUTABLE) : $(MYOBJECTS) $(MYPROBLEMOBJ)
 
 %.o : %.cpp
 	@echo "Compiling source file $< ..."
-	$(CPP) -c $(OPT) $(PREDEF) $(INCLUDES) $(LIB) -o $@ $<
+	$(CPP) -c $(OPT) $(PREDEF) $(INCLUDES) $(LIB) -o $@ $< $(LINKER)

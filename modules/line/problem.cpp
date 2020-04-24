@@ -26,277 +26,197 @@ extern "C" {
 #include "springs.h"
 #include "physics.h"
 #include "stress.h"
-#include "heat.h"
 
 using std::string;
 using std::vector;
 
-// needed for spring library and hacked rebound viewer
-int num_springs = 0;
-vector<spring> springs;  // springs structure
-extern vector<node> nodes;
+// Global values
+int num_springs = 0;	// Number of springs
+vector<spring> springs;	// Array of springs
 
-void heartbeat(struct reb_simulation *const r);  // runtime subroutine
-void gen_particles(struct reb_simulation *const r, int NN); // generate particles
-void sphere_forces(struct reb_simulation *const r); // interaction forces
-void pulse_base(struct reb_simulation *const r); // boundary condition
+// Default global values
+int num_perts = 0;					// Number of perturbers
+double def_gamma, t_damp, print_interval, pulse_period, pulse_wait, pulse_amp,
+		chosen_print_interval, grav_accel, base_pos;	// Read in - see cfg
+int chosen_particle; 				// printing out info on this particle
+string fileroot;					// Root name for output files
+std::ofstream pfile;				// Output file for chosen particle
 
-// icky globals   because rebound doesn't make it easy to pass anything
-string fileroot;   // for output files
-string pfilename;  // for a particular particle output
-int p_particle; // printing out info on this particle
-double print_interval;   // outputs on this time interval
-double tp_print;   // outputs for p_particler on this time interval
-double L_overlap; // for springs, overlap distance
-double k_spring; // spring constant
-double alpha;   // damping constant being used now
-double alpha_run;  // damping during run
-double alpha_damp; // damping at beginning of run
-double t_damp;   // time for early higher damping
-double G_grav;   //  downward gravity
-double py0;     //  if first particle is below this then push it up
-double A_pulse;  // pulse amplitude
-double tau_pulse;  // pulse time width
-double tau_wait;  // time to wait before doing another pulse
+// Global scales
+double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
+		p_scale, L_scale, a_scale, F_scale, E_scale, dEdt_scale, P_scale;
 
-int num_perts = 0;
+// Forward declarations
+void heartbeat(struct reb_simulation *const n_body_sim);
+void sphere_forces(struct reb_simulation *const n_body_sim);
+void pulse_base(struct reb_simulation *const n_body_sim);
+void additional_forces(struct reb_simulation *n_body_sim);
 
-// passed to rebound so you can have forces other than gravity
-void additional_forces(struct reb_simulation *r) {
-	zero_accel(r); // because gravity routines in rebound set acceleration and if you don't
-				   // call a gravity routine you need to zero the acceleration array
-	sphere_forces(r); // sof sphere forces
-
-}
-
-// primarily set things up so we can call integrator and display
 int main(int argc, char *argv[]) {
-	struct reb_simulation *const r = reb_create_simulation();
-	// Setup constants
-	r->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
-	r->gravity = reb_simulation::REB_GRAVITY_NONE;
-	r->boundary = reb_simulation::REB_BOUNDARY_NONE;
-	r->G = 0;
-	r->additional_forces = additional_forces; // setup callback function for additional forces
-	double rcube = 1.0;          // a length scale
-	double tmax = 0.0;           // if 0 integrate forever
 
-	double dt;             // timestep
-	int NN;  // number of particles in the line
+	// Read in configuration file
+	Config cfg;
+	cfg.readFile("problem.cfg");
 
-// things to set! ////////////////////// could be read in with parameter file
+	// Get scales
+	read_scales(&cfg);
 
-	if (argc == 1) { // if you run it without passing a filename on command line
-		fileroot = "t1";   // to make output files
-		dt = 1e-6;    // Timestep
-		NN = 50; // number of particles
-		print_interval = 1.0e6;
-		tp_print = 1.0e6;
-		k_spring = 1.0e5;
-		G_grav = 1.000;
-		alpha_run = 1.0e2;
-		alpha_damp = 1.0e4;
-		t_damp = 3.0;
-		py0 = -1.7;
-		A_pulse = 0.3;
-		tau_pulse = 1.0;
-		tau_wait = 6.0;
+	// Vars read in
+	double r_cube, t_max, dt, max_spring_dist, gamma_fac, k;
+	int num_parts;
+
+	if (!(cfg.lookupValue("fileroot", fileroot) && cfg.lookupValue("dt", dt)
+			&& cfg.lookupValue("t_max", t_max)
+			&& cfg.lookupValue("r_cube", r_cube)
+			&& cfg.lookupValue("print_interval", print_interval)
+			&& cfg.lookupValue("max_spring_dist", max_spring_dist)
+			&& cfg.lookupValue("k_short", k)
+			&& cfg.lookupValue("gamma", def_gamma)
+			&& cfg.lookupValue("damp_fac", gamma_fac)
+			&& cfg.lookupValue("t_damp", t_damp)
+			&& cfg.lookupValue("num_particles", num_parts)
+			&& cfg.lookupValue("chosen_particle", chosen_particle)
+			&& cfg.lookupValue("chosen_particle_interval",
+					chosen_print_interval)
+			&& cfg.lookupValue("pulse_amp", pulse_amp)
+			&& cfg.lookupValue("grav_accel", grav_accel)
+			&& cfg.lookupValue("pulse_period", pulse_period)
+			&& cfg.lookupValue("pulse_wait", pulse_wait)
+			&& cfg.lookupValue("base_pos", base_pos))) {
+		throw "Failed to read in problem.cfg. Exiting.";
 	} else {
-		FILE *fpi; // read in a parameter file
-		fpi = fopen(argv[1], "r");
-		char line[300];
-		char froot[100];
-		fgets(line, 300, fpi);
-		sscanf(line, "%s", froot);
-		fileroot = froot;
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &dt);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &tmax);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &print_interval);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &tp_print);
-		fgets(line, 300, fpi);
-		sscanf(line, "%d", &NN);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &k_spring);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &G_grav);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &alpha_run);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &alpha_damp);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &t_damp);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &py0);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &A_pulse);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &tau_pulse);
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &tau_wait);
-
-		printf("parm file read in\n");
-
+		std::cout << "Read in problem.cfg." << std::endl;
 	}
-	alpha = alpha_damp;
 
-/// end of things to set /////////////////////////
-	gen_particles(r, NN); // generate some particles
+	// Set up rebound n-body simulation
+	struct reb_simulation *const n_body_sim = reb_create_simulation();
 
-	r->dt = dt;            // set integration timestep
-	const double boxsize = 1.1 * rcube;    // display window
-	reb_configure_box(r, boxsize, 1, 2, 1);
-// viewer +x to right, +y to up, z back and forth along line of sight
-// I have put all motion in the y direction to be consistent with these
-// orientations
+	// Set up rebound constants
+	n_body_sim->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
+	n_body_sim->gravity = reb_simulation::REB_GRAVITY_NONE;
+	n_body_sim->boundary = reb_simulation::REB_BOUNDARY_NONE;
+	n_body_sim->G = 0;
+	n_body_sim->additional_forces = additional_forces;
 
-//   FILE *fpr;
-//   char fname[200];
-//   sprintf(fname,"%s_run.txt",froot); // for simulation info
-//   fpr = fopen(fname,"w");
+	// Generate particles
+	uniform_line(n_body_sim, num_parts, base_pos);
 
-	pfilename = fileroot + "_p" + std::to_string((int) NN / 2) + ".txt";
+	// Configure more rebound stuff
+	n_body_sim->dt = dt;
+	const double boxsize = 1.1 * r_cube;
+	reb_configure_box(n_body_sim, boxsize, 1, 2, 1);
 
-	r->heartbeat = heartbeat; // tell rebound about the hearbeat routine
+	// Set up spring
+	spring def_spring;
+	def_spring.gamma = def_gamma * gamma_fac;
+	def_spring.k_heat = 0.0;
+	def_spring.k = k;
 
-	if (tmax == 0.0) // start the integration!!!! (and display)
-		reb_integrate(r, INFINITY);
-	else
-		reb_integrate(r, tmax);
+	// Connect springs within L_overlap
+	double L_overlap = 1.0 / num_parts;
+	connect_springs_dist(n_body_sim, L_overlap, 0, n_body_sim->N, def_spring);
+
+	// Extra particle info file
+	string pfilename = fileroot + "_p" + std::to_string((int) num_parts / 2)
+			+ ".txt";
+	pfile.open(fileroot, std::ios::out | std::ios::app);
+
+	// Function called every timestep
+	n_body_sim->heartbeat = heartbeat;
+
+	// Start integration
+	if (t_max == 0.0) {
+		reb_integrate(n_body_sim, INFINITY);
+	} else {
+		reb_integrate(n_body_sim, t_max);
+	}
 }
 
-// this is called every timestep while the integration is running
-void heartbeat(struct reb_simulation *const r) {
-	struct reb_particle *particles = r->particles;
-	static int index = 0;
-	static FILE *fpp;
-	if (index == 0) {
-		fpp = fopen(pfilename.c_str(), "w"); // open it once!
+// Things done every timestep
+void heartbeat(struct reb_simulation *const n_body_sim) {
+	// Get particle infp
+	reb_particle *particles = n_body_sim->particles;
+
+	// Every 10 timesteps, output simulation timing info
+	if (reb_output_check(n_body_sim, 10.0 * n_body_sim->dt)) {
+		reb_output_timing(n_body_sim, 0);
 	}
 
-	if (reb_output_check(r, 10.0 * r->dt)) {
-		reb_output_timing(r, 0); // print time of simulation run on screen
+	// Turn off damping at t_damp
+	if (abs(n_body_sim->t - t_damp) < 0.9 * n_body_sim->dt) {
+		set_gamma(def_gamma);
 	}
 
-	if ((r->t > 0.0) && (reb_output_check(r, t_damp))) {
-		alpha = alpha_run;
+	// Output particle info every print_interval
+	if (reb_output_check(n_body_sim, print_interval)) {
+		write_particles(n_body_sim, fileroot,
+				(int) n_body_sim->t / print_interval);
 	}
 
-	if (reb_output_check(r, print_interval)) {
-		write_particles(r, fileroot, index); //   output particle positions
-		index++;
-	}
-
-	// output a lot of information on one particle in the middle
-	if (r->t - t_damp > 0) {
-		if (reb_output_check(r, tp_print)) {
-			fprintf(fpp, "%.6e ", r->t - t_damp);
-			fprintf(fpp, "%.6f ", particles[p_particle].y);
-			fprintf(fpp, "%.6f ", particles[p_particle].vy);
-			fprintf(fpp, "%.6f ", particles[p_particle].ay);
-			fprintf(fpp, "\n");
+	// Output extra info on one particle in the middle once damping ends
+	if (n_body_sim->t - t_damp > 0) {
+		if (reb_output_check(n_body_sim, chosen_print_interval)) {
+			pfile << std::setprecision(6) << n_body_sim->t - t_damp << "\t"
+					<< particles[chosen_particle].y << "\t"
+					<< particles[chosen_particle].vy << "\t"
+					<< particles[chosen_particle].ay << "\n";
 		}
 	}
 
-	pulse_base(r); // boundary condition
+	// Apply boundary condition - sinusoidal pulse on bottom particle
+	pulse_base(n_body_sim);
 
 }
 
-// generate particles in a line
-void gen_particles(struct reb_simulation *const r, int NN) {
-	struct reb_particle pt;  // particle structure
-	double dz = 1.0 / NN; // spacing
-	pt.m = dz; // mass, sums to 1
-	pt.x = 0.0;
-	pt.y = 0.0;
-	pt.z = 0.0;  // position
-	pt.vx = 0.0;
-	pt.vy = 0.0;
-	pt.vz = 0.0;  // velocity
-	pt.ax = 0.0;
-	pt.ay = 0.0;
-	pt.az = 0.0;  // acceleration
-	pt.r = dz / 2; // display radius
-	for (int i = 0; i < NN; i++) {
-		double z0 = dz * i;
-		pt.y = z0 + py0;   // up is y!
-		reb_add(r, pt);
-	}
-	L_overlap = 1.0 / NN;   // set global variable for interaction forces
+// Apply gravitational force
+void sphere_forces(struct reb_simulation *const n_body_sim) {
 
-	// If node vector has already been initialized, add nodes for new particles
-	if (!nodes.empty()) {
-		node zero_node;
-		zero_node.cv = -1;
-		zero_node.is_surf = true;
-		zero_node.temp = -1;
-		nodes.resize(nodes.size() + NN, zero_node);
-		std::cout
-				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense.";
+	// Get particle info
+	struct reb_particle *particles = n_body_sim->particles;
+
+	// Acceleration of gravity
+	for (int i = 0; i < n_body_sim->N; i++) {
+		particles[i].ay -= grav_accel;
+	}
+
+	// First particle is fixed
+	particles[0].ay = 0.0;
+}
+
+// Pulse base particle
+void pulse_base(struct reb_simulation *const n_body_sim) {
+
+	// Get particle info
+	struct reb_particle *particles = n_body_sim->particles;
+
+	// Start pulses at t_damp
+	double t = n_body_sim->t - t_damp;
+	double freq = 2.0 * M_PI / pulse_period;
+
+	// Continue pulse if required
+	t = fmod(t, (pulse_period + pulse_wait));
+	if (t < pulse_period) {
+
+		// Goes from 0 to pulse_amp back to 0
+		double pos = pulse_amp * (1.0 - cos(t * freq)) / 2.0;
+		// Derivative = velocity
+		double pos_dot = pulse_amp * freq * sin(t * freq) / 2.0;
+
+		// Set particle
+		particles[0].y = base_pos + pos;
+		particles[0].vy = pos_dot;
+		particles[0].ay = 0.0;
 	}
 }
 
-// needs L_overlap and k_spring and alpha and G_grav
-// aply particle interaction forces
-void sphere_forces(struct reb_simulation *const r) {
-	struct reb_particle *particles = r->particles;
-	for (int i = 0; i < r->N - 1; i++) {
-		int j = i + 1;
-		double mii = particles[i].m;
-		double mjj = particles[j].m;
-		double dd = fabs(particles[i].y - particles[j].y);
-		if (dd < L_overlap) { // only apply if particles are close together
-			double facc = k_spring * pow(fabs(dd - L_overlap), 1.5); // here is our spring force!
-			particles[i].ay -= facc / mii;
-			r->particles[j].ay += facc / mjj;
-			double ddv = particles[i].vy - particles[j].vy;
-			particles[i].ay -= alpha * ddv / mii;
-			r->particles[j].ay += alpha * ddv / mjj; // damping
-		}
+// Initialize accelerations (because not using rebound gravity) and apply forces
+void additional_forces(struct reb_simulation *n_body_sim) {
+	// Init accelerations
+	zero_accel(n_body_sim);
 
-	}
-	for (int i = 0; i < r->N; i++) {
-		particles[i].ay -= G_grav;  // gravity acceleration
-	}
-	particles[0].ay = 0.0; // don't let this guy move?
-}
+	// Spring forces
+	spring_forces(n_body_sim);
 
-// give base particle a some kind of pulse?
-// and fix it if outside of pulse
-void pulse_base(struct reb_simulation *const r) {
-	struct reb_particle *particles = r->particles;
-
-	if (r->t < t_damp) {
-		particles[0].y = py0;   // prevent first particle from going too low
-		particles[0].vy = 0.0;
-		particles[0].ay = 0.0;
-		return;
-	}
-
-	double dtau = r->t - t_damp;
-	double freq = 2.0 * M_PI / tau_pulse;
-
-// apply a pulse then wait then apply another pulse etc
-	int nps = (int) (dtau / (tau_pulse + tau_wait));
-	dtau -= nps * (tau_pulse + tau_wait);
-
-	if (dtau < tau_pulse) {
-		double bpos = A_pulse * (1.0 - cos(dtau * freq)) / 2.0; // goes from 0 to Apulse at dtau=tau/2
-		double bposdot = A_pulse * freq * sin(dtau * freq) / 2.0;
-		// double bposddot = A_pulse*freq*freq*cos(dtau*freq)/2.0;
-		particles[0].y = py0 + bpos;
-		particles[0].vy = bposdot;
-		// particles[0].ay = bposddot;
-		particles[0].ay = 0.0;
-		return;
-	}
-	if (particles[0].y < py0) {   // prevent first particle from going too low
-		particles[0].y = py0;
-		particles[0].vy = 0.0;
-		particles[0].ay = 0.0;
-	}
-
+	// Gravity forces
+	sphere_forces(n_body_sim);
 }
