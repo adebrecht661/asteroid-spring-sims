@@ -62,22 +62,23 @@ int main(int argc, char *argv[]) {
 	// Vars read in
 	double r_ball, t_max, dt, max_spring_dist, gamma_fac, k, omega_in[3];
 
-	cfg.lookupValue("fileroot", fileroot);
-	cfg.lookupValue("dt", dt);
-	cfg.lookupValue("t_max", t_max);
-	cfg.lookupValue("r_ball", r_ball);
-	cfg.lookupValue("print_interval", print_interval);
-	cfg.lookupValue("max_spring_dist", max_spring_dist);
-	cfg.lookupValue("k_short", k);
-	cfg.lookupValue("gamma", def_gamma);
-	cfg.lookupValue("damp_fac", gamma_fac);
-	cfg.lookupValue("t_damp", t_damp);
-	cfg.lookupValue("omega_x", omega_in[0]);
-	cfg.lookupValue("omega_y", omega_in[1]);
-	cfg.lookupValue("omega_z", omega_in[2]);
+	if (!(cfg.lookupValue("fileroot", fileroot) && cfg.lookupValue("dt", dt)
+			&& cfg.lookupValue("t_max", t_max)
+			&& cfg.lookupValue("r_ball", r_ball)
+			&& cfg.lookupValue("print_interval", print_interval)
+			&& cfg.lookupValue("max_spring_dist", max_spring_dist)
+			&& cfg.lookupValue("k_short", k)
+			&& cfg.lookupValue("gamma", def_gamma)
+			&& cfg.lookupValue("damp_fac", gamma_fac)
+			&& cfg.lookupValue("t_damp", t_damp)
+			&& cfg.lookupValue("omega_x", omega_in[0])
+			&& cfg.lookupValue("omega_y", omega_in[1])
+			&& cfg.lookupValue("omega_z", omega_in[2]))) {
+		throw "Failed to read in problem.cfg. Exiting.";
+	} else {
+		std::cout << "Read in problem.cfg." << std::endl;
+	}
 	Vector omega(omega_in);
-
-	std::cout << "Read in problem.cfg." << std::endl;
 
 	// Create rebound simulation
 	reb_simulation *const n_body_sim = reb_create_simulation();
