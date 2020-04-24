@@ -22,27 +22,29 @@ endif
 NUM_PROC ?= 1
 log_file ?= $(shell date -I).log
 
-default: librebound $(PROBLEM)
+default: rebound config $(PROBLEM)
 
-all: librebound $(PROBLEMS)
+all: rebound config $(PROBLEMS)
 
-$(PROBLEMS): librebound 
+$(PROBLEMS): rebound config
 	cd modules && make PROBLEM=$@ INC=../$(INC)
 
-librebound: 
-	@echo "Compiling shared library librebound.so ..."
+rebound: 
+	@echo "Compiling shared library librebound ..."
 	$(MAKE) -C src/
+	
+config:
+	@echo "Compiling shared library libconfig ..."
+	cd libconfig; if [ ! -f "config.status" ] ; then ./configure; fi; make
 
 clean:
-	cd modules; make clean
+	cd libconfig; make clean
+	cd src; make clean
+	@echo "Removing spring objects ..."
+	cd src_spring; rm -f *.o
+	@echo "Removing spring problems ..."
 	for PROBLEM in $(PROBLEM); do  \
 	  rm -f modules/$$PROBLEM/problem.o; \
 	  rm -f modules/$$PROBLEM/rebound_spring; \
-	done
-
-allclean: 
-	cd src; make clean
-	for PROBLEM in $(PROBLEMS); do  \
-	  rm -f modules/$$PROBLEM/problem.o; \
-	  rm -f modules/$$PROBLEM/rebound_spring; \
+	  rm -f modules/$$PROBLEM/librebound.so; \
 	done

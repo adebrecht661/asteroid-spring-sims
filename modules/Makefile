@@ -2,10 +2,10 @@ export OPENGL=1
 
 include Makefile.defs
 
-LIB+=-L/usr/X11/lib -L../src/
-LINKER+=-lrebound
+LIB+=-L../src/ -L../libconfig/lib/.libs/
+LINKER+=-lrebound -lconfig
 OPT+=-Wl,-rpath,./
-INCLUDES+= -I../src/ -I../src_spring/
+INCLUDES+= -I../src/ -I../src_spring/ -I../libconfig/lib/.libs/
 
 MYSOURCES=../src_spring/matrix_math.cpp \
 		  ../src_spring/springs.cpp \
@@ -35,11 +35,3 @@ $(EXECUTABLE) : $(MYOBJECTS) $(MYPROBLEMOBJ)
 %.o : %.cpp
 	@echo "Compiling source file $< ..."
 	$(CPP) -c $(OPT) $(PREDEF) $(INCLUDES) $(LIB) -o $@ $<
-
-clean:
-	@echo "Cleaning up shared library librebound.so ..."
-	rm -f librebound.so
-	$(MAKE) -C ../src/ clean
-	@echo "Cleaning up local directory ..."
-	rm -rf ../src_spring/*.o
-	rm -vf rebound_spring
