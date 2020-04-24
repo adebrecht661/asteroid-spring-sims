@@ -33,6 +33,44 @@ extern vector<node> nodes;
 /* Generators */
 /**************/
 
+// Create num_parts uniformly spaced particles in a line of length 1 in the y direction
+void uniform_line(struct reb_simulation *const n_body_sim, int num_parts,
+		double y_off) {
+	// Get particle spacing
+	double dy = 1.0 / num_parts;
+
+	// Set particle properties
+	struct reb_particle pt;
+	pt.m = dy;		// Mass - note, sums to 1
+	pt.x = 0.0;
+	pt.y = 0.0;
+	pt.z = 0.0;
+	pt.vx = 0.0;
+	pt.vy = 0.0;
+	pt.vz = 0.0;
+	pt.ax = 0.0;
+	pt.ay = 0.0;
+	pt.az = 0.0;
+	pt.r = dy / 2;	// Display radius
+
+	// Add particles at correct location
+	for (int i = 0; i < num_parts; i++) {
+		pt.y = dy * i + y_off;
+		reb_add(n_body_sim, pt);
+	}
+
+	// If node vector has already been initialized, add nodes for new particles
+	if (!nodes.empty()) {
+		node zero_node;
+		zero_node.cv = -1;
+		zero_node.is_surf = true;
+		zero_node.temp = -1;
+		nodes.resize(nodes.size() + num_parts, zero_node);
+		std::cout
+				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (uniform_line)";
+	}
+}
+
 // Create an approximately uniform random particle distribution with total_mass within rectangular prism given by lengths x, y, z
 // No particles closer than min_dist created
 void rand_rectangle(reb_simulation *const n_body_sim, double min_dist, double x,

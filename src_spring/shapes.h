@@ -14,6 +14,8 @@
 /* Generators */
 /**************/
 
+// Create particles uniformly spaced along a line of length 1 in the y direction, with an initial offset of y_off
+void uniform_line(reb_simulation* const n_body_sim, int num_parts, double y_off);
 // Create particles approximately evenly distributed inside rectangular prism defined by sides x, y, z, no closer than min_dist, with total_mass
 void rand_rectangle(reb_simulation *const n_body_sim, double min_dist,
 		double x, double y, double z, double total_mass);
