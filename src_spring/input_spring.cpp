@@ -46,13 +46,14 @@ void read_springs(string fileroot, int index) {
 	std::ifstream spring_file(filename, std::ios::in);
 	spring spr;
 	string line;
+
+	// Each line is a different spring
 	while (std::getline(spring_file, line)) {
 		std::istringstream input_stream(line);
 
 		if (!(input_stream >> spr.particle_1 >> spr.particle_2 >> spr.k
-				>> spr.rs0 >> spr.gamma >> spr.k_heat)) {
+				>> spr.rs0 >> spr.gamma >> spr.k_heat))
 			throw "I/O error in read_springs.";
-		}
 
 		// Add spring
 		add_spring_helper(spr);
@@ -76,13 +77,14 @@ void read_particles(reb_simulation *const n_body_sim, string fileroot,
 	pt.ay = 0.0;
 	pt.az = 0.0;
 	string line;
+
+	// Each line is a different particle
 	while (std::getline(particle_file, line)) {
 		std::istringstream input_stream(line);
 
 		if (!(input_stream >> pt.x >> pt.y >> pt.z >> pt.vx >> pt.vy >> pt.vz
-				>> pt.r >> pt.m)) {
+				>> pt.r >> pt.m))
 			throw "I/O error in read_particles.";
-		}
 
 		// Add particle
 		reb_add(n_body_sim, pt);
@@ -121,12 +123,13 @@ void read_vertices(reb_simulation *n_body_sim, string filename) {
 	pt.r = 1.0; // arbitrary radius
 	char type;
 	string line;
+
+	// Each line is (possibly) a different vertex
 	while (std::getline(vertex_file, line)) {
 		std::istringstream input_stream(line);
 
-		if (!(input_stream >> type >> pt.x >> pt.y >> pt.z)) {
+		if (!(input_stream >> type >> pt.x >> pt.y >> pt.z))
 			throw "I/O error in read_vertices.";
-		}
 
 		// If line is a vertex, add it
 		if (type == 'v') {

@@ -38,9 +38,7 @@ void init_nodes(struct reb_simulation *const n_body_sim, double Cv, double T0) {
 // Update temperature on each node for the timestep with size dt
 void transport_heat(reb_simulation* const n_body_sim, double dt) {
 	// Allocate and initialize array for new temperatures
-	double* delta_T = (double*) malloc(sizeof(double) * n_body_sim->N);
-	for (int k = 0; k < n_body_sim->N; k++)
-		delta_T[k] = 0.0;
+	double delta_T[n_body_sim->N] = {0.0};
 
 	// Get energy transfer along each spring
 	for (int i = 0; i < num_springs; i++) {
@@ -61,9 +59,6 @@ void transport_heat(reb_simulation* const n_body_sim, double dt) {
 			nodes[k].temp += delta_T[k];
 		}
 	}
-
-	// Free malloc'd array
-	free(delta_T);
 }
 
 // Apply tidal heating to internal nodes
