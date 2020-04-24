@@ -19,7 +19,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
-#include <libconfig.h++>
+#include "libconfig.h++"
 extern "C" {
 #include "rebound.h"
 }
@@ -45,12 +45,14 @@ extern double mass_scale, time_scale, length_scale, temp_scale, omega_scale,
 /******************/
 
 // Read scales from problem.cfg and output to scales file
-void read_scales(Config cfg) {
+void read_scales(Config *cfg) {
 	// Read and output scale info
-	cfg.lookupValue("mass_scale", mass_scale);
-	cfg.lookupValue("time_scale", time_scale);
-	cfg.lookupValue("length_scale", length_scale);
-	cfg.lookupValue("temp_scale", temp_scale);
+	if (!(cfg->lookupValue("mass_scale", mass_scale)
+			&& cfg->lookupValue("time_scale", time_scale)
+			&& cfg->lookupValue("length_scale", length_scale)
+			&& cfg->lookupValue("temp_scale", temp_scale))) {
+		throw "Error reading scales from problem.cfg. Exiting.";
+	}
 	omega_scale = 1.0 / time_scale;
 	vel_scale = length_scale / time_scale;
 	p_scale = mass_scale * vel_scale;
