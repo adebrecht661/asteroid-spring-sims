@@ -11,12 +11,16 @@
 #define SRC_SPRING_INPUT_SPRING_H_
 
 #include <string>
+#include <libconfig.h++>
 using std::string;
+using namespace libconfig;
 
 /******************/
 /* Input routines */
 /******************/
 
+// Read scale info from problem.cfg
+void read_scales(Config vars);
 // Read springs from fileroot_%06d_springs.txt
 void read_springs(string fileroot, int index);
 // Read particles from fileroot_%06d_particles.txt

@@ -13,11 +13,13 @@
  *      Author: alex
  */
 
+#include <cmath>
 #include <vector>
 #include <string>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <libconfig.h++>
 extern "C" {
 #include "rebound.h"
 }
@@ -26,15 +28,50 @@ extern "C" {
 #include "heat.h"
 #include "input_spring.h"
 
+using namespace libconfig;
 using std::string;
 using std::vector;
 
 extern int num_springs;		// Total number of springs
 extern vector<node> nodes;	// Node vector
 
+// Global scales
+extern double mass_scale, time_scale, length_scale, temp_scale, omega_scale,
+		vel_scale, p_scale, L_scale, a_scale, F_scale, E_scale, dEdt_scale,
+		P_scale;
+
 /******************/
 /* Input routines */
 /******************/
+
+// Read scales from problem.cfg and output to scales file
+void read_scales(Config cfg) {
+	// Read and output scale info
+	cfg.lookupValue("mass_scale", mass_scale);
+	cfg.lookupValue("time_scale", time_scale);
+	cfg.lookupValue("length_scale", length_scale);
+	cfg.lookupValue("temp_scale", temp_scale);
+	omega_scale = 1.0 / time_scale;
+	vel_scale = length_scale / time_scale;
+	p_scale = mass_scale * vel_scale;
+	L_scale = length_scale * p_scale;
+	a_scale = vel_scale / time_scale;
+	F_scale = a_scale * mass_scale;
+	E_scale = F_scale * length_scale;
+	dEdt_scale = E_scale / time_scale;
+	P_scale = F_scale / pow(length_scale, 2.0);
+
+	std::ofstream scalefile("scales.txt", std::ios::out | std::ios::trunc);
+	scalefile << "Multiply values by these scales to get physical values:\n"
+			<< "Mass scale: " << mass_scale << "\nTime scale: " << time_scale
+			<< "\nLength scale: " << length_scale << "\nTemperature scale: "
+			<< temp_scale << "\nAngular velocity scale: " << omega_scale
+			<< "\nVelocity scale: " << vel_scale << "\nMomentum scale: "
+			<< p_scale << "\nAngular momentum scale: " << L_scale
+			<< "\nAcceleration scale: " << a_scale << "\nForce scale: "
+			<< F_scale << "\nEnergy scale: " << E_scale << "\nPower scale: "
+			<< dEdt_scale << "\nPressure scale: " << P_scale;
+}
 
 // Read springs in from specified file
 void read_springs(string fileroot, int index) {
