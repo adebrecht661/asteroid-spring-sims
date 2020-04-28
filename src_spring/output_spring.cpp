@@ -51,7 +51,7 @@ extern vector<double> tot_power;
 // Write out positions and velocities of surface particles
 // Can write at multiple times
 void write_surf_part(reb_simulation *const n_body_sim, int i_low, int i_high,
-		bool is_surf[], string filename) {
+		string filename) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -76,7 +76,7 @@ void write_surf_part(reb_simulation *const n_body_sim, int i_low, int i_high,
 
 	// Print tab-separated particle info at time t - t_off
 	for (int i = 0; i < n_body_sim->N; i++) {
-		if (is_surf[i])
+		if (nodes[i].is_surf)
 			outfile << std::setprecision(6) << n_body_sim->t - t_off << "\t"
 					<< particles[i].x << "\t" << particles[i].y << "\t"
 					<< particles[i].z << "\t" << particles[i].vx << "\t"
@@ -626,7 +626,7 @@ void write_heat(reb_simulation *const n_body_sim, string filename,
 	}
 
 	// Time
-	outfile << std::setprecision(2) <<  "# t = " << n_body_sim->t;
+	outfile << std::setprecision(2) << "# t = " << n_body_sim->t;
 
 	// Get resolved body indices
 	int i_low = 0;
@@ -639,12 +639,16 @@ void write_heat(reb_simulation *const n_body_sim, string filename,
 	int i_prim = n_body_sim->N - 1;
 
 	// Location of primary perturber
-	Vector x_prim = {particles[i_prim].x, particles[i_prim].y, particles[i_prim].z};
-	double theta = atan2(x_prim.getY() - CoM.getY(), x_prim.getX() - CoM.getX());
+	Vector x_prim = { particles[i_prim].x, particles[i_prim].y,
+			particles[i_prim].z };
+	double theta = atan2(x_prim.getY() - CoM.getY(),
+			x_prim.getX() - CoM.getX());
 
 	// Print primary perturber info
-	outfile << std::setprecision(3) << "# primary info: " << x_prim.getX() << "\t" << x_prim.getY() << "\t" << x_prim.getZ() << "\t" << CoM.getX() << "\t" << CoM.getY() << "\t" <<
-			CoM.getZ() << "\t" << theta << "\n";
+	outfile << std::setprecision(3) << "# primary info: " << x_prim.getX()
+			<< "\t" << x_prim.getY() << "\t" << x_prim.getZ() << "\t"
+			<< CoM.getX() << "\t" << CoM.getY() << "\t" << CoM.getZ() << "\t"
+			<< theta << "\n";
 
 	// Get rotation matrix
 	Matrix rot_mat = getRotMatZ(theta);
@@ -657,14 +661,15 @@ void write_heat(reb_simulation *const n_body_sim, string filename,
 
 		// Rotate around center of body in xy plane so that +x is toward perturber, +y is direction of rotation of perturber w.r.t to body
 		// (So -y is headwind direction for body and +y is tailwind surface on body)
-		Vector x_rot = rot_mat*x;
+		Vector x_rot = rot_mat * x;
 
 		// Get average power for this spring
 		double power = tot_power[i];
 
 		// Write average power applied to center of spring
-		outfile << i << "\t" << std::setprecision(3) << x.getX() << "\t" << x.getY() << "\t" << x.getZ() << "\t" <<
-				power * power_fac << "\t" << x_rot.getX() << "\t" << x_rot.getY() << "\n";
+		outfile << i << "\t" << std::setprecision(3) << x.getX() << "\t"
+				<< x.getY() << "\t" << x.getZ() << "\t" << power * power_fac
+				<< "\t" << x_rot.getX() << "\t" << x_rot.getY() << "\n";
 
 		// Write heat on nodes as well as center of spring
 		if (power_fac < 1.0) {
@@ -673,17 +678,23 @@ void write_heat(reb_simulation *const n_body_sim, string filename,
 			int part_2 = springs[i].particle_2;
 
 			// Get displacements of each particle from center of mass
-			Vector x_1 = {particles[part_1].x, particles[part_1].y, particles[part_1].z};
+			Vector x_1 = { particles[part_1].x, particles[part_1].y,
+					particles[part_1].z };
 			Vector dx_1 = x_1 - CoM;
 
-			Vector x_2 = {particles[part_2].x, particles[part_2].y, particles[part_2].z};
+			Vector x_2 = { particles[part_2].x, particles[part_2].y,
+					particles[part_2].z };
 			Vector dx_2 = x_2 - CoM;
 
 			// Write info for each particle
-			outfile << i << "\t" << std::setprecision(3) << dx_1.getX() << "\t" << dx_1.getY() << "\t" << dx_1.getZ() << "\t" <<
-					power * (1.0 - power_fac) * 0.5 << "\t" << x_rot.getX() << "\t" << x_rot.getY() << "\n";
-			outfile << i << "\t" << std::setprecision(3) << dx_2.getX() << "\t" << dx_2.getY() << "\t" << dx_2.getZ() << "\t" <<
-								power * (1.0 - power_fac) * 0.5 << "\t" << x_rot.getX() << "\t" << x_rot.getY() << "\n";
+			outfile << i << "\t" << std::setprecision(3) << dx_1.getX() << "\t"
+					<< dx_1.getY() << "\t" << dx_1.getZ() << "\t"
+					<< power * (1.0 - power_fac) * 0.5 << "\t" << x_rot.getX()
+					<< "\t" << x_rot.getY() << "\n";
+			outfile << i << "\t" << std::setprecision(3) << dx_2.getX() << "\t"
+					<< dx_2.getY() << "\t" << dx_2.getZ() << "\t"
+					<< power * (1.0 - power_fac) * 0.5 << "\t" << x_rot.getX()
+					<< "\t" << x_rot.getY() << "\n";
 		}
 	}
 	outfile.close();
