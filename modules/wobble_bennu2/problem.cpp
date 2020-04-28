@@ -33,7 +33,7 @@ using std::vector;
 
 int num_springs;
 vector<spring> springs;
-void reb_springs(struct reb_simulation *const r); // to pass springs to display
+void reb_springs(reb_simulation *const r); // to pass springs to display
 
 double def_gamma; // for gamma  of all springs
 double gammafac2;
@@ -53,15 +53,15 @@ double itmig[NPMAX];  // inverse timescale to get rid of migration
 double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
 		p_scale, L_scale, a_scale, F_scale, E_scale, dEdt_scale, P_scale;
 
-void heartbeat(struct reb_simulation *const r);
+void heartbeat(reb_simulation *const r);
 
-void additional_forces(struct reb_simulation *r) {
+void additional_forces(reb_simulation *r) {
 	spring_forces(r); // spring forces
 }
 
 int main(int argc, char *argv[]) {
-	struct reb_simulation *const r = reb_create_simulation();
-	struct spring spring_mush; // spring parameters for mush
+	reb_simulation *const r = reb_create_simulation();
+	spring spring_mush; // spring parameters for mush
 	// Setup constants
 	r->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
 	r->gravity = reb_simulation::REB_GRAVITY_BASIC;
@@ -404,7 +404,7 @@ int main(int argc, char *argv[]) {
 }
 
 #define NSPACE 50
-void heartbeat(struct reb_simulation *const r) {
+void heartbeat(reb_simulation *const r) {
 	static int first = 0;
 	static char extendedfile[50];
 	// static char pointmassfile[NPMAX*NSPACE];
@@ -431,7 +431,7 @@ void heartbeat(struct reb_simulation *const r) {
 }
 
 // make a spring index list for display
-void reb_springs(struct reb_simulation *const r) {
+void reb_springs(reb_simulation *const r) {
 	r->NS = num_springs;
 	r->springs_i = (int*) malloc(num_springs * sizeof(int));
 	r->springs_j = (int*) malloc(num_springs * sizeof(int));

@@ -99,5 +99,7 @@ void zero_accel(reb_simulation *n_body_sim);
 // Multiply masses to the right of x_min by m_fac and renormalize
 void adjust_mass_side(reb_simulation *const n_body_sim, double m_fac,
 		double x_min);
+// Multiply masses either inside or outside of ellipse defined by center x0, semiaxes a,b,c by m_fac and renormalize
+void adjust_mass_ellipsoid(reb_simulation *const n_body_sim, double m_fac, double a, double b, double c, Vector x0, bool inside);
 
 #endif /* SRC_SPRING_PHYSICS_H_ */

@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
 	std::cout << "Read in problem.cfg" << std::endl;
 
 	// Set up rebound n-body simulation
-	struct reb_simulation *const n_body_sim = reb_create_simulation();
+	reb_simulation *const n_body_sim = reb_create_simulation();
 
 	// Set up rebound constants
 	n_body_sim->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 }
 
 // Things to happen every integration timestep
-void heartbeat(struct reb_simulation *const n_body_sim) {
+void heartbeat(reb_simulation *const n_body_sim) {
 
 	// Output rebound timing info every 10 timesteps
 	if (reb_output_check(n_body_sim, 10.0 * n_body_sim->dt)) {
@@ -189,7 +189,7 @@ void additional_forces(reb_simulation *n_body_sim) {
 }
 
 // Make a spring index list to pass to viewer
-void reb_springs(struct reb_simulation *const n_body_sim) {
+void reb_springs(reb_simulation *const n_body_sim) {
 	// Set rebound spring info
 	n_body_sim->NS = num_springs;
 	n_body_sim->springs_i = (int*) malloc(num_springs * sizeof(int));
@@ -204,7 +204,7 @@ void reb_springs(struct reb_simulation *const n_body_sim) {
 
 // Apply pressure to top of cube
 // Mark top surface in the first call, since it can move
-void top_push(struct reb_simulation *const n_body_sim) {
+void top_push(reb_simulation *const n_body_sim) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -234,7 +234,7 @@ void top_push(struct reb_simulation *const n_body_sim) {
 }
 
 // Cube can't move through table
-void table_top(struct reb_simulation *const n_body_sim) {
+void table_top(reb_simulation *const n_body_sim) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 

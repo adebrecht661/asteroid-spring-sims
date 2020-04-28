@@ -33,7 +33,6 @@ using std::vector;
 
 int num_springs;  // global numbers of springs
 vector<spring> springs;
-void reb_springs(struct reb_simulation *const r);  // to pass springs to display
 
 double def_gamma; // for gamma  of all springs
 double t_damp;    // end faster damping, relaxation
@@ -47,8 +46,6 @@ int icentral = -1; // central mass location
 double itaua[NPMAX], itaue[NPMAX]; // inverse of migration timescales
 double itmig[NPMAX];  // inverse timescale to get rid of migration
 
-void heartbeat(struct reb_simulation *const r);
-
 // quadrupole of planet
 double J2_plus = 0.0;
 double R_plus = 1.0;
@@ -59,15 +56,14 @@ double phi_plus = 0.0;
 double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
 		p_scale, L_scale, a_scale, F_scale, E_scale, dEdt_scale, P_scale;
 
-void additional_forces(struct reb_simulation *r) {
-	spring_forces(r); // spring forces
-	quadrupole_accel(r, J2_plus, R_plus, phi_plus, theta_plus,
-			r->N - num_perts); // quad force
-}
+// Forward declarations
+void heartbeat(reb_simulation *const n_body_sim);
+void reb_springs(reb_simulation *const n_body_sim);
+void additional_forces(reb_simulation *n_body_sim);
 
 int main(int argc, char *argv[]) {
-	struct reb_simulation *const r = reb_create_simulation();
-	struct spring spring_mush; // spring parameters for mush
+	reb_simulation *const r = reb_create_simulation();
+	spring spring_mush; // spring parameters for mush
 	// Setup constants
 	r->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
 	r->gravity = reb_simulation::REB_GRAVITY_BASIC;
@@ -121,57 +117,6 @@ int main(int argc, char *argv[]) {
 		argperi[ip] = 0.0;    // initial orbtal elements
 		longnode[ip] = 0.0;    // initial
 		meananom[ip] = 0.0;    // initial
-
-	} else {
-		FILE *fpi;
-		fpi = fopen(argv[1], "r");
-		char line[300];
-		char froot[100];
-		fgets(line, 300, fpi);
-		sscanf(line, "%s", froot);   // fileroot for outputs
-		fileroot = froot;
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &dt);    // timestep
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &tmax);  // integrate to this time
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &print_interval); // output timestep
-		fgets(line, 300, fpi);
-		sscanf(line, "%d", &lattice_type); // particle lattice type
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &b_distance); // min interparticle distance
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &mush_fac);   // sets max spring length
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &ks);         // spring constant
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &gamma_fac);  // factor initial gamma is higher
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &def_gamma);  // damping final
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &t_damp);     // time to switch
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &ratio1);     // axis ratio for body b/a
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &ratio2);     // second axis ratio   c/a
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &omegaz);     // initial body spin
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf", &obliquity_deg); // obliquity degrees
-		fgets(line, 300, fpi);
-		sscanf(line, "%lf %lf %lf %lf", &J2_plus, &R_plus, &theta_plus,
-				&phi_plus); // for an oblate planet
-		fgets(line, 300, fpi);
-		sscanf(line, "%d", &npointmass); // number of point masses
-		for (int ip = 0; ip < npointmass; ip++) {
-			fgets(line, 300, fpi);
-			sscanf(line, "%lf %lf %lf %lf %lf", mp + ip, rad + ip, itaua + ip,
-					itaue + ip, itmig + ip);
-			fgets(line, 300, fpi);
-			sscanf(line, "%lf %lf %lf %lf %lf %lf", aa + ip, ee + ip, ii + ip,
-					longnode + ip, argperi + ip, meananom + ip);
-		}
-
 	}
 	double obliquity = obliquity_deg * M_PI / 180.0;   // in radians
 	num_perts = 0;
@@ -319,7 +264,7 @@ int main(int argc, char *argv[]) {
 
 #define NSPACE 50
 double dEdtsum = 0.0;  // global for sums
-void heartbeat(struct reb_simulation *const r) {
+void heartbeat(reb_simulation *const n_body_sim) {
 	static int first = 0;
 	static char extendedfile[50];
 	static char pointmassfile[NPMAX * NSPACE];
@@ -327,59 +272,66 @@ void heartbeat(struct reb_simulation *const r) {
 		first = 1;
 		sprintf(extendedfile, "%s_ext.txt", fileroot.c_str());
 		for (int i = 0; i < num_perts; i++) {
-			sprintf(pointmassfile + i * NSPACE, "%s_pm%d.txt", fileroot.c_str(), i);
+			sprintf(pointmassfile + i * NSPACE, "%s_pm%d.txt", fileroot.c_str(),
+					i);
 		}
 	}
-	if (reb_output_check(r, 10.0 * r->dt)) {
-		reb_output_timing(r, 0);
+	if (reb_output_check(n_body_sim, 10.0 * n_body_sim->dt)) {
+		reb_output_timing(n_body_sim, 0);
 	}
-	if (fabs(r->t - t_damp) < 0.9 * r->dt)
+	if (fabs(n_body_sim->t - t_damp) < 0.9 * n_body_sim->dt)
 		set_gamma(def_gamma);
 	// damp initial bounce only
 	// reset gamma only at t near t_damp
 
 	// stuff to do every timestep
-	center_sim(r, 0, r->N - num_perts); // move reference frame to resolved body for display
+	center_sim(n_body_sim, 0, n_body_sim->N - num_perts); // move reference frame to resolved body for display
 	// dodrifts!!!!
 	int il = 0; // resolved body index range
-	int ih = r->N - num_perts;
+	int ih = n_body_sim->N - num_perts;
 	if (num_perts > 0) {
 		for (int i = 0; i < num_perts; i++) {
 			int ip = icentral + i;  // which body drifting
-			double migfac = exp(-1.0 * r->t * itmig[i]);
+			double migfac = exp(-1.0 * n_body_sim->t * itmig[i]);
 			if (i == 0)  // it is central mass, so drift resolved body
-				drift_resolved(r, r->dt, itaua[i] * migfac, itaue[i] * migfac,
+				drift_resolved(n_body_sim, n_body_sim->dt, itaua[i] * migfac, itaue[i] * migfac,
 						icentral, il, ih);
 			else
 				// it is another point mass, drifts w.r.t to icentral
-				drift_bin(r, r->dt, itaua[i] * migfac, itaue[i] * migfac,
+				drift_bin(n_body_sim, n_body_sim->dt, itaua[i] * migfac, itaue[i] * migfac,
 						icentral, ip);
 		}
 
 	}
-	dEdtsum += dEdt_total(r); // store dissipation rate
+	dEdtsum += dEdt_total(n_body_sim); // store dissipation rate
 
-	if (reb_output_check(r, print_interval)) {
-		double dEdtave = dEdtsum * r->dt / print_interval; // take average value
-		write_resolved_with_E(r, 0, r->N - num_perts, extendedfile, dEdtave); // orbital info and stuff
+	if (reb_output_check(n_body_sim, print_interval)) {
+		double dEdtave = dEdtsum * n_body_sim->dt / print_interval; // take average value
+		write_resolved_with_E(n_body_sim, 0, n_body_sim->N - num_perts, extendedfile, dEdtave); // orbital info and stuff
 		dEdtsum = 0.0;  // reset heating rate storage
 		if (num_perts > 0)
 			for (int i = 0; i < num_perts; i++) {
 				int ip = icentral + i;
-				write_pt_mass(r, ip, i, pointmassfile + i * NSPACE);
+				write_pt_mass(n_body_sim, ip, i, pointmassfile + i * NSPACE);
 			}
 	}
 
 }
 
 // make a spring index list for display
-void reb_springs(struct reb_simulation *const r) {
-	r->NS = num_springs;
-	r->springs_i = (int*) malloc(num_springs * sizeof(int));
-	r->springs_j = (int*) malloc(num_springs * sizeof(int));
+void reb_springs(reb_simulation *const n_body_sim) {
+	n_body_sim->NS = num_springs;
+	n_body_sim->springs_i = (int*) malloc(num_springs * sizeof(int));
+	n_body_sim->springs_j = (int*) malloc(num_springs * sizeof(int));
 	for (int i = 0; i < num_springs; i++) {
-		r->springs_i[i] = springs[i].particle_1;
-		r->springs_j[i] = springs[i].particle_2;
+		n_body_sim->springs_i[i] = springs[i].particle_1;
+		n_body_sim->springs_j[i] = springs[i].particle_2;
 	}
+}
+
+void additional_forces(reb_simulation *n_body_sim) {
+	spring_forces(n_body_sim); // spring forces
+	quadrupole_accel(n_body_sim, J2_plus, R_plus, phi_plus, theta_plus,
+			n_body_sim->N - num_perts); // quad force
 }
 

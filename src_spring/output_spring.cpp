@@ -42,6 +42,7 @@ extern int num_springs;
 extern int num_perts;
 extern vector<stress_tensor> stresses;
 extern vector<node> nodes;
+extern vector<double> tot_power;
 
 /********************/
 /* Output functions */
@@ -521,8 +522,8 @@ void write_nodes(reb_simulation *const n_body_sim, string filename) {
 	// Print header first time only
 	static bool first = true;
 	if (first) {
-		outfile << "# "
-				<< "\ti\tx\ty\tz\tvx\tvy\tvz\tT\tcv\tsurf\tm\txrot\tyrot\n";
+		outfile << "# i\tx\ty\tz\tvx\tvy\tvz\tT\tcv\tsurf\tm\txrot\tyrot\n";
+		first = false;
 	}
 
 	// Time
@@ -575,7 +576,8 @@ void write_stresses(reb_simulation *const n_body_sim, string filename) {
 	// Print header first time only
 	static bool first = true;
 	if (first) {
-		outfile << "# " << "\ti\tm\tx\ty\tz\teig1\eig2\teig3\tfailing\n";
+		outfile << "# i\tm\tx\ty\tz\teig1\teig2\teig3\tfailing\n";
+		first = false;
 	}
 
 	// Time
@@ -602,9 +604,120 @@ void write_stresses(reb_simulation *const n_body_sim, string filename) {
 	outfile.close();
 }
 
+// Write out heat file
+// Takes num_timesteps that we've recorded power at
+// powerfac is how much of heat to distribute at center of spring rather than at nodes
+// also outputs rotated xy, after rotates assuming xy plane for orbit and toward pertuber
+void write_heat(reb_simulation *const n_body_sim, string filename,
+		int num_timesteps, double power_fac) {
+	reb_particle *particles = n_body_sim->particles;
+
+	// Get average power over our timesteps
+	normalize_tot_power(num_timesteps);
+
+	// Open output file to append (created if it doesn't exist)
+	std::ofstream outfile(filename, std::ios::out | std::ios::app);
+
+	// Print header first time only
+	static bool first = true;
+	if (first) {
+		outfile << "# x\ty\tz\tdedt\txrot\tyrot\n";
+		first = false;
+	}
+
+	// Time
+	outfile << std::setprecision(2) <<  "# t = " << n_body_sim->t;
+
+	// Get resolved body indices
+	int i_low = 0;
+	int i_high = n_body_sim->N - num_perts;
+
+	// Get center of mass
+	Vector CoM = compute_com(n_body_sim, i_low, i_high);
+
+	// Index for primary perturber
+	int i_prim = n_body_sim->N - 1;
+
+	// Location of primary perturber
+	Vector x_prim = {particles[i_prim].x, particles[i_prim].y, particles[i_prim].z};
+	double theta = atan2(x_prim.getY() - CoM.getY(), x_prim.getX() - CoM.getX());
+
+	// Print primary perturber info
+	outfile << std::setprecision(3) << "# primary info: " << x_prim.getX() << "\t" << x_prim.getY() << "\t" << x_prim.getZ() << "\t" << CoM.getX() << "\t" << CoM.getY() << "\t" <<
+			CoM.getZ() << "\t" << theta << "\n";
+
+	// Get rotation matrix
+	Matrix rot_mat = getRotMatZ(theta);
+
+	// Print info for each spring (and connected nodes)
+	for (int i = 0; i < num_springs; i++) {
+
+		// Get spring midpoint location
+		Vector x = spr_mid(n_body_sim, springs[i], CoM);
+
+		// Rotate around center of body in xy plane so that +x is toward perturber, +y is direction of rotation of perturber w.r.t to body
+		// (So -y is headwind direction for body and +y is tailwind surface on body)
+		Vector x_rot = rot_mat*x;
+
+		// Get average power for this spring
+		double power = tot_power[i];
+
+		// Write average power applied to center of spring
+		outfile << i << "\t" << std::setprecision(3) << x.getX() << "\t" << x.getY() << "\t" << x.getZ() << "\t" <<
+				power * power_fac << "\t" << x_rot.getX() << "\t" << x_rot.getY() << "\n";
+
+		// Write heat on nodes as well as center of spring
+		if (power_fac < 1.0) {
+			// Get nodes spring is connected to
+			int part_1 = springs[i].particle_1;
+			int part_2 = springs[i].particle_2;
+
+			// Get displacements of each particle from center of mass
+			Vector x_1 = {particles[part_1].x, particles[part_1].y, particles[part_1].z};
+			Vector dx_1 = x_1 - CoM;
+
+			Vector x_2 = {particles[part_2].x, particles[part_2].y, particles[part_2].z};
+			Vector dx_2 = x_2 - CoM;
+
+			// Write info for each particle
+			outfile << i << "\t" << std::setprecision(3) << dx_1.getX() << "\t" << dx_1.getY() << "\t" << dx_1.getZ() << "\t" <<
+					power * (1.0 - power_fac) * 0.5 << "\t" << x_rot.getX() << "\t" << x_rot.getY() << "\n";
+			outfile << i << "\t" << std::setprecision(3) << dx_2.getX() << "\t" << dx_2.getY() << "\t" << dx_2.getZ() << "\t" <<
+								power * (1.0 - power_fac) * 0.5 << "\t" << x_rot.getX() << "\t" << x_rot.getY() << "\n";
+		}
+	}
+	outfile.close();
+
+	// Reset total power to start sum again
+	for (int i = 0; i < num_springs; i++) {
+		tot_power[i] = 0;
+	}
+}
+
+/****************/
+/* Heat helpers */
+/****************/
+
+// Normalize total power by number of timesteps for output
+void normalize_tot_power(double ndt) {
+	for (int i = 0; i < num_springs; i++) {
+		tot_power[i] /= ndt;
+	}
+}
+
 /********************/
 /* Filename helpers */
 /********************/
+
+// Make a heat filename dependent on interval at which to print
+string heat_filename(reb_simulation *const n_body_sim, string root,
+		double print_interval) {
+	// Get integer file number
+	int xd = (int) (n_body_sim->t / print_interval);
+
+	// Return filename
+	return root + "_" + zero_pad_int(6, xd) + "_heat.txt";
+}
 
 // Make a node filename dependent on interval at which to print
 string node_filename(reb_simulation *const n_body_sim, string root,

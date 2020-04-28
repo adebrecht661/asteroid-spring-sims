@@ -34,13 +34,13 @@ extern vector<node> nodes;
 /**************/
 
 // Create num_parts uniformly spaced particles in a line of length 1 in the y direction
-void uniform_line(struct reb_simulation *const n_body_sim, int num_parts,
+void uniform_line(reb_simulation *const n_body_sim, int num_parts,
 		double y_off) {
 	// Get particle spacing
 	double dy = 1.0 / num_parts;
 
 	// Set particle properties
-	struct reb_particle pt;
+	reb_particle pt;
 	pt.m = dy;		// Mass - note, sums to 1
 	pt.x = 0.0;
 	pt.y = 0.0;

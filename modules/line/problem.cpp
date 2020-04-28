@@ -47,10 +47,10 @@ double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
 		p_scale, L_scale, a_scale, F_scale, E_scale, dEdt_scale, P_scale;
 
 // Forward declarations
-void heartbeat(struct reb_simulation *const n_body_sim);
-void sphere_forces(struct reb_simulation *const n_body_sim);
-void pulse_base(struct reb_simulation *const n_body_sim);
-void additional_forces(struct reb_simulation *n_body_sim);
+void heartbeat(reb_simulation *const n_body_sim);
+void sphere_forces(reb_simulation *const n_body_sim);
+void pulse_base(reb_simulation *const n_body_sim);
+void additional_forces(reb_simulation *n_body_sim);
 
 int main(int argc, char *argv[]) {
 
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Set up rebound n-body simulation
-	struct reb_simulation *const n_body_sim = reb_create_simulation();
+	reb_simulation *const n_body_sim = reb_create_simulation();
 
 	// Set up rebound constants
 	n_body_sim->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
 }
 
 // Things done every timestep
-void heartbeat(struct reb_simulation *const n_body_sim) {
+void heartbeat(reb_simulation *const n_body_sim) {
 	// Get particle infp
 	reb_particle *particles = n_body_sim->particles;
 
@@ -169,10 +169,10 @@ void heartbeat(struct reb_simulation *const n_body_sim) {
 }
 
 // Apply gravitational force
-void sphere_forces(struct reb_simulation *const n_body_sim) {
+void sphere_forces(reb_simulation *const n_body_sim) {
 
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Acceleration of gravity
 	for (int i = 0; i < n_body_sim->N; i++) {
@@ -184,10 +184,10 @@ void sphere_forces(struct reb_simulation *const n_body_sim) {
 }
 
 // Pulse base particle
-void pulse_base(struct reb_simulation *const n_body_sim) {
+void pulse_base(reb_simulation *const n_body_sim) {
 
 	// Get particle info
-	struct reb_particle *particles = n_body_sim->particles;
+	reb_particle *particles = n_body_sim->particles;
 
 	// Start pulses at t_damp
 	double t = n_body_sim->t - t_damp;
@@ -210,7 +210,7 @@ void pulse_base(struct reb_simulation *const n_body_sim) {
 }
 
 // Initialize accelerations (because not using rebound gravity) and apply forces
-void additional_forces(struct reb_simulation *n_body_sim) {
+void additional_forces(reb_simulation *n_body_sim) {
 	// Init accelerations
 	zero_accel(n_body_sim);
 

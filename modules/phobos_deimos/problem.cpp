@@ -33,7 +33,7 @@ using std::vector;
 
 int num_springs;  // global numbers of springs
 vector<spring> springs;
-void reb_springs(struct reb_simulation *const r);  // to pass springs to display
+void reb_springs(reb_simulation *const r);  // to pass springs to display
 
 double def_gamma; // for gamma  of all springs
 double t_damp;    // end faster damping, relaxation
@@ -47,7 +47,7 @@ int icentral = -1; // central mass location
 double itaua[NPMAX], itaue[NPMAX]; // inverse of migration timescales
 double itmig[NPMAX];  // inverse timescale to get rid of migration
 
-void heartbeat(struct reb_simulation *const r);
+void heartbeat(reb_simulation *const r);
 
 // quadrupole of planet
 double J2_plus = 0.0;
@@ -59,15 +59,15 @@ double phi_plus = 0.0;
 double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
 		p_scale, L_scale, a_scale, F_scale, E_scale, dEdt_scale, P_scale;
 
-void additional_forces(struct reb_simulation *r) {
+void additional_forces(reb_simulation *r) {
 	spring_forces(r); // spring forces
 	quadrupole_accel(r, J2_plus, R_plus, theta_plus, phi_plus,
 			r->N - num_perts); // quad force
 }
 
 int main(int argc, char *argv[]) {
-	struct reb_simulation *const r = reb_create_simulation();
-	struct spring spring_mush; // spring parameters for mush
+	reb_simulation *const r = reb_create_simulation();
+	spring spring_mush; // spring parameters for mush
 	// Setup constants
 	r->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
 	r->gravity = reb_simulation::REB_GRAVITY_BASIC;
@@ -318,7 +318,7 @@ int main(int argc, char *argv[]) {
 }
 
 #define NSPACE 50
-void heartbeat(struct reb_simulation *const r) {
+void heartbeat(reb_simulation *const r) {
 	static int first = 0;
 	static string extendedfile;
 	static char pointmassfile[NPMAX * NSPACE];
@@ -369,7 +369,7 @@ void heartbeat(struct reb_simulation *const r) {
 }
 
 // make a spring index list for display
-void reb_springs(struct reb_simulation *const r) {
+void reb_springs(reb_simulation *const r) {
 	r->NS = num_springs;
 	r->springs_i = (int*) malloc(num_springs * sizeof(int));
 	r->springs_j = (int*) malloc(num_springs * sizeof(int));

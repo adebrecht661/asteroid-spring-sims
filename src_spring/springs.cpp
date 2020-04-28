@@ -23,7 +23,7 @@ using std::vector;
 extern vector<spring> springs;		// Array to store springs
 extern int num_springs;			// Number of springs
 extern int num_perts;			// Number of perturbing point masses
-extern vector<stress_tensor> stresses;		// Array of stresses for each particle
+extern vector<stress_tensor> stresses;	// Array of stresses for each particle
 extern vector<node> nodes;
 
 int NSmax = 0; // Max number of springs (size of array)
@@ -163,6 +163,79 @@ void adjust_spring_props(reb_simulation *const n_body_sim, double new_k,
 	std::cout << "adjust_spring_props: \n\t Number of springs changed: " << NC
 			<< "\n\t Fraction of springs changed: "
 			<< (double) NC / (double) num_springs << std::endl;
+}
+
+// Adjust spring constant, damping coefficient, and heat diffusion coefficient for springs with midpoints between r_min and r_max from center of mass
+void adjust_spring_props_ellipsoid(reb_simulation *const n_body_sim,
+		double new_k, double new_gamma, double new_k_heat, double a, double b,
+		double c, Vector x0, bool inside) {
+
+	// Search all particles
+	int i_low = 0;
+	int i_high = n_body_sim->N - num_perts;
+
+	// Computer center of mass of all particles
+	Vector CoM = compute_com(n_body_sim, i_low, i_high);
+
+	// For each spring
+	for (int i = 0; i < num_springs; i++) {
+
+		// Compute spring mid point from central position
+		Vector x_mid = spr_mid(n_body_sim, springs[i], CoM);
+		Vector r = x_mid - x0;
+		double r_mid_2 = pow(r.getX() / a, 2.0) + pow(r.getY() / b, 2.0)
+				+ pow(r.getZ() / c, 2.0);
+
+		// Modify inside springs, or
+		if ((r_mid_2 <= 1.0) && inside) {
+			springs[i].k = new_k;
+			springs[i].gamma = new_gamma;
+			springs[i].k_heat = new_k_heat;
+		}
+		// Modify outside springs
+		if ((r_mid_2 >= 1.0) && !inside) {
+			springs[i].k = new_k;
+			springs[i].gamma = new_gamma;
+			springs[i].k_heat = new_k_heat;
+		}
+	}
+}
+
+// Adjust spring properties either inside or outside designated ellipse (center x0, semiaxes a,b,c) dependent on angle in xy plane
+void adjust_spring_props_ellipsoid_phase(reb_simulation *const n_body_sim,
+		double k_amp, double gamma_amp, double k_heat_amp, double freq,
+		double phi_0, double a, double b, double c, Vector x0, bool inside) {
+	// Search all particles
+	int i_low = 0;
+	int i_high = n_body_sim->N - num_perts;
+
+	// Computer center of mass of all particles
+	Vector CoM = compute_com(n_body_sim, i_low, i_high);
+
+	// For each spring
+	for (int i = 0; i < num_springs; i++) {
+
+		// Compute spring mid point from central position
+		Vector x_mid = spr_mid(n_body_sim, springs[i], CoM);
+		Vector r = x_mid - x0;
+		double r_mid_2 = pow(r.getX() / a, 2.0) + pow(r.getY() / b, 2.0)
+				+ pow(r.getZ() / c, 2.0);
+		double phi = atan2(r.getY(), r.getX());
+		double cos_fac = cos(freq * (phi - phi_0));
+
+		// Modify inside springs, or
+		if ((r_mid_2 <= 1.0) && inside) {
+			springs[i].k *= 1.0 + k_amp * cos_fac;
+			springs[i].gamma *= 1.0 + gamma_amp * cos_fac;
+			springs[i].k_heat *= 1.0 + k_heat_amp * cos_fac;
+		}
+		// Modify outside springs
+		if ((r_mid_2 >= 1.0) && !inside) {
+			springs[i].k *= 1.0 + k_amp * cos_fac;
+			springs[i].gamma *= 1.0 + gamma_amp * cos_fac;
+			springs[i].k_heat *= 1.0 + k_heat_amp * cos_fac;
+		}
+	}
 }
 
 // Kill springs that have failed

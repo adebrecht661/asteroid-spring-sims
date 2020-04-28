@@ -34,8 +34,7 @@ extern const double L_EPS;
 /*******************/
 
 // Compute center of mass coordinates in particle range [i_low,i_high)
-Vector compute_com(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+Vector compute_com(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Get simulation information and initialize sums
 	reb_particle *particles = n_body_sim->particles;
 	double m_tot = 0.0;
@@ -53,8 +52,7 @@ Vector compute_com(reb_simulation *const n_body_sim, int i_low,
 }
 
 // Compute center of velocity of particles in particle range [i_low,i_high)
-Vector compute_cov(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+Vector compute_cov(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Get simulation information and initialize sums
 	reb_particle *particles = n_body_sim->particles;
 	Vector v_times_m(zero_vec);
@@ -83,8 +81,7 @@ void subtract_com(reb_simulation *const n_body_sim, int i_low, int i_high) {
 
 // Recenter frame of resolved body on its center of velocity
 // Caution: only affects particles in set [i_low, i_high)
-void subtract_cov(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+void subtract_cov(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Find center of velocity of resolved body
 	Vector CoV = compute_cov(n_body_sim, i_low, i_high);
 
@@ -94,8 +91,7 @@ void subtract_cov(reb_simulation *const n_body_sim, int i_low,
 
 // Move simulation to coordinate frame of body defined by particles [i_low,i_high)
 // Shifts all particles
-void center_sim(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+void center_sim(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Find CoM of request particles
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
 
@@ -112,8 +108,7 @@ void center_sim(reb_simulation *const n_body_sim, int i_low,
 /***********************/
 
 // Compute the moment of inertia tensor of particles in range [i_low,i_high) with respect to center of mass
-Matrix mom_inertia(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+Matrix mom_inertia(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Get particle information and initialize inertia matrix
 	reb_particle *particles = n_body_sim->particles;
 	Matrix inertia(zero_mat);
@@ -135,8 +130,7 @@ Matrix mom_inertia(reb_simulation *const n_body_sim, int i_low,
 
 // Compute (spin) angular momentum vector of particles in range [i_low, i_high) with respect to their center of mass position and velocity
 // Caution: Can measure angular momentum of the entire system, but will be with respect to center of mass of entire system
-Vector measure_L(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+Vector measure_L(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -211,8 +205,7 @@ void spin_body(reb_simulation *const n_body_sim, int i_low, int i_high,
 
 // Compute the orbital angular momentum vector of particles in range [i_low,i_high)
 // About central mass if number of perturbers is 1, otherwise about the center of mass of all the perturbers
-Vector compute_Lorb(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+Vector compute_Lorb(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	reb_particle *particles = n_body_sim->particles;
 	static int first = 0;
 	static double tm = 0.0;  // its mass
@@ -340,8 +333,8 @@ void rotate_body(reb_simulation *const n_body_sim, int i_low, int i_high,
 
 // Rotate all particles in set [i_low, i_high) about origin
 // Rotates both position and velocity
-void rotate_origin(reb_simulation *const n_body_sim, int i_low,
-		int i_high, double alpha, double beta, double gamma) {
+void rotate_origin(reb_simulation *const n_body_sim, int i_low, int i_high,
+		double alpha, double beta, double gamma) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -447,8 +440,7 @@ void rotate_to_principal(reb_simulation *const n_body_sim, int i_low,
 /*******************/
 
 // Sum total momentum of particles
-Vector total_mom(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
+Vector total_mom(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Get particle info, initialize momentum vector
 	reb_particle *particles = n_body_sim->particles;
 	Vector p(zero_vec);
@@ -464,8 +456,8 @@ Vector total_mom(reb_simulation *const n_body_sim, int i_low,
 }
 
 // Shift the position and velocity of a resolved body with particles in set [i_low, i_high) by dx, dv
-void move_resolved(reb_simulation *const n_body_sim, Vector dx,
-		Vector dv, int i_low, int i_high) {
+void move_resolved(reb_simulation *const n_body_sim, Vector dx, Vector dv,
+		int i_low, int i_high) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -611,11 +603,76 @@ void adjust_mass_side(reb_simulation *const n_body_sim, double m_fac,
 	}
 
 	// Renormalize particle masses
-	for (int i = i_low; i < i_high; i++)
+	for (int i = i_low; i < i_high; i++) {
 		total_mass += particles[i].m;
-	for (int i = i_low; i < i_high; i++)
+	}
+	for (int i = i_low; i < i_high; i++) {
 		particles[i].m /= total_mass;
+	}
 
 	std::cout << "adjust_mass_side: Modified masses of " << num_mod
 			<< " particles." << std::endl;
+}
+
+// Multiply all masses either inside or outside of ellipsoid by factor m_fac, then rescale
+void adjust_mass_ellipsoid(reb_simulation *const n_body_sim, double m_fac,
+		double a, double b, double c, Vector x0, bool inside) {
+	// Get particle info
+	reb_particle *particles = n_body_sim->particles;
+	int i_low = 0;
+	int i_high = n_body_sim->N - num_perts;
+
+	// Get center of mass
+	Vector CoM = compute_com(n_body_sim, i_low, i_high);
+
+	// Factor by which to adjust display radius of particles
+	double r_fac = pow(m_fac, 1.0 / 2.0);
+
+	// Init total mass and number of particles in core
+	double total_mass = 0.0;
+	int num_core = 0;
+
+	// For each particle
+	for (int i = i_low; i < i_high; i++) {
+
+		// Get particle position
+		Vector x = { particles[i].x, particles[i].y, particles[i].z };
+		Vector r = x - CoM;
+		double r_mid_2 = pow(r.getX() / a, 2.0) + pow(r.getY() / b, 2.0)
+				+ pow(r.getZ() / c, 2.0);
+
+		// Adjust masses either inside ellipsoid, or
+		if (inside) {
+			if (r_mid_2 < 1.0) {
+				particles[i].m *= m_fac;
+				particles[i].r *= r_fac;
+				num_core++;
+			} else {
+				particles[i].r /= r_fac;
+			}
+		}
+		// Outside ellipsoid
+		if (!inside) {
+			if (r_mid_2 > 1.0) {
+				particles[i].m *= m_fac;
+				particles[i].r *= r_fac;
+			} else {
+				particles[i].r /= r_fac;
+				num_core++;
+			}
+		}
+	}
+
+	// Renormalize particle masses
+	for (int i = i_low; i < i_high; i++) {
+		total_mass += particles[i].m;
+	}
+
+	for (int i = i_low; i < i_high; i++) {
+		particles[i].m /= total_mass;
+	}
+
+	std::cout << "adjust_mass_ellipsoid: There are " << num_core
+			<< " core particles and " << n_body_sim->N - num_perts - num_core
+			<< " shell particles." << std::endl;
 }
