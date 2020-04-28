@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
 
 	// Use Bennu shape model
 	switch (surface_type) {
-	case BENNU:
+	case BENNU: {
 
 		// Read in shape file (in units of km)
 		string filename = "101955bennu.tab";
@@ -173,8 +173,9 @@ int main(int argc, char *argv[]) {
 		rm_particles(n_body_sim, 0, N_bennu);
 		std::cout << "Shape vertices deleted.\n";
 		break;
+	}
 		// Random ellipsoid
-	case ELLIPSOID:
+	case ELLIPSOID: {
 		// Scale radius
 		double r_ball = 1.0;
 
@@ -195,8 +196,9 @@ int main(int argc, char *argv[]) {
 		mark_surf_shrink_int_ellipsoid(n_body_sim, surf_dist, r_ball,
 				r_ball * ratio1, r_ball * ratio2);
 		break;
+	}
 		// Random cone
-	case CONE:
+	case CONE: {
 		// Set radius of cone
 		double r_cone = 1.0;
 
@@ -213,8 +215,10 @@ int main(int argc, char *argv[]) {
 		mark_surf_shrink_int_cone(n_body_sim, surf_dist, r_cone,
 				r_cone * ratio1);
 		break;
-	default:
+	}
+	default: {
 		throw "No existing shape model selected. Exiting.";
+	}
 	}
 
 	// Get resolved body indices
@@ -303,7 +307,7 @@ int main(int argc, char *argv[]) {
 	reb_calculate_acceleration(n_body_sim);
 
 	// Output surface particle info at first timestep
-	string filename = fileroot + "_surf_nosprings.txt";
+	filename = fileroot + "_surf_nosprings.txt";
 	write_surf_part(n_body_sim, 0, n_body_sim->N - num_perts, filename);
 
 	// Integrate simulation
