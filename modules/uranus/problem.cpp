@@ -41,7 +41,7 @@ double print_interval;   // for table printout
 string fileroot;   // output files
 int num_perts = 0; // number of point masses
 
-int icentral = -1; // central mass location
+int i_central = -1; // central mass location
 
 #define NPMAX 10  // maximum number of point masses
 double itaua[NPMAX], itaue[NPMAX]; // inverse of migration timescales
@@ -274,11 +274,11 @@ int main(int argc, char *argv[]) {
 			orb_el.long_asc_node = longnode[ip];
 			orb_el.arg_peri = argperi[ip];
 			orb_el.mean_anom = meananom[ip];
-			om = add_pt_mass_kep(r, il, ih, icentral, mp[ip], rad[ip], orb_el);
+			om = add_pt_mass_kep(r, il, ih, i_central, mp[ip], rad[ip], orb_el);
 			fprintf(fpr, "resbody mm=%.3f period=%.2f\n", om, 2.0 * M_PI / om);
 			printf("resbody mm=%.3f period=%.2f\n", om, 2.0 * M_PI / om);
 			// note central body mass (only changes on first run - can probably do this better
-			icentral = ih;
+			i_central = ih;
 		}
 		num_perts = npointmass;
 	}
@@ -341,15 +341,15 @@ void heartbeat(reb_simulation *const r) {
 	int ih = r->N - num_perts;
 	if (num_perts > 0) {
 		for (int i = 0; i < num_perts; i++) {
-			int ip = icentral + i;  // which body drifting
+			int ip = i_central + i;  // which body drifting
 			double migfac = exp(-1.0 * r->t * itmig[i]);
 			if (i == 0)  // it is central mass, so drift resolved body
 				drift_resolved(r, r->dt, itaua[i] * migfac, itaue[i] * migfac,
-						icentral, il, ih);
+						i_central, il, ih);
 			else
 				// it is another point mass, drifts w.r.t to icentral
 				drift_bin(r, r->dt, itaua[i] * migfac, itaue[i] * migfac,
-						icentral, ip);
+						i_central, ip);
 		}
 
 	}
@@ -358,7 +358,7 @@ void heartbeat(reb_simulation *const r) {
 		write_resolved_no_E(r, il, ih, extendedfile); // orbital info and stuff
 		if (num_perts > 0)
 			for (int i = 0; i < num_perts; i++) {
-				int ip = icentral + i;
+				int ip = i_central + i;
 				write_pt_mass(r, ip, i, pointmassfile + i * NSPACE);
 			}
 	}
@@ -385,7 +385,7 @@ void ck_encounter(reb_simulation *const r) {
 		double zc = 0.0;
 		// compute_com(r,0, icentral, &xc, &yc, &zc); // not necessary as centerbody called beforhand
 		for (int i = 0; i < num_perts; i++) { // includes central star
-			int ip_i = icentral + i;
+			int ip_i = i_central + i;
 			double x2 = pow(r->particles[ip_i].x - xc, 2.0);
 			double y2 = pow(r->particles[ip_i].y - yc, 2.0);
 			double z2 = pow(r->particles[ip_i].z - zc, 2.0);
@@ -398,9 +398,9 @@ void ck_encounter(reb_simulation *const r) {
 		}
 		// check for encounter between planets (including star)
 		for (int i = 0; i < num_perts; i++) { // includes central star
-			int ip_i = icentral + i;
+			int ip_i = i_central + i;
 			for (int j = i + 1; j < num_perts; j++) {
-				int ip_j = icentral + j;
+				int ip_j = i_central + j;
 				double x2 = pow(r->particles[ip_i].x - r->particles[ip_j].x,
 						2.0);
 				double y2 = pow(r->particles[ip_i].y - r->particles[ip_j].y,

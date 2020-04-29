@@ -130,7 +130,16 @@ void set_gamma(double new_gamma) {
 		springs[i].gamma = new_gamma;
 	}
 	std::cout.precision(2);
-	std::cout << "\n gamma set to " << new_gamma << std::endl;
+	std::cout << "Spring damping coefficients set to " << new_gamma << std::endl;
+}
+
+// Set the spring damping coefficient for all springs
+void divide_gamma(double gamma_fac) {
+	for (int i = 0; i < num_springs; i++) {
+		springs[i].gamma /= gamma_fac;
+	}
+	std::cout.precision(2);
+	std::cout << "All gammas divided by " << gamma_fac << std::endl;
 }
 
 // Adjust spring constant, damping coefficient, and heat diffusion coefficient for springs with midpoints between r_min and r_max from center of mass

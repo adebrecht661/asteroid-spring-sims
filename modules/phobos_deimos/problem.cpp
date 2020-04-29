@@ -41,7 +41,7 @@ double print_interval;   // for table printout
 string fileroot;   // output files
 int num_perts = 0;
 
-int icentral = -1; // central mass location
+int i_central = -1; // central mass location
 
 #define NPMAX 10  // maximum number of point masses
 double itaua[NPMAX], itaue[NPMAX]; // inverse of migration timescales
@@ -278,11 +278,11 @@ int main(int argc, char *argv[]) {
 			orb_el.long_asc_node = longnode[ip];
 			orb_el.arg_peri = argperi[ip];
 			orb_el.mean_anom = meananom[ip];
-			om = add_pt_mass_kep(r, il, ih, icentral, mp[ip], rad[ip], orb_el);
+			om = add_pt_mass_kep(r, il, ih, i_central, mp[ip], rad[ip], orb_el);
 			fprintf(fpr, "resbody mm=%.3f period=%.2f\n", om, 2.0 * M_PI / om);
 			printf("resbody mm=%.3f period=%.2f\n", om, 2.0 * M_PI / om);
 			// note central body mass (only changes on first run - can probably do this better
-			icentral = ih;
+			i_central = ih;
 		}
 		num_perts = npointmass;
 	}
@@ -344,15 +344,15 @@ void heartbeat(reb_simulation *const r) {
 	int ih = r->N - num_perts;
 	if (num_perts > 0) {
 		for (int i = 0; i < num_perts; i++) {
-			int ip = icentral + i;  // which body drifting
+			int ip = i_central + i;  // which body drifting
 			double migfac = exp(-1.0 * r->t * itmig[i]);
 			if (i == 0)  // it is central mass, so drift resolved body
 				drift_resolved(r, r->dt, itaua[i] * migfac, itaue[i] * migfac,
-						icentral, il, ih);
+						i_central, il, ih);
 			else
 				// it is another point mass, drifts w.r.t to icentral
 				drift_bin(r, r->dt, itaua[i] * migfac, itaue[i] * migfac,
-						icentral, ip);
+						i_central, ip);
 		}
 
 	}
@@ -361,7 +361,7 @@ void heartbeat(reb_simulation *const r) {
 		write_resolved_with_E(r, 0, r->N - num_perts, extendedfile, 0); // orbital info and stuff
 		if (num_perts > 0)
 			for (int i = 0; i < num_perts; i++) {
-				int ip = icentral + i;
+				int ip = i_central + i;
 				write_pt_mass(r, ip, i, pointmassfile + i * NSPACE);
 			}
 	}

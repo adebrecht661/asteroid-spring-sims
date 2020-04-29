@@ -41,7 +41,7 @@ double print_interval;   // for table printout
 string fileroot;   // output files
 int num_perts = 0;
 
-int icentral = -1; // central mass location
+int i_central = -1; // central mass location
 
 #define NPMAX 10  // maximum number of point masses
 double itaua[NPMAX], itaue[NPMAX]; // inverse of migration timescales

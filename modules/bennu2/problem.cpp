@@ -231,6 +231,7 @@ int main(int argc, char *argv[]) {
 
 	// Spin the body
 	spin_body(n_body_sim, i_low, i_high, omega);
+
 	// Required??????
 	//subtract_cov(n_body_sim, i_low, i_high); // subtract center of velocity
 
