@@ -154,6 +154,7 @@ double Young_mesh(reb_simulation *const n_body_sim, int i_low,
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
 
 	// Calculate sum
+#pragma omp parallel for reduction(+:sum)
 	for (int i = 0; i < num_springs; i++) {
 		Vector x_mid = spr_mid(n_body_sim, springs[i], CoM);
 
@@ -181,6 +182,7 @@ double Young_full_mesh() {
 	double sum = 0.0;
 
 	// Update sum for each spring
+#pragma omp parallel for reduction(+:sum)
 	for (int i = 0; i < num_springs; i++) {
 		double k = springs[i].k;
 		double len = springs[i].rs0;

@@ -216,6 +216,7 @@ void reb_springs(reb_simulation *const n_body_sim) {
 	n_body_sim->springs_j = (int*) malloc(num_springs * sizeof(int));
 
 	// For each spring, note particle indices
+#pragma omp parallel for
 	for (int i = 0; i < num_springs; i++) {
 		n_body_sim->springs_i[i] = springs[i].particle_1;
 		n_body_sim->springs_j[i] = springs[i].particle_2;

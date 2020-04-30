@@ -106,6 +106,7 @@ void connect_springs_dist(reb_simulation *const n_body_sim, double max_dist,
 
 	// Create all springs for near neighbors
 	// Scan through particles from i_low to i_high-1 (i_high can't pair with itself)
+#pragma omp parallel for
 	for (int i = i_low; i < i_high - 1; i++) {
 		Vector x_i = { particles[i].x, particles[i].y, particles[i].z };
 
@@ -269,7 +270,7 @@ void make_binary_spring(reb_simulation *const n_body_sim, double mass_1,
 		double mass_2, double sep, Vector omega, spring spring_vals) {
 	// Get particle info
 	int i_low = n_body_sim->N;
-	int i_high = i_low + 2;
+	int i_high = n_body_sim->N + 2;
 
 	// Declare new particle
 	reb_particle particle;
@@ -339,6 +340,7 @@ double mean_spring_length() {
 	double total_length = 0.0;
 
 	// Sum rest lengths of springs
+#pragma omp parallel for reduction(+:total_length)
 	for (int i = 0; i < num_springs; i++) {
 		total_length += springs[i].rs0;
 	}
@@ -390,6 +392,7 @@ void spring_forces(reb_simulation *const n_body_sim) {
 	reb_particle *particles = n_body_sim->particles;
 
 	// Get spring forces
+	#pragma omp parallel for	// Doesn't appear that Rebound explicitly parallelizes spring_forces
 	for (int spring_index = 0; spring_index < num_springs; spring_index++) {
 
 		// Get spring properties

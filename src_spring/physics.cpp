@@ -96,6 +96,7 @@ void center_sim(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
 
 	// Shift coordinates of all particles
+#pragma omp parallel for
 	for (int i = 0; i < (n_body_sim->N); i++) {
 		n_body_sim->particles[i].x -= CoM.getX();
 		n_body_sim->particles[i].y -= CoM.getY();
@@ -188,6 +189,7 @@ void spin_body(reb_simulation *const n_body_sim, int i_low, int i_high,
 	// Operate only if spin is large enough
 	if (omega.len() > 1e-5) {
 		// Add necessary velocity to each particle
+#pragma omp parallel for
 		for (int i = i_low; i < i_high; i++) {
 
 			Vector dx = { particles[i].x, particles[i].y, particles[i].z };
@@ -462,6 +464,7 @@ void move_resolved(reb_simulation *const n_body_sim, Vector dx, Vector dv,
 	reb_particle *particles = n_body_sim->particles;
 
 	// Update requested particles
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		particles[i].x += dx.getX();
 		particles[i].y += dx.getY();
@@ -577,6 +580,7 @@ double grav_potential_energy(reb_simulation *const n_body_sim, int i_low,
 
 // Zero all particle accelerations
 void zero_accel(reb_simulation *const n_body_sim) {
+#pragma omp parallel for
 	for (int i = 0; i < (n_body_sim->N); i++) {
 		n_body_sim->particles[i].ax = 0.0;
 		n_body_sim->particles[i].ay = 0.0;
