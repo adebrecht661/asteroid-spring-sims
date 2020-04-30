@@ -54,6 +54,8 @@ void write_stresses(reb_simulation *const n_body_sim, string filename);
 // Write all heat info to file
 void write_heat(reb_simulation *const n_body_sim, string filename,
 		int num_timesteps, double power_fac);
+// Print doubles to file and standard out
+void print_run_double(double quantity, string label, std::ofstream *outfile);
 
 /****************/
 /* Heat helpers */

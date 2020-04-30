@@ -705,6 +705,18 @@ void write_heat(reb_simulation *const n_body_sim, string filename,
 	}
 }
 
+// Print doubles to file and standard out
+void print_run_double(double quantity, string label, std::ofstream *outfile) {
+	// Set precision based on size of quantity
+	if ((abs(log10(quantity)) > 4)) {
+		std::cout << label << std::setprecision(4) << " " << quantity << "\n";
+		*outfile << label << std::setprecision(4) << " " << quantity << "\n";
+	} else {
+		std::cout << label << std::setprecision(3) << " " << quantity << "\n";
+		*outfile << label << std::setprecision(3) << " " << quantity << "\n";
+	}
+}
+
 /****************/
 /* Heat helpers */
 /****************/

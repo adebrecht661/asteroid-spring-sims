@@ -16,6 +16,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include "libconfig.h++"
 extern "C" {
 #include "rebound.h"
 }
@@ -28,29 +29,29 @@ extern "C" {
 #include "stress.h"
 #include "orb.h"
 
+using namespace libconfig;
+
 using std::string;
 using std::vector;
 
-int num_springs;  // global numbers of springs
-vector<spring> springs;
+// Global values
+int num_springs = 0;	// Global numbers of springs
+vector<spring> springs;	// Global spring array
 
-double def_gamma; // for gamma  of all springs
-double t_damp;    // end faster damping, relaxation
-double print_interval;   // for table printout
-string fileroot;   // output files
-int num_perts = 0;
+// Default global values
+int num_perts = 0;		// Number of perturbers
+double def_gamma, t_damp, print_interval, J2_plus, R_plus, theta_plus, phi_plus;// Read in - see cfg
+string fileroot;		// Output file base name
 
-int i_central = -1; // central mass location
+// Central mass location
+// Should be set to -1 initially
+int i_central = -1;
 
-#define NPMAX 10  // maximum number of point masses
-double itaua[NPMAX], itaue[NPMAX]; // inverse of migration timescales
-double itmig[NPMAX];  // inverse timescale to get rid of migration
+// Lattice selectors
+const int RAND = 0, HCP = 1, ELLIPSE = 2;
 
-// quadrupole of planet
-double J2_plus = 0.0;
-double R_plus = 1.0;
-double theta_plus = 0.0;
-double phi_plus = 0.0;
+// Migration timescales
+vector<double> inv_tau_a, inv_tau_e, migr_time;
 
 // Global scales
 double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
@@ -59,279 +60,340 @@ double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
 // Forward declarations
 void heartbeat(reb_simulation *const n_body_sim);
 void reb_springs(reb_simulation *const n_body_sim);
+void print_run_double(double quantity, string label, std::ofstream *outfile);
 void additional_forces(reb_simulation *n_body_sim);
 
 int main(int argc, char *argv[]) {
-	reb_simulation *const r = reb_create_simulation();
-	spring spring_mush; // spring parameters for mush
-	// Setup constants
-	r->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
-	r->gravity = reb_simulation::REB_GRAVITY_BASIC;
-	r->boundary = reb_simulation::REB_BOUNDARY_NONE;
-	r->G = 1;
-	r->additional_forces = additional_forces; // setup callback function for additional forces
-	double mball = 1.0;          // total mass of ball
-	double rball = 1.0;          // radius of a ball
-	double tmax = 0.0;  // if 0 integrate forever
 
-// things to set!  can be read in with parameter file
-	double dt;
-	double b_distance, omegaz, ks, mush_fac, gamma_fac;
-	double ratio1, ratio2, obliquity_deg;
-	int lattice_type;
-	double rad[NPMAX], mp[NPMAX];
-	double aa[NPMAX], ee[NPMAX], ii[NPMAX];
-	double longnode[NPMAX], argperi[NPMAX], meananom[NPMAX];
-	int npointmass = 0;
+	// Read in configuration file
+	Config cfg;
+	cfg.readFile("problem.cfg");
 
-	if (argc == 1) {
-		fileroot = "t1";   // to make output files
-		dt = 1e-3;    // Timestep
-		tmax = 0.0;     // max integration time
-		print_interval = 1.0;     // printouts for table
-		lattice_type = 0;    // 0=rand 1=hcp
-		b_distance = 0.15;    // min separation between particles
-		mush_fac = 2.3; // ratio of smallest spring distance to minimum interparticle dist
-		ks = 8e-2;   // spring constant
-		// spring damping
-		def_gamma = 1.0;    // final damping coeff
-		gamma_fac = 5.0;    // factor initial gamma is higher that gamma_all
-		t_damp = 1.0;    // gamma from initial gamma
-						 // to gamma_all for all springs at this time
-		ratio1 = 0.7;    // axis ratio resolved body  y/x  b/a
-		ratio2 = 0.5;    // axis ratio c/a
-		omegaz = 0.2;    // initial spin
-		obliquity_deg = 0.0;  // obliquity
+	// Get scales
+	read_scales(&cfg);
 
-		npointmass = 1;  // add one point mass
-		int ip = 0;   // index
-		mp[ip] = 1.0;   // mass
-		rad[ip] = 0.0;   // display radius
-		itaua[ip] = 0.0;   // inverse drift rate in a
-		itaue[ip] = 0.0;   // inverse drift rate in e
-		itmig[ip] = 0.0;   // get rid of drift rate in inverse of this time
-		// orbit
-		aa[ip] = 7.0;   // distance of m1 from resolved body, semi-major orbital
-		ee[ip] = 0.0;    // initial eccentricity
-		ii[ip] = 0.0;    // initial inclination
-		argperi[ip] = 0.0;    // initial orbtal elements
-		longnode[ip] = 0.0;    // initial
-		meananom[ip] = 0.0;    // initial
+	// Vars read in
+	double t_max, dt, max_spring_dist, gamma_fac, k, omega_in[3], min_part_dist,
+			obliquity, ratio1, ratio2, m_ball, r_ball;
+	int lattice_type, num_point_masses;
+
+	if (!(cfg.lookupValue("fileroot", fileroot) && cfg.lookupValue("dt", dt)
+			&& cfg.lookupValue("t_max", t_max)
+			&& cfg.lookupValue("print_interval", print_interval)
+			&& cfg.lookupValue("max_spring_dist", max_spring_dist)
+			&& cfg.lookupValue("k", k) && cfg.lookupValue("gamma", def_gamma)
+			&& cfg.lookupValue("damp_fac", gamma_fac)
+			&& cfg.lookupValue("t_damp", t_damp)
+			&& cfg.lookupValue("mass_ball", m_ball)
+			&& cfg.lookupValue("radius_ball", r_ball)
+			&& cfg.lookupValue("omega_x", omega_in[0])
+			&& cfg.lookupValue("omega_y", omega_in[1])
+			&& cfg.lookupValue("omega_z", omega_in[2])
+			&& cfg.lookupValue("lattice_type", lattice_type)
+			&& cfg.lookupValue("min_particle_distance", min_part_dist)
+			&& cfg.lookupValue("obliquity", obliquity)
+			&& cfg.lookupValue("ratio1", ratio1)
+			&& cfg.lookupValue("ratio2", ratio2)
+			&& cfg.lookupValue("J2_p", J2_plus)
+			&& cfg.lookupValue("R_p", R_plus)
+			&& cfg.lookupValue("theta_p", theta_plus)
+			&& cfg.lookupValue("phi_p", phi_plus))) {
+		throw "Failed to read in problem.cfg. Exiting.";
+	} else {
+		std::cout << "Read in problem.cfg." << std::endl;
 	}
-	double obliquity = obliquity_deg * M_PI / 180.0;   // in radians
-	num_perts = 0;
+	Vector omega(omega_in);
 
-/// end parameters of things to set /////////////////////////
+	// Read in point masses
+	cfg.readFile("point_mass.cfg");
 
-	r->dt = dt; // set integration timestep
-	const double boxsize = 3.2 * rball;    // display
-	reb_configure_box(r, boxsize, 1, 1, 1);
-	r->softening = b_distance / 100.0;	// Gravitational softening length
+	if (!cfg.lookupValue("num_point_masses", num_point_masses)) {
+		throw "Failed to read in number of point masses.";
+	} else {
+		std::cout << "Reading " << num_point_masses
+				<< " point masses from point_mass.cfg." << std::endl;
+	}
 
-	// properties of springs
-	spring_mush.gamma = gamma_fac * def_gamma; // initial damping coefficient
-	spring_mush.k = ks; // spring constant
-	// spring_mush.smax      = 1e6; // not used currently
-	double mush_distance = b_distance * mush_fac;
-	// distance for connecting and reconnecting springs
+	// Properties of point masses
+	double radii[num_point_masses], masses[num_point_masses];
+	OrbitalElements orb_els[num_point_masses];
+	inv_tau_a.resize(num_point_masses, 0.0);
+	inv_tau_e.resize(num_point_masses, 0.0);
+	migr_time.resize(num_point_masses, 0.0);
 
-	FILE *fpr;
-	char fname[200];
-	sprintf(fname, "%s_run.txt", fileroot.c_str());
-	fpr = fopen(fname, "w");
+	Setting &point_masses = cfg.getRoot()["point_masses"];
 
-	num_springs = 0; // start with no springs
+	// Load into vectors
+	for (int i = 0; i < num_point_masses; i++) {
+		point_masses[i].lookupValue("radius", radii[i]);
+		point_masses[i].lookupValue("mass", masses[i]);
+		point_masses[i].lookupValue("semi-major_axis", orb_els[i].a);
+		point_masses[i].lookupValue("eccentricity", orb_els[i].e);
+		point_masses[i].lookupValue("inclination", orb_els[i].i);
+		point_masses[i].lookupValue("long_asc_node", orb_els[i].long_asc_node);
+		point_masses[i].lookupValue("arg_periapsis", orb_els[i].arg_peri);
+		point_masses[i].lookupValue("mean_anom", orb_els[i].mean_anom);
+		point_masses[i].lookupValue("inv_axis_drift", inv_tau_a[i]);
+		point_masses[i].lookupValue("in_e_drift", inv_tau_e[i]);
+		point_masses[i].lookupValue("drift_fold_time", migr_time[i]);
+	}
 
-// for volume to be the same, adjusting here!!!!
-	double volume_ratio = pow(rball, 3.0) * ratio1 * ratio2; // neglecting 4pi/3 factor
+	obliquity *= (M_PI / 180.0);
+
+	// Create rebound simulation
+	reb_simulation *const n_body_sim = reb_create_simulation();
+
+	// Set rebound constants
+	n_body_sim->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
+	n_body_sim->gravity = reb_simulation::REB_GRAVITY_NONE;
+	n_body_sim->boundary = reb_simulation::REB_BOUNDARY_NONE;
+	n_body_sim->G = 6.67428e-8 / F_scale * pow(length_scale, 2.0)
+			/ pow(mass_scale, 2.0);
+	n_body_sim->additional_forces = additional_forces;
+
+	// Set more rebound parameters
+	n_body_sim->dt = dt;							// Integration timestep
+	n_body_sim->softening = min_part_dist / 100.0;// Gravitational softening length
+
+	// Set display window size
+	const double boxsize = 3.2 * r_ball;
+	reb_configure_box(n_body_sim, boxsize, 1, 1, 1);
+
+	// Spring properties
+	spring def_spring;
+	def_spring.gamma = gamma_fac * def_gamma;
+	def_spring.k = k;
+
+	// Get output filename
+	string filename = fileroot + "_run.txt";
+	std::ofstream outfile(filename, std::ios::out | std::ios::app);
+
+	// Adjust volume to be that of sphere with given radius
+	double volume_ratio = pow(r_ball, 3.0) * ratio1 * ratio2;
 	double vol_radius = pow(volume_ratio, 1.0 / 3.0);
+	r_ball /= vol_radius;
 
-	rball /= vol_radius; // volume radius used to compute body semi-major axis
-	// assuming that semi-major axis is rball
-	// fprintf(fpr,"vol_ratio %.6f\n",volume_ratio); // with respect to 4pi/3
-	fprintf(fpr, "a %.3f\n", rball);
-	fprintf(fpr, "b %.3f\n", rball * ratio1);
-	fprintf(fpr, "c %.3f\n", rball * ratio2);
-	volume_ratio = pow(rball, 3.0) * ratio1 * ratio2; // neglecting 4pi/3 factor
-	fprintf(fpr, "vol_ratio %.6f\n", volume_ratio); // with respect to 4pi/3
-	// so I can check that it is set to 1
+	// Output semi-axes
+	outfile << std::setprecision(3) << "a " << r_ball << "\n";
+	outfile << std::setprecision(3) << "b " << r_ball * ratio1 << "\n";
+	outfile << std::setprecision(3) << "c " << r_ball * ratio2 << "\n";
 
-	// create resolved body particle distribution
-	if (lattice_type == 0) {
-		// rand_football_from_sphere(r,b_distance,rball,rball*ratio1, rball*ratio2,mball );
-		rand_ellipsoid(r, b_distance, rball, rball * ratio1, rball * ratio2,
-				mball);
+	// Should be 1 now
+	volume_ratio = pow(r_ball, 3.0) * ratio1 * ratio2;
+	outfile << std::setprecision(6) << "vol_ratio " << volume_ratio << "\n";
+
+	// Create resolved body particle distribution
+	switch (lattice_type) {
+	case RAND: {
+		// rand_football_from_sphere(r,b_distance,r_ball,r_ball*ratio1, r_ball*ratio2,mball );
+		rand_ellipsoid(n_body_sim, min_part_dist, r_ball, r_ball * ratio1,
+				r_ball * ratio2, m_ball);
+		break;
 	}
-	if (lattice_type == 1) {
-		hcp_ellipsoid(r, b_distance, rball, rball * ratio1, rball * ratio2,
-				mball);
+	case HCP: {
+		hcp_ellipsoid(n_body_sim, min_part_dist, r_ball, r_ball * ratio1,
+				r_ball * ratio2, m_ball);
+		break;
 	}
-	if (lattice_type == 2) {
-		cubic_ellipsoid(r, b_distance, rball, rball * ratio1, rball * ratio2,
-				mball);
+	case ELLIPSE: {
+		cubic_ellipsoid(n_body_sim, min_part_dist, r_ball, r_ball * ratio1,
+				r_ball * ratio2, m_ball);
+		break;
+	}
+	default: {
+		throw "No lattice of type selected. Exiting.";
+	}
 	}
 
-	int il = 0;  // index range for resolved body
-	int ih = r->N;
+	// Select indices of resolved body
+	int i_low = 0;
+	int i_high = n_body_sim->N;
 
-	subtract_com(r, il, ih);  // move reference frame to resolved body
+	// Move reference frame to resolved body and rotate
+	subtract_com(n_body_sim, i_low, i_high);
+	rotate_to_principal(n_body_sim, i_low, i_high);
+	subtract_cov(n_body_sim, i_low, i_high);
 
-	rotate_to_principal(r, il, ih); // rotate to principal axes
+	// Spin the body
+	spin_body(n_body_sim, i_low, i_high, omega);
 
-	// spin it
-	subtract_cov(r, il, ih); // center of velocity subtracted
-	spin_body(r, il, ih, Vector( { 0.0, 0.0, omegaz })); // change one of these zeros to tilt it!
-	// can spin about non principal axis
-	subtract_cov(r, il, ih); // center of velocity subtracted
-	double speriod = fabs(2.0 * M_PI / omegaz);
-	printf("spin period %.6f\n", speriod);
-	fprintf(fpr, "spin period %.6f\n", speriod);
-	rotate_body(r, il, ih, 0.0, obliquity, 0.0); // tilt by obliquity
+	// Not required??????
+	//subtract_cov(n_body_sim, i_low, i_high); // center of velocity subtracted
 
-	// make springs, all pairs connected within interparticle distance mush_distance
-	connect_springs_dist(r, mush_distance, 0, r->N, spring_mush);
+	// Spin period
+	double speriod = abs(2.0 * M_PI / omega.getZ());
+	print_run_double(speriod, "spin period", &outfile);
 
-	// assume minor semi is rball*ratio2
-	double ddr = rball * ratio2 - 0.5 * mush_distance;
-	ddr = 0.4; // mini radius  for computing Young modulus
-	double Emush = Young_mesh(r, il, ih, 0.0, ddr); // compute from springs out to ddr
-	double Emush_big = Young_full_mesh();
-	printf("ddr = %.3f mush_distance =%.3f \n", ddr, mush_distance);
-	printf("Young's modulus %.6f\n", Emush);
-	printf("Young's modulus big %.6f\n", Emush_big);
-	fprintf(fpr, "Young's_modulus %.6f\n", Emush);
-	fprintf(fpr, "Young's_modulus big %.6f\n", Emush_big);
-	fprintf(fpr, "mush_distance %.4f\n", mush_distance);
-	double LL = mean_spring_length();  // mean spring length
-	printf("mean L = %.4f\n", LL);
-	fprintf(fpr, "mean_L  %.4f\n", LL);
-	// relaxation timescale
-	// note no 2.5 here!
-	double tau_relax = 1.0 * def_gamma * 0.5 * (mball / (r->N - num_perts))
-			/ spring_mush.k; // Kelvin Voigt relaxation time
-	printf("relaxation time %.3e\n", tau_relax);
-	fprintf(fpr, "relaxation_time  %.3e\n", tau_relax);
+	// Tilt body by obliquity
+	rotate_body(n_body_sim, i_low, i_high, 0.0, obliquity, 0.0);
 
-	double om = 0.0;
-	if (npointmass > 0) {
-		// set up rest of point masses
-		for (int ip = 0; ip < npointmass; ip++) {
-			OrbitalElements orb_el;
-			orb_el.a = aa[ip];
-			orb_el.e = ee[ip];
-			orb_el.i = ii[ip];
-			orb_el.long_asc_node = longnode[ip];
-			orb_el.arg_peri = argperi[ip];
-			orb_el.mean_anom = meananom[ip];
-			om = add_pt_mass_kep(r, il, ih, i_central, mp[ip], rad[ip], orb_el);
-			fprintf(fpr, "resbody mm=%.3f period=%.2f\n", om, 2.0 * M_PI / om);
-			printf("resbody mm=%.3f period=%.2f\n", om, 2.0 * M_PI / om);
-			// note central body mass (only changes on first run - can probably do this better
-			i_central = ih;
+	// Connect all particles within max_spring_dist by hot springs
+	connect_springs_dist(n_body_sim, max_spring_dist, 0, n_body_sim->N,
+			def_spring);
+
+	// Output Young's modulus of mesh
+	double ddr = 0.4;
+	print_run_double(max_spring_dist, "max spring length", &outfile);
+	print_run_double(ddr, "ddr", &outfile);
+	print_run_double(Young_mesh(n_body_sim, i_low, i_high, 0.0, ddr),
+			"Young's modulus hot", &outfile);
+	print_run_double(Young_full_mesh(), "Young's modulus big hot", &outfile);
+	print_run_double(mean_spring_length(), "Mean spring length", &outfile);
+
+	// Calculate Kelvin-Voigt relaxation time
+	// Factor of 0.5 is due to reduced mass being used in calculation
+	double tau_relax = 1.0 * def_gamma * 0.5
+			* (m_ball / (n_body_sim->N - num_perts)) / def_spring.k;
+	print_run_double(tau_relax, "relaxation time", &outfile);
+
+	// Set up all point masses
+	double omega_orb = 0.0;
+	if (num_point_masses > 0) {
+		for (int i = 0; i < num_point_masses; i++) {
+			omega_orb = add_pt_mass_kep(n_body_sim, i_low, i_high, i_central,
+					masses[i], radii[i], orb_els[i]);
+			outfile << std::setprecision(3) << "resbody mm= " << omega_orb
+					<< std::setprecision(2) << " period= "
+					<< 2.0 * M_PI / omega_orb << "\n";
+			std::cout << "resbody mm=" << omega_orb << " period="
+					<< 2.0 * M_PI / omega_orb << "\n";
+			i_central = i_high;
 		}
-		num_perts = npointmass;
+		num_perts = num_point_masses;
 	}
-	printf("varpi precession fac = %.3e\n",
-			1.5 * J2_plus * pow(R_plus / aa[0], 2.0));
+	std::cout << std::setprecision(3) << "varpi precession fac = "
+			<< 1.5 * J2_plus * pow(R_plus / orb_els[0].a, 2.0) << "\n";
 
+	// Bar chi???????
 	// this is probably not correct if obliquity is greater than pi/2
-	double barchi = 2.0 * fabs(om - omegaz) * tau_relax; // initial value of barchi
-	double posc = 0.5 * 2.0 * M_PI / fabs(om - omegaz); // for oscillations!
-	fprintf(fpr, "barchi  %.4f\n", barchi);
-	printf("barchi %.4f\n", barchi);
-	fprintf(fpr, "posc %.6f\n", posc);
-
-// double na = om*aa;
-// double adot = 3.0*m1*na/pow(aa,5.0); // should approximately be adot
-// fprintf(fpr,"adot %.3e\n",adot);
+	double barchi = 2.0 * abs(omega_orb - omega.getZ()) * tau_relax; // initial value of barchi
+	double posc = 0.5 * 2.0 * M_PI / abs(omega_orb - omega.getZ()); // for oscillations!
+	print_run_double(barchi, "barchi", &outfile);
+	print_run_double(posc, "posc", &outfile);
 
 	// ratio of numbers of particles to numbers of springs for resolved body
-	double Nratio = (double) num_springs / (ih - il);
-	printf("N=%d  NS=%d NS/N=%.1f\n", r->N, num_springs, Nratio);
-	fprintf(fpr, "N=%d  NS=%d NS/N=%.1f\n", r->N, num_springs, Nratio);
-	fclose(fpr);
+	double Nratio = (double) num_springs / (i_high - i_low);
+	std::cout << "N= " << n_body_sim->N << " NS=" << num_springs << " NS/N="
+			<< Nratio << "\n";
+	outfile << "N= " << n_body_sim->N << " NS=" << num_springs << " NS/N="
+			<< Nratio << "\n";
+	outfile.close();
 
-	reb_springs(r); // pass spring index list to display
-	r->heartbeat = heartbeat;
-	center_sim(r, il, ih);  // move reference frame to resolved body
+	// Set final rebound info
+	reb_springs(n_body_sim); // pass spring index list to display
+	n_body_sim->heartbeat = heartbeat; // set up integration
 
-	// max integration time
-	if (tmax == 0.0)
-		reb_integrate(r, INFINITY);
-	else
-		reb_integrate(r, tmax);
+	// Recenter reference frame
+	center_sim(n_body_sim, i_low, i_high);
+
+	// Integrate simulation
+	if (t_max == 0.0) {
+		reb_integrate(n_body_sim, INFINITY);
+	} else {
+		reb_integrate(n_body_sim, t_max);
+	}
 }
 
-#define NSPACE 50
-double dEdtsum = 0.0;  // global for sums
+// Things to do every time step
 void heartbeat(reb_simulation *const n_body_sim) {
-	static int first = 0;
-	static char extendedfile[50];
-	static char pointmassfile[NPMAX * NSPACE];
-	if (first == 0) {
-		first = 1;
-		sprintf(extendedfile, "%s_ext.txt", fileroot.c_str());
+	// Save file names
+	static string extendedfile = fileroot + "_ext.txt";
+	static vector<string> pointmassfiles;
+
+	// First time through, make file names
+	static bool first = true;
+	if (first) {
+		first = false;
 		for (int i = 0; i < num_perts; i++) {
-			sprintf(pointmassfile + i * NSPACE, "%s_pm%d.txt", fileroot.c_str(),
-					i);
+			pointmassfiles.push_back(
+					fileroot + "_pm" + std::to_string(i) + ".txt");
 		}
 	}
+
+	// Output simulation timing info every 10 timesteps
 	if (reb_output_check(n_body_sim, 10.0 * n_body_sim->dt)) {
 		reb_output_timing(n_body_sim, 0);
 	}
-	if (fabs(n_body_sim->t - t_damp) < 0.9 * n_body_sim->dt)
-		set_gamma(def_gamma);
-	// damp initial bounce only
-	// reset gamma only at t near t_damp
 
-	// stuff to do every timestep
-	center_sim(n_body_sim, 0, n_body_sim->N - num_perts); // move reference frame to resolved body for display
-	// dodrifts!!!!
-	int il = 0; // resolved body index range
-	int ih = n_body_sim->N - num_perts;
+	// After t_damp, end extra damping
+	if (abs(n_body_sim->t - t_damp) < 0.9 * n_body_sim->dt) {
+		set_gamma(def_gamma);
+	}
+
+	// Recenter simulation
+	center_sim(n_body_sim, 0, n_body_sim->N - num_perts);
+
+	// Drift the orbits
+	// Get resolved body index range
+	int i_low = 0;
+	int i_high = n_body_sim->N - num_perts;
 	if (num_perts > 0) {
 		for (int i = 0; i < num_perts; i++) {
-			int ip = i_central + i;  // which body drifting
-			double migfac = exp(-1.0 * n_body_sim->t * itmig[i]);
-			if (i == 0)  // it is central mass, so drift resolved body
-				drift_resolved(n_body_sim, n_body_sim->dt, itaua[i] * migfac, itaue[i] * migfac,
-						i_central, il, ih);
-			else
-				// it is another point mass, drifts w.r.t to icentral
-				drift_bin(n_body_sim, n_body_sim->dt, itaua[i] * migfac, itaue[i] * migfac,
-						i_central, ip);
+			// Note rebound number of drifting particle
+			int i_part = i_central + i;
+
+			// Get current state of migration
+			double migfac = exp(-n_body_sim->t / migr_time[i]);
+
+			// Drift resolved body around central mass
+			if (i == 0) {
+				drift_resolved(n_body_sim, n_body_sim->dt,
+						inv_tau_a[i] * migfac, inv_tau_e[i] * migfac, i_central,
+						i_low, i_high);
+				// Otherwise drift point mass with respect to central mass
+			} else {
+				drift_bin(n_body_sim, n_body_sim->dt, inv_tau_a[i] * migfac,
+						inv_tau_e[i] * migfac, i_central, i_part);
+			}
 		}
-
 	}
-	dEdtsum += dEdt_total(n_body_sim); // store dissipation rate
 
+	// Save total power dissipation across calls
+	static double dEdt_sum = 0.0;
+	dEdt_sum += dEdt_total(n_body_sim);
+
+	// Output resolved body info every print_interval with energy info
 	if (reb_output_check(n_body_sim, print_interval)) {
-		double dEdtave = dEdtsum * n_body_sim->dt / print_interval; // take average value
-		write_resolved_with_E(n_body_sim, 0, n_body_sim->N - num_perts, extendedfile, dEdtave); // orbital info and stuff
-		dEdtsum = 0.0;  // reset heating rate storage
-		if (num_perts > 0)
+		// Get average power dissipation
+		double dEdt_ave = dEdt_sum * n_body_sim->dt / print_interval;
+
+		// Write out
+		write_resolved_with_E(n_body_sim, 0, n_body_sim->N - num_perts,
+				extendedfile, dEdt_ave);
+
+		// Reset total power
+		dEdt_sum = 0.0;
+
+		// Write out point masses
+		if (num_perts > 0) {
 			for (int i = 0; i < num_perts; i++) {
 				int ip = i_central + i;
-				write_pt_mass(n_body_sim, ip, i, pointmassfile + i * NSPACE);
+				write_pt_mass(n_body_sim, ip, i, pointmassfiles[i]);
 			}
+		}
 	}
-
 }
 
-// make a spring index list for display
+// Make a spring index list for display
 void reb_springs(reb_simulation *const n_body_sim) {
+	// Set number of springs and initialize arrays for spring-particle interface
 	n_body_sim->NS = num_springs;
 	n_body_sim->springs_i = (int*) malloc(num_springs * sizeof(int));
 	n_body_sim->springs_j = (int*) malloc(num_springs * sizeof(int));
+
+	// For each spring, note particle indices
 	for (int i = 0; i < num_springs; i++) {
 		n_body_sim->springs_i[i] = springs[i].particle_1;
 		n_body_sim->springs_j[i] = springs[i].particle_2;
 	}
 }
 
+// Additional accelerations
 void additional_forces(reb_simulation *n_body_sim) {
-	spring_forces(n_body_sim); // spring forces
-	quadrupole_accel(n_body_sim, J2_plus, R_plus, phi_plus, theta_plus,
-			n_body_sim->N - num_perts); // quad force
-}
+	// Spring forces
+	spring_forces(n_body_sim);
 
+	// Quadrupole force from primary
+	quadrupole_accel(n_body_sim, J2_plus, R_plus, phi_plus, theta_plus,
+			n_body_sim->N - num_perts);
+}

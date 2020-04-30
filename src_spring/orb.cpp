@@ -319,6 +319,7 @@ void drift_resolved(reb_simulation *const n_body_sim, double timestep,
 // Apply quadrupole force of particle with index i_p onto all particles
 // J2_p is unitless
 // R_p is radius of planet
+// phi_p and theta_p give direction of pole of planet, in spherical coordinates
 // i_p is the array index of the planet with the quadrupole moment
 // See https://en.wikipedia.org/wiki/Geopotential_model
 // Takes into account orientation of planet's north pole

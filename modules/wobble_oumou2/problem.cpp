@@ -44,8 +44,8 @@ int num_perts = 0;
 int i_central = -1; // central mass location
 
 #define NPMAX 10  // maximum number of point masses
-double itaua[NPMAX], itaue[NPMAX]; // inverse of migration timescales
-double itmig[NPMAX];  // inverse timescale to get rid of migration
+double inv_tau_a[NPMAX], inv_tau_e[NPMAX]; // inverse of migration timescales
+double migr_time[NPMAX];  // inverse timescale to get rid of migration
 
 // Global scales
 double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
@@ -105,9 +105,9 @@ int main(int argc, char *argv[]) {
 		int ip = 0;   // index
 		mp[ip] = 1.0;   // mass
 		rad[ip] = 0.0;   // display radius
-		itaua[ip] = 0.0;   // inverse drift rate in a
-		itaue[ip] = 0.0;   // inverse drift rate in e
-		itmig[ip] = 0.0;   // get rid of drift rate in inverse of this time
+		inv_tau_a[ip] = 0.0;   // inverse drift rate in a
+		inv_tau_e[ip] = 0.0;   // inverse drift rate in e
+		migr_time[ip] = 0.0;   // get rid of drift rate in inverse of this time
 		// orbit
 		aa[ip] = 7.0;   // distance of m1 from resolved body, semi-major orbital
 		ee[ip] = 0.0;    // initial eccentricity
@@ -160,8 +160,8 @@ int main(int argc, char *argv[]) {
 		sscanf(line, "%d", &npointmass); // number of point masses
 		for (int ip = 0; ip < npointmass; ip++) {
 			fgets(line, 300, fpi);
-			sscanf(line, "%lf %lf %lf %lf %lf", mp + ip, rad + ip, itaua + ip,
-					itaue + ip, itmig + ip);
+			sscanf(line, "%lf %lf %lf %lf %lf", mp + ip, rad + ip, inv_tau_a + ip,
+					inv_tau_e + ip, migr_time + ip);
 			fgets(line, 300, fpi);
 			sscanf(line, "%lf %lf %lf %lf %lf %lf", aa + ip, ee + ip, ii + ip,
 					longnode + ip, argperi + ip, meananom + ip);

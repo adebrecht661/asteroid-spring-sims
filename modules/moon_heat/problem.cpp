@@ -298,13 +298,13 @@ int main(int argc, char *argv[]) {
 	// Calculate Kelvin-Voigt relaxation time
 	// Factor of 0.5 is due to reduced mass being used in calculation
 	double tau_relax_hot = 1.0 * gamma_hot * 0.5
-			* (m_ball / (n_body_sim->N - num_perts)) / k_hot;
+			* (m_ball / (n_body_sim->N - num_perts)) / def_spring_hot.k;
 	double tau_relax_cold = 1.0 * gamma_cold * 0.5
 			* (m_ball / (n_body_sim->N - num_perts)) / k_cold;
 	print_run_double(tau_relax_hot, "relaxation time hot", &outfile);
 	print_run_double(tau_relax_cold, "relaxation time cold", &outfile);
 
-	// Bar chi?
+	// Bar chi??????
 	double barchi_hot = 2.0 * abs(omega_orb) * tau_relax_hot;
 	double barchi_cold = 2.0 * abs(omega_orb) * tau_relax_cold;
 	print_run_double(barchi_hot, "barchi hot", &outfile);
@@ -489,18 +489,7 @@ void reb_springs(reb_simulation *const n_body_sim) {
 	}
 }
 
-// Print doubles to file and standard out
-void print_run_double(double quantity, string label, std::ofstream *outfile) {
-	// Set precision base on size of quantity
-	if ((abs(log10(quantity)) > 4)) {
-		std::cout << label << std::setprecision(4) << " " << quantity << "\n";
-		*outfile << label << std::setprecision(4) << " " << quantity << "\n";
-	} else {
-		std::cout << label << std::setprecision(3) << " " << quantity << "\n";
-		*outfile << label << std::setprecision(3) << " " << quantity << "\n";
-	}
-}
-
 void additional_forces(reb_simulation *n_body_sim) {
-	spring_forces(n_body_sim); // spring forces
+	// Spring forces
+	spring_forces(n_body_sim);
 }
