@@ -60,7 +60,6 @@ double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
 
 // Forward declarations
 void heartbeat(reb_simulation *const n_body_sim);
-void print_run_double(double quantity, string label, std::ofstream *file);
 void reb_springs(reb_simulation *const r);
 void additional_forces(reb_simulation *n_body_sim);
 
@@ -327,6 +326,7 @@ int main(int argc, char *argv[]) {
 	spin_body(n_body_sim, i_low, i_high, omega);
 
 	// Rotate orbit of body
+	// Replace with rotate_to_principal???????
 	Vector L = measure_L_origin(n_body_sim, 0, n_body_sim->N);
 	std::cout << std::setprecision(6) << "llx lly llz = " << L.getX() << " "
 			<< L.getY() << " " << L.getZ() << "\n";

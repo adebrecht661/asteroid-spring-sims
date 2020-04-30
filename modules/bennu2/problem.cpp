@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
 		int N_bennu = n_body_sim->N;
 		std::cout << filename << " read in.\n";
 
-		// Correct units from 0.246 km to length_scale
+		// Correct units from km to length_scale
 		stretch(n_body_sim, 0, n_body_sim->N, 1.0 / length_scale);
 
 		// Fill shape with particles

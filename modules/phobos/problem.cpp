@@ -60,7 +60,6 @@ double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
 // Forward declarations
 void heartbeat(reb_simulation *const n_body_sim);
 void reb_springs(reb_simulation *const n_body_sim);
-void print_run_double(double quantity, string label, std::ofstream *outfile);
 void additional_forces(reb_simulation *n_body_sim);
 
 int main(int argc, char *argv[]) {
