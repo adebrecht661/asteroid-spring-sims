@@ -36,6 +36,7 @@ void update_stress(reb_simulation *const n_body_sim) {
 	}
 
 	// Initialize stresses for each node
+#pragma omp parallel for
 	for (int i = 0; i < n_body_sim->N; i++) {
 		stresses[i].stress = zero_matrix;
 		stresses[i].eigs[0] = 0.0;
@@ -47,6 +48,7 @@ void update_stress(reb_simulation *const n_body_sim) {
 	}
 
 	// Calculate stress from each spring
+#pragma omp parallel for
 	for (int k = 0; k < num_springs; k++) {
 		// Get particles
 		int ii = springs[k].particle_1;
@@ -77,11 +79,13 @@ void update_stress(reb_simulation *const n_body_sim) {
 	// We set R = 1 for our masses, so the total volume is 4/3 pi
 	// Volume of a single node depends on number of particles
 	double vol = 4.0 * M_PI / (3.0 * (double) n_body_sim->N);
+#pragma omp parallel for
 	for (int i = 0; i < n_body_sim->N; i++) {
 		stresses[i].stress /= vol;
 	}
 
 	// Compute and store eigenvalues for each node
+#pragma omp parallel for
 	for (int i = 0; i < n_body_sim->N; i++) {
 		double eigs[3];
 		eigenvalues(stresses[i].stress, eigs);
@@ -108,6 +112,7 @@ int mark_failed_nodes(reb_simulation *const n_body_sim, double mass_div,
 	int n_fail = 0;
 
 	// Determine if node fails
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		// Get particle mass and tensile strength
 		double m = n_body_sim->particles[i].m;
@@ -154,7 +159,7 @@ double Young_mesh(reb_simulation *const n_body_sim, int i_low,
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
 
 	// Calculate sum
-#pragma omp parallel for reduction(+:sum)
+#pragma omp parallel for
 	for (int i = 0; i < num_springs; i++) {
 		Vector x_mid = spr_mid(n_body_sim, springs[i], CoM);
 
@@ -182,7 +187,7 @@ double Young_full_mesh() {
 	double sum = 0.0;
 
 	// Update sum for each spring
-#pragma omp parallel for reduction(+:sum)
+#pragma omp parallel for
 	for (int i = 0; i < num_springs; i++) {
 		double k = springs[i].k;
 		double len = springs[i].rs0;

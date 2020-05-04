@@ -65,6 +65,7 @@ int add_spring(reb_simulation *const n_body_sim, int particle_1, int particle_2,
 	}
 
 	// Check if these two particles are already connected.
+	// Don't apply OpenMP
 	for (int spring_index = 0; spring_index < num_springs; spring_index++) {
 		if ((springs[spring_index].particle_1 == particle_low)
 				&& (springs[spring_index].particle_2 == particle_high))
@@ -127,6 +128,7 @@ void connect_springs_dist(reb_simulation *const n_body_sim, double max_dist,
 
 // Set the spring damping coefficient for all springs
 void set_gamma(double new_gamma) {
+#pragma omp parallel for
 	for (int i = 0; i < num_springs; i++) {
 		springs[i].gamma = new_gamma;
 	}
@@ -136,6 +138,7 @@ void set_gamma(double new_gamma) {
 
 // Set the spring damping coefficient for all springs
 void divide_gamma(double gamma_fac) {
+#pragma omp parallel for
 	for (int i = 0; i < num_springs; i++) {
 		springs[i].gamma /= gamma_fac;
 	}
@@ -156,6 +159,7 @@ void adjust_spring_props(reb_simulation *const n_body_sim, double new_k,
 
 	// Count number of springs modified
 	int NC = 0;
+#pragma omp parallel for // spr_mid doesn't loop
 	for (int i = 0; i < num_springs; i++) {
 		// Compute spring mid point from central position
 		Vector x_mid = spr_mid(n_body_sim, springs[i], CoM);
@@ -188,6 +192,7 @@ void adjust_spring_props_ellipsoid(reb_simulation *const n_body_sim,
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
 
 	// For each spring
+#pragma omp parallel for // spr_mid doesn't loop
 	for (int i = 0; i < num_springs; i++) {
 
 		// Compute spring mid point from central position
@@ -223,6 +228,7 @@ void adjust_spring_props_ellipsoid_phase(reb_simulation *const n_body_sim,
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
 
 	// For each spring
+#pragma omp parallel for // spr_mid doesn't loop
 	for (int i = 0; i < num_springs; i++) {
 
 		// Compute spring mid point from central position
@@ -255,6 +261,7 @@ void kill_springs(reb_simulation *const n_body_sim) {
 	int i_high = n_body_sim->N - num_perts;
 
 	// Search particles for failing springs
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		if (stresses[i].failing) {
 			int spring_index = stresses[i].max_force_spring; // spring with max force amplitude on it
@@ -340,7 +347,7 @@ double mean_spring_length() {
 	double total_length = 0.0;
 
 	// Sum rest lengths of springs
-#pragma omp parallel for reduction(+:total_length)
+#pragma omp parallel for
 	for (int i = 0; i < num_springs; i++) {
 		total_length += springs[i].rs0;
 	}
@@ -355,6 +362,7 @@ double mean_k(reb_simulation *const n_body_sim) {
 	double k_tot = 0.0;
 
 	// Sum spring constants
+#pragma omp parallel for // this should work...
 	for (int i = 0; i < num_springs; i++) {
 		k_tot += springs[i].k;
 	}
@@ -392,7 +400,7 @@ void spring_forces(reb_simulation *const n_body_sim) {
 	reb_particle *particles = n_body_sim->particles;
 
 	// Get spring forces
-	#pragma omp parallel for	// Doesn't appear that Rebound explicitly parallelizes spring_forces
+#pragma omp parallel for	// Doesn't appear that Rebound explicitly parallelizes spring_forces
 	for (int spring_index = 0; spring_index < num_springs; spring_index++) {
 
 		// Get spring properties

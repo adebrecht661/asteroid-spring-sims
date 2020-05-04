@@ -344,6 +344,7 @@ void quadrupole_accel(reb_simulation *const n_body_sim, double J2_p, double R_p,
 	Vector diff = { 1.0, 1.0, 3.0 };
 
 	// Get interaction terms and accelerations for each particle
+#pragma omp parallel for
 	for (int i = 0; i < n_body_sim->N; i++) {
 		if (i != i_p) {
 			// Get displacement
@@ -392,8 +393,9 @@ void compute_orb(reb_simulation *const n_body_sim, int i_low, int i_high,
 
 	// Get total mass of resolved body
 	double m_tot = 0.0;
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
-		m_tot += n_body_sim->particles[i].m; // mass of resolved body
+		m_tot += particles[i].m; // mass of resolved body
 	}
 
 	// Get center of mass and velocity of resolved body
@@ -410,8 +412,10 @@ void compute_orb(reb_simulation *const n_body_sim, int i_low, int i_high,
 
 	// Get total perturbing mass
 	double m = 0.0;
-	for (int i = i_pert_low; i < i_pert_high; i++)
+#pragma omp parallel for
+	for (int i = i_pert_low; i < i_pert_high; i++) {
 		m += particles[i].m;
+	}
 
 	// Displacement and relative velocity of resolved body
 	Vector dx = CoM0 - CoM;
@@ -461,6 +465,7 @@ double sum_mass(reb_simulation *const n_body_sim, int i_low, int i_high) {
 
 	// Sum masses of each particle
 	double m_tot = 0.0;
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		m_tot += particles[i].m;
 	}

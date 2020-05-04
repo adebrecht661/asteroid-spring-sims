@@ -38,6 +38,7 @@ void init_nodes(reb_simulation *const n_body_sim, double Cv, double T0) {
 // Initialize temperature of surface nodes
 void init_surf_temp(double T_surf) {
 	// For each node
+#pragma omp parallel for
 	for (int i = 0; i < (int) nodes.size(); i++) {
 
 		// If it's a surface node, set the temperature
@@ -58,6 +59,7 @@ double therm_cond_mesh(reb_simulation *const n_body_sim, int i_low, int i_high,
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
 
 	// Get conductivity of each spring
+#pragma omp parallel for
 	for (int i = 0; i < num_springs; i++) {
 
 		// Location of spring midpoint relative to center of mass
@@ -86,6 +88,7 @@ void transport_heat(reb_simulation *const n_body_sim, double dt) {
 	double delta_T[n_body_sim->N] = { 0.0 };
 
 	// Get energy transfer along each spring
+#pragma omp parallel for
 	for (int i = 0; i < num_springs; i++) {
 		int ii = springs[i].particle_1;
 		int jj = springs[i].particle_2;
@@ -99,6 +102,7 @@ void transport_heat(reb_simulation *const n_body_sim, double dt) {
 	}
 
 	// Update node temperatures after all fluxes have been added up
+#pragma omp parallel for
 	for (int k = 0; k < n_body_sim->N - num_perts; k++) {
 		if (!nodes[k].is_surf) { // only do this to interior nodes
 			nodes[k].temp += delta_T[k];
@@ -108,6 +112,7 @@ void transport_heat(reb_simulation *const n_body_sim, double dt) {
 
 // Record power dissipated from each spring
 void rec_power(reb_simulation *const n_body_sim) {
+#pragma omp parallel for // dEdt doesn't loop
 	for (int k = 0; k < num_springs; k++) {
 
 		// Add current spring power to total over time
@@ -118,6 +123,7 @@ void rec_power(reb_simulation *const n_body_sim) {
 // Apply tidal heating to internal nodes
 // Should only raise temperature
 void heat_int_nodes_tidal(reb_simulation *const n_body_sim, double dt) {
+#pragma omp parallel for // dEdt doesn't loop
 	for (int k = 0; k < num_springs; k++) {
 
 		// Get heat from each spring
@@ -144,6 +150,7 @@ void heat_int_nodes_tidal(reb_simulation *const n_body_sim, double dt) {
 void heat_nodes_radiogenic(reb_simulation *n_body_sim, double dot_E_rad) {
 
 	// Node for each non-perturbing particle
+#pragma omp parallel for
 	for (int i = 0; i < n_body_sim->N - num_perts; i++) {
 
 		// Get temperature change

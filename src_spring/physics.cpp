@@ -41,6 +41,7 @@ Vector compute_com(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	Vector x_times_m(zero_vec);
 
 	// Sum masses and mass-weighted locations
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		x_times_m += particles[i].m * Vector( { particles[i].x, particles[i].y,
 				particles[i].z });
@@ -59,6 +60,7 @@ Vector compute_cov(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	double m_tot = 0.0;
 
 	// Sum masses and mass-weighted velocities
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		v_times_m += particles[i].m * Vector( { particles[i].vx,
 				particles[i].vy, particles[i].vz });
@@ -118,6 +120,7 @@ Matrix mom_inertia(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
 
 	// Calculate moment of inertia of particles
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		Vector dx = { particles[i].x - CoM.getX(), particles[i].y - CoM.getY(),
 				particles[i].z - CoM.getZ() };
@@ -143,6 +146,7 @@ Vector measure_L(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	Vector L(zero_vec);
 
 	// Calculate angular momentum of each particle with respect to centers of mass and velocity
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		Vector dx = { particles[i].x, particles[i].y, particles[i].z };
 		dx -= CoM;
@@ -209,13 +213,15 @@ void spin_body(reb_simulation *const n_body_sim, int i_low, int i_high,
 // About central mass if number of perturbers is 1, otherwise about the center of mass of all the perturbers
 Vector compute_Lorb(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	reb_particle *particles = n_body_sim->particles;
-	static int first = 0;
-	static double tm = 0.0;  // its mass
+	static bool first = true;
+	static double total_mass = 0.0;
 
-	if (first == 0) { // only calculate once
-		for (int i = i_low; i < i_high; i++)
-			tm += n_body_sim->particles[i].m; // mass of resolved body
-		first = 1;
+	// Only calculate mass of resolved body once
+	if (first) {
+		for (int i = i_low; i < i_high; i++) {
+			total_mass += n_body_sim->particles[i].m;
+		}
+		first = false;
 	}
 
 	// Find center of mass and center of velocity of requested particles
@@ -243,7 +249,7 @@ Vector compute_Lorb(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Calculate and return orbital angular momentum
 	Vector dx = CoM0 - CoM;
 	Vector dv = CoV0 - CoV;
-	return cross(dx, dv);
+	return total_mass*cross(dx, dv);
 
 }
 
@@ -259,6 +265,7 @@ double compute_rot_kin(reb_simulation *const n_body_sim, int i_low,
 
 	// Sum all non-body kinetic energy (rotational, vibrational)
 	double KE = 0.0;
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		// Get velocity difference from bulk
 		Vector v = { particles[i].vx, particles[i].vy, particles[i].vz };
@@ -278,6 +285,7 @@ Vector measure_L_origin(reb_simulation *const n_body_sim, int i_low,
 
 	// Calculate angular momentum
 	Vector L;
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		Vector dx = { particles[i].x, particles[i].y, particles[i].z };
 		Vector dv = { particles[i].vx, particles[i].vy, particles[i].vz };
@@ -305,6 +313,7 @@ void rotate_body(reb_simulation *const n_body_sim, int i_low, int i_high,
 	Matrix Rz2 = getRotMatZ(gamma); // Rotate about z''
 
 	// Calculate new position and velocity of each particle
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 
 		// Get position relative to CoM
@@ -346,6 +355,7 @@ void rotate_origin(reb_simulation *const n_body_sim, int i_low, int i_high,
 	Matrix Rz2 = getRotMatZ(gamma); // Rotate about z''
 
 	// Calculate new position and velocity of each particle
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 
 		// Get current position
@@ -403,6 +413,7 @@ void rotate_to_principal(reb_simulation *const n_body_sim, int i_low,
 	Matrix eigvec_mat = { eigvec1, eigvec2, eigvec3 };
 
 	// Rotate using eigenvector matrix
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 
 		// Get current position
@@ -448,6 +459,7 @@ Vector total_mom(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	Vector p(zero_vec);
 
 	// Sum momentum
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		p += particles[i].m * Vector( { particles[i].vx, particles[i].vy,
 				particles[i].vz });
@@ -521,6 +533,7 @@ double dEdt_total(reb_simulation *const n_body_sim) {
 	double power_loss = 0.0;
 
 	// Sum power lost for each spring
+#pragma omp parallel for // dEdt doesn't call any loops
 	for (int i = 0; i < num_springs; i++) {
 		power_loss += dEdt(n_body_sim, springs[i]);
 	}
@@ -535,6 +548,7 @@ double spring_potential_energy(reb_simulation *const n_body_sim) {
 	double SPE = 0.0;
 
 	// Calculate potential energy in each spring
+#pragma omp parallel for // spring_r doesn't call any loops
 	for (int i = 0; i < num_springs; i++) {
 		// Get length and spring constant
 		double len0 = springs[i].rs0;
@@ -559,11 +573,15 @@ double grav_potential_energy(reb_simulation *const n_body_sim, int i_low,
 	double GPE = 0.0;
 
 	// Calculate potential energy between each pair of particles
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
+
+		Vector x_1 = { particles[i].x, particles[i].y, particles[i].z };
+
 		for (int j = i + 1; j < i_high; j++) {
 			// Get distance
-			Vector x_1 = { particles[i].x, particles[i].y, particles[i].z };
 			Vector x_2 = { particles[j].x, particles[j].y, particles[j].z };
+
 			Vector dx = x_1 - x_2;
 
 			GPE -= n_body_sim->G * particles[i].m * particles[j].m / dx.len();
@@ -599,6 +617,7 @@ void adjust_mass_side(reb_simulation *const n_body_sim, double m_fac,
 	// If particle if right of x_min, adjust mass and count as modified
 	double total_mass = 0.0;
 	int num_mod = 0;
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		if (particles[i].x > x_min) {
 			particles[i].m *= m_fac;
@@ -606,10 +625,12 @@ void adjust_mass_side(reb_simulation *const n_body_sim, double m_fac,
 		}
 	}
 
+#pragma omp parallel for
 	// Renormalize particle masses
 	for (int i = i_low; i < i_high; i++) {
 		total_mass += particles[i].m;
 	}
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		particles[i].m /= total_mass;
 	}
@@ -637,6 +658,7 @@ void adjust_mass_ellipsoid(reb_simulation *const n_body_sim, double m_fac,
 	int num_core = 0;
 
 	// For each particle
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 
 		// Get particle position
@@ -668,10 +690,12 @@ void adjust_mass_ellipsoid(reb_simulation *const n_body_sim, double m_fac,
 	}
 
 	// Renormalize particle masses
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		total_mass += particles[i].m;
 	}
 
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		particles[i].m /= total_mass;
 	}

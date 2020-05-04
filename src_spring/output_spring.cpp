@@ -700,6 +700,7 @@ void write_heat(reb_simulation *const n_body_sim, string filename,
 	outfile.close();
 
 	// Reset total power to start sum again
+#pragma omp parallel for
 	for (int i = 0; i < num_springs; i++) {
 		tot_power[i] = 0;
 	}
@@ -723,6 +724,7 @@ void print_run_double(double quantity, string label, std::ofstream *outfile) {
 
 // Normalize total power by number of timesteps for output
 void normalize_tot_power(double ndt) {
+#pragma omp parallel for
 	for (int i = 0; i < num_springs; i++) {
 		tot_power[i] /= ndt;
 	}

@@ -54,6 +54,7 @@ void uniform_line(reb_simulation *const n_body_sim, int num_parts,
 	pt.r = dy / 2;	// Display radius
 
 	// Add particles at correct location
+#pragma omp parallel for private(pt)
 	for (int i = 0; i < num_parts; i++) {
 		pt.y = dy * i + y_off;
 		reb_add(n_body_sim, pt);
@@ -80,7 +81,7 @@ void rand_rectangle(reb_simulation *const n_body_sim, double min_dist, double x,
 
 	// Guess at number of random particles we need to generate
 	int n_part = 40.0 * x * y * z / pow(min_dist, 3.0);
-	std::cout << "rand_rectangle: Trying to create " << n_part << "particles."
+	std::cout << "rand_rectangle: Trying to create " << n_part << " particles."
 			<< std::endl;
 
 	// Set up particle defaults
@@ -100,6 +101,7 @@ void rand_rectangle(reb_simulation *const n_body_sim, double min_dist, double x,
 	int i_0 = N;
 
 	// Get uniform distribution inside rectangle
+	// Can't parallelize this loop - potential race condition
 	for (int i = 0; i < n_part; i++) {
 		pt.x = reb_random_uniform(-x / 2, x / 2);
 		pt.y = reb_random_uniform(-y / 2, y / 2);
@@ -108,6 +110,7 @@ void rand_rectangle(reb_simulation *const n_body_sim, double min_dist, double x,
 		// Is there a particle too nearby?
 		bool too_near = false;
 		N = n_body_sim->N;
+		// Can't parallelize this loop - exit condition invalid in OpenMP loop
 		for (int j = i_0; not too_near && j < N; j++) {
 			Vector dx = { pt.x - particles[j].x, pt.y - particles[j].y, pt.z
 					- particles[j].z };
@@ -136,6 +139,7 @@ void rand_rectangle(reb_simulation *const n_body_sim, double min_dist, double x,
 
 	// Adjust mass of each particle so that they sum to desired total mass
 	double particle_mass = total_mass / (N - i_0);
+#pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
 		particles[i].m = particle_mass;
 	}
@@ -156,7 +160,7 @@ void rand_rectangle_2d(reb_simulation *const n_body_sim, double min_dist,
 
 	// Guess at number of particles to create
 	int n_part = 40.0 * x * y / pow(min_dist, 2.0);
-	printf("rand_rectangle_2d: n_part=%d\n", n_part);
+	std::cout << "rand_rectangle_2d: Trying to create " << n_part << " particles." << std::endl;
 
 	// Set particle defaults
 	reb_particle pt;
@@ -178,6 +182,7 @@ void rand_rectangle_2d(reb_simulation *const n_body_sim, double min_dist,
 	int i_0 = N;
 
 	// Get uniform distribution inside 2D rectangle
+	// Can't parallelize this loop - potential race condition
 	for (int i = 0; i < n_part; i++) {
 		pt.x = reb_random_uniform(-x / 2, x / 2);
 		pt.y = reb_random_uniform(-y / 2, y / 2);
@@ -185,6 +190,7 @@ void rand_rectangle_2d(reb_simulation *const n_body_sim, double min_dist,
 		// Is there a particle too nearby?
 		bool too_near = false;
 		N = n_body_sim->N;
+		// Can't parallelize this loop - exit condition invalid in OpenMP loop
 		for (int j = i_0; not too_near && j < N; j++) {
 			Vector dx = { pt.x - particles[j].x, pt.y - particles[j].y, pt.z
 					- particles[j].z };
@@ -213,6 +219,7 @@ void rand_rectangle_2d(reb_simulation *const n_body_sim, double min_dist,
 
 	// Adjust mass of each particle so that they sum to desired total mass
 	double particle_mass = total_mass / (N - i_0);
+#pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
 		particles[i].m = particle_mass;
 	}
@@ -254,6 +261,7 @@ void rand_cone(reb_simulation *const n_body_sim, double min_dist, double radius,
 	int i_0 = N;
 
 	// Get uniform distribution of particles in cone
+	// Can't parallelize this loop - potential race condition
 	for (int i = 0; i < n_part; i++) {
 		pt.x = reb_random_uniform(-radius, radius);
 		pt.y = reb_random_uniform(-radius, radius);
@@ -268,6 +276,7 @@ void rand_cone(reb_simulation *const n_body_sim, double min_dist, double radius,
 			// Is there a particle too nearby?
 			bool too_near = false;
 			N = n_body_sim->N;
+			// Can't parallelize this loop - exit condition invalid in OpenMP loop
 			for (int j = i_0; not too_near && j < N; j++) {
 				Vector dx = { pt.x - particles[j].x, pt.y - particles[j].y, pt.z
 						- particles[j].z };
@@ -297,6 +306,7 @@ void rand_cone(reb_simulation *const n_body_sim, double min_dist, double radius,
 
 	// Adjust mass of each particle so that sums to desired total mass
 	double particle_mass = total_mass / (N - i_0);
+#pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
 		particles[i].m = particle_mass;
 	}
@@ -337,6 +347,7 @@ void rand_ellipsoid(reb_simulation *const n_body_sim, double min_dist, double x,
 	int i_0 = N;
 
 	// Get uniform distribution inside ellipsoid
+	// Can't parallelize this loop - potential race condition
 	for (int i = 0; i < n_part; i++) {
 		pt.x = reb_random_uniform(-x, x);
 		pt.y = reb_random_uniform(-y, y);
@@ -349,6 +360,7 @@ void rand_ellipsoid(reb_simulation *const n_body_sim, double min_dist, double x,
 			// Is there a particle too nearby?
 			bool too_near = false;
 			N = n_body_sim->N;
+			// Can't parallelize this loop - exit condition invalid in OpenMP loop
 			for (int j = i_0; not too_near && j < N; j++) {
 				Vector dx = { pt.x - particles[j].x, pt.y - particles[j].y, pt.z
 						- particles[j].z };
@@ -378,8 +390,9 @@ void rand_ellipsoid(reb_simulation *const n_body_sim, double min_dist, double x,
 
 	// Adjust mass of each particle so that they sum to desired total mass
 	double particle_mass = total_mass / (N - i_0);
+#pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
-		n_body_sim->particles[i].m = particle_mass;
+		particles[i].m = particle_mass;
 	}
 
 	// Double check min_dist
@@ -425,25 +438,21 @@ void hcp_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 	int nz = (int) (1.2 * z / zfac);
 
 	// Make an HCP grid
+#pragma omp parallel for private(pt)
 	for (int k = -nz; k <= nz; k++) {
 
 		// z location
-		double cur_z = zfac * k;
+		pt.z = zfac * k;
 
 		for (int j = -ny; j <= ny; j++) {
 
 			// y location
-			double cur_y = yfac * (j + 0.5 * (k % 2));
+			pt.y = yfac * (j + 0.5 * (k % 2));
 
 			for (int i = -nx; i <= nx; i++) {
 
 				// x location
-				double cur_x = dx * i + xfac * (j % 2) + xfac * (k % 2);
-
-				// Set particle location
-				pt.x = cur_x;
-				pt.y = cur_y;
-				pt.z = cur_z;
+				pt.x = dx * i + xfac * (j % 2) + xfac * (k % 2);
 
 				// Add if particle is inside ellipsoid
 				Vector pos = { pt.x / x, pt.y / y, pt.z / z };
@@ -471,6 +480,7 @@ void hcp_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 	// Adjust radius of each particle so they have radius of 1/4 smallest distance between any particles
 	double particle_mass = total_mass / (N - i_0);
 	double min_d = mindist(n_body_sim, i_0, N);
+#pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
 		particles[i].m = particle_mass;
 		particles[i].r = min_d / 4.0;
@@ -510,26 +520,22 @@ void cubic_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 	// Lattice spacing factor
 	double fac = min_dist;
 
+#pragma omp parallel for private(pt)
 	// Get particles in ellipsoid
 	for (int k = -nz; k <= nz; k++) {
 
 		// z location
-		double cur_z = fac * k;
+		pt.z = fac * k;
 
 		for (int j = -ny; j <= ny; j++) {
 
 			// y location
-			double cur_y = fac * j;
+			pt.y = fac * j;
 
 			for (int i = -nx; i <= nx; i++) {
 
 				// x location
-				double cur_x = fac * i;
-
-				// Set particle location
-				pt.x = cur_x;
-				pt.y = cur_y;
-				pt.z = cur_z;
+				pt.x = fac * i;
 
 				// Add particle if inside ellipsoid
 				Vector pos = { pt.x / x, pt.y / y, pt.z / z };
@@ -557,6 +563,7 @@ void cubic_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 	// Adjust radius of each particle so they have radius of 1/4 smallest distance between any particles
 	double particle_mass = total_mass / (N - i_0);
 	double min_d = mindist(n_body_sim, i_0, N);
+#pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
 		particles[i].m = particle_mass;
 		particles[i].r = min_d / 4.0;
@@ -601,6 +608,7 @@ void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 	int i_0 = N;
 
 	// Get uniform distribution inside arbitrary shape
+	// Can't parallelize this loop - potential race condition
 	for (int i = 0; i < n_part; i++) {
 		pt.x = reb_random_uniform(-max_r_shape, max_r_shape);
 		pt.y = reb_random_uniform(-max_r_shape, max_r_shape);
@@ -614,6 +622,7 @@ void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 			// Is there a particle too nearby?
 			bool too_near = false;
 			N = n_body_sim->N;
+			// Can't parallelize this loop - exit condition invalid in OpenMP loop
 			for (int j = i_0; not too_near && j < N; j++) {
 				Vector dx = { pt.x - particles[j].x, pt.y - particles[j].y, pt.z
 						- particles[j].z };
@@ -643,6 +652,7 @@ void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 
 	// Adjust mass of each particle so that they sum to desired total mass
 	double particle_mass = total_mass / (N - i_0);
+#pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
 		particles[i].m = particle_mass;
 	}
@@ -660,6 +670,7 @@ void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 // Rescale by same factor in each direction
 void stretch(reb_simulation *const n_body_sim, int i_low, int i_high,
 		double scale) {
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		n_body_sim->particles[i].x *= scale;
 		n_body_sim->particles[i].y *= scale;
@@ -670,6 +681,7 @@ void stretch(reb_simulation *const n_body_sim, int i_low, int i_high,
 // Rescale by different factor in each direction
 void stretch_xyz(reb_simulation *const n_body_sim, int i_low, int i_high,
 		double x_scale, double y_scale, double z_scale) {
+#pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		n_body_sim->particles[i].x *= x_scale;
 		n_body_sim->particles[i].y *= y_scale;
@@ -697,6 +709,7 @@ void mark_surf_shrink_int_shape(reb_simulation *const n_body_sim, int i_low,
 
 	// Find particles at surface
 	// 0 to i_low
+#pragma omp parallel for
 	for (int i = 0; i < i_low; i++) {
 
 		// Get current position
@@ -722,6 +735,7 @@ void mark_surf_shrink_int_shape(reb_simulation *const n_body_sim, int i_low,
 	}
 
 	// i_high to end
+#pragma omp parallel for
 	for (int j = i_high; j < n_body_sim->N; j++) {
 
 		// Get index after removal of shape particles and initialize
@@ -771,6 +785,7 @@ void mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
 
 	// Check if particles are close to surface
 	double ifac = sqrt(1.0 + slope * slope);
+#pragma omp parallel for
 	for (int i = 0; i < n_body_sim->N; i++) {
 
 		// Get particle location and cone location
@@ -813,6 +828,7 @@ void mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
 	}
 
 	// Check if particle is close to surface
+#pragma omp parallel for
 	for (int i = 0; i < n_body_sim->N; i++) {
 
 		// Get particle position
@@ -831,7 +847,7 @@ void mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
 			// Otherwise, shrink so that only surface is visible
 		} else {
 			nodes[i].is_surf = false;
-			n_body_sim->particles[i].r = 0.001;
+			particles[i].r = 0.001;
 		}
 	}
 
@@ -854,6 +870,7 @@ void rm_particles(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Particles are shifted downward after each removal
 	const int to_remove = i_low;
 	const int retain_order = 1;
+	// Potential race condition
 	for (int i = i_low; i < i_high; i++) {
 		reb_remove(n_body_sim, to_remove, retain_order);
 	}
