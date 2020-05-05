@@ -24,7 +24,6 @@ extern vector<spring> springs;		// Array to store springs
 extern int num_springs;			// Number of springs
 extern int num_perts;			// Number of perturbing point masses
 extern vector<stress_tensor> stresses;	// Array of stresses for each particle
-extern vector<node> nodes;
 
 int NSmax = 0; // Max number of springs (size of array)
 extern const double L_EPS = 1e-6; // Softening for spring length
