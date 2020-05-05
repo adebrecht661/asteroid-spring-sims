@@ -212,7 +212,6 @@ void spin_body(reb_simulation *const n_body_sim, int i_low, int i_high,
 // About central mass if number of perturbers is 1, otherwise about the center of mass of all the perturbers
 Vector compute_Lorb(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	reb_particle *particles = n_body_sim->particles;
-	static bool first = true;
 	static double total_mass = sum_mass(n_body_sim, i_low, i_high);
 
 	// Find center of mass and center of velocity of requested particles

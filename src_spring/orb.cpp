@@ -388,8 +388,6 @@ void quadrupole_accel(reb_simulation *const n_body_sim, double J2_p, double R_p,
 // L is orbital angular momentum per unit mass
 void compute_orb(reb_simulation *const n_body_sim, int i_low, int i_high,
 		double *a, double *mean_motion, double *e, double *i, double *L) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
 
 	// Get total mass of resolved body
 	double m_tot = sum_mass(n_body_sim, i_low, i_high);
