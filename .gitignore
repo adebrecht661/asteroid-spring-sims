@@ -1,3 +1,8 @@
+# libconfig files
+libconfig/examples/c/.libs/example*
+libconfig/examples/c++/.libs/example*
+libconfig/tests/.libs/libconfig_tests
+
 # Eclipse files
 *.project
 *.settings
@@ -29,6 +34,7 @@
 *.a
 *.la
 *.lo
+*.lai
 
 # Shared objects (inc. Windows DLLs)
 *.dll

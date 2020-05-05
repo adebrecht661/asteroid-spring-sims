@@ -151,86 +151,6 @@ void rand_rectangle(reb_simulation *const n_body_sim, double min_dist, double x,
 			<< std::endl;
 }
 
-// Create an approximately uniform random particle distribution with total_mass within rectangle (2D) given by lengths x, y
-// No particles closer than min_dist created
-void rand_rectangle_2d(reb_simulation *const n_body_sim, double min_dist,
-		double x, double y, double total_mass) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
-
-	// Guess at number of particles to create
-	int n_part = 40.0 * x * y / pow(min_dist, 2.0);
-	std::cout << "rand_rectangle_2d: Trying to create " << n_part << " particles." << std::endl;
-
-	// Set particle defaults
-	reb_particle pt;
-	pt.ax = 0.0;
-	pt.ay = 0.0;
-	pt.az = 0.0;
-	pt.vx = 0.0;
-	pt.vy = 0.0;
-	pt.vz = 0.0;
-	pt.m = 1.0;
-	pt.x = 0.0;
-	pt.y = 0.0;
-	pt.z = 0.0;
-	double particle_radius = min_dist / 2.0;
-	pt.r = particle_radius / 3.0;  // temporary
-
-	// Get current number of particles
-	int N = n_body_sim->N;
-	int i_0 = N;
-
-	// Get uniform distribution inside 2D rectangle
-	// Can't parallelize this loop - potential race condition
-	for (int i = 0; i < n_part; i++) {
-		pt.x = reb_random_uniform(-x / 2, x / 2);
-		pt.y = reb_random_uniform(-y / 2, y / 2);
-
-		// Is there a particle too nearby?
-		bool too_near = false;
-		N = n_body_sim->N;
-		// Can't parallelize this loop - exit condition invalid in OpenMP loop
-		for (int j = i_0; not too_near && j < N; j++) {
-			Vector dx = { pt.x - particles[j].x, pt.y - particles[j].y, pt.z
-					- particles[j].z };
-			if (dx.len() < min_dist)
-				too_near = true;
-		}
-
-		// Only add particle if not near any other
-		if (not too_near)
-			reb_add(n_body_sim, pt);
-	}
-
-	// Get current number of particles
-	N = n_body_sim->N;
-
-	// If nodes vector has already been initialized, increase size to account for new particles
-	if (!nodes.empty()) {
-		node zero_node;
-		zero_node.cv = -1;
-		zero_node.is_surf = true;
-		zero_node.temp = -1;
-		nodes.resize(N, zero_node);
-		std::cout
-				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (rand_rectangle_2d)";
-	}
-
-	// Adjust mass of each particle so that they sum to desired total mass
-	double particle_mass = total_mass / (N - i_0);
-#pragma omp parallel for
-	for (int i = i_0; i < N; i++) {
-		particles[i].m = particle_mass;
-	}
-
-	// Double check min_dist
-	double min_d = mindist(n_body_sim, i_0, N);
-	std::cout << "rand_rectangle: Created " << N - i_0
-			<< " particles separated by minimum distance " << min_d
-			<< std::endl;
-}
-
 // Create an approximately uniform random particle distribution with total_mass within a cone given by base radius, height
 // No particles closer than min_dist created
 void rand_cone(reb_simulation *const n_body_sim, double min_dist, double radius,
@@ -675,17 +595,6 @@ void stretch(reb_simulation *const n_body_sim, int i_low, int i_high,
 		n_body_sim->particles[i].x *= scale;
 		n_body_sim->particles[i].y *= scale;
 		n_body_sim->particles[i].z *= scale;
-	}
-}
-
-// Rescale by different factor in each direction
-void stretch_xyz(reb_simulation *const n_body_sim, int i_low, int i_high,
-		double x_scale, double y_scale, double z_scale) {
-#pragma omp parallel for
-	for (int i = i_low; i < i_high; i++) {
-		n_body_sim->particles[i].x *= x_scale;
-		n_body_sim->particles[i].y *= y_scale;
-		n_body_sim->particles[i].z *= z_scale;
 	}
 }
 

@@ -392,11 +392,7 @@ void compute_orb(reb_simulation *const n_body_sim, int i_low, int i_high,
 	reb_particle *particles = n_body_sim->particles;
 
 	// Get total mass of resolved body
-	double m_tot = 0.0;
-#pragma omp parallel for
-	for (int i = i_low; i < i_high; i++) {
-		m_tot += particles[i].m; // mass of resolved body
-	}
+	double m_tot = sum_mass(n_body_sim, i_low, i_high);
 
 	// Get center of mass and velocity of resolved body
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
@@ -411,11 +407,7 @@ void compute_orb(reb_simulation *const n_body_sim, int i_low, int i_high,
 	Vector CoV0 = compute_cov(n_body_sim, i_pert_low, i_pert_high);
 
 	// Get total perturbing mass
-	double m = 0.0;
-#pragma omp parallel for
-	for (int i = i_pert_low; i < i_pert_high; i++) {
-		m += particles[i].m;
-	}
+	double m = sum_mass(n_body_sim, i_pert_low, i_pert_high);
 
 	// Displacement and relative velocity of resolved body
 	Vector dx = CoM0 - CoM;

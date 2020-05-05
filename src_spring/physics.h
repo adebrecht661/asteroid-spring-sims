@@ -70,8 +70,6 @@ void rotate_to_principal(reb_simulation *const n_body_sim, int i_low,
 /* Linear routines */
 /*******************/
 
-// Calculate total momentum of particles in set [i_low, i_high)
-Vector total_mom(reb_simulation *const n_body_sim, int i_low, int i_high);
 // Shift particles in range [i_low, i_high) by position dx, velocity dv
 void move_resolved(reb_simulation *const n_body_sim, Vector dx, Vector dv,
 		int i_low, int i_high);

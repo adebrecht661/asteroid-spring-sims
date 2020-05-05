@@ -271,57 +271,6 @@ void kill_springs(reb_simulation *const n_body_sim) {
 	}
 }
 
-// Make a binary with two masses mass_1, mass_2 spinning with vector omega, separated by distance sep and connected with spring spring_vals
-// Center of mass is set to origin
-void make_binary_spring(reb_simulation *const n_body_sim, double mass_1,
-		double mass_2, double sep, Vector omega, spring spring_vals) {
-	// Get particle info
-	int i_low = n_body_sim->N;
-	int i_high = n_body_sim->N + 2;
-
-	// Declare new particle
-	reb_particle particle;
-
-	// Set particle defaults
-	particle.ax = 0.0;
-	particle.ay = 0.0;
-	particle.az = 0.0;
-	particle.vx = 0.0;
-	particle.vy = 0.0;
-	particle.vz = 0.0;
-	particle.y = 0.0;
-	particle.z = 0.0;
-
-	// Add particle 1
-	particle.m = mass_1;
-	particle.x = sep * mass_2 / (mass_1 + mass_2);
-	particle.r = sep * 0.3;
-	reb_add(n_body_sim, particle);
-
-	// Add particle 2
-	particle.m = mass_2;
-	particle.x = -sep * mass_1 / (mass_1 + mass_2);
-	particle.r *= pow(mass_1 / mass_2, 0.33333);
-	reb_add(n_body_sim, particle);
-
-	// Spin the two particles
-	spin_body(n_body_sim, i_low, i_high, omega);
-
-	// Connect particles with a spring
-	connect_springs_dist(n_body_sim, sep * 1.1, i_low, i_high, spring_vals);
-
-	// If nodes vector has already been initialized, increase size to account for new particles
-	if (!nodes.empty()) {
-		node zero_node;
-		zero_node.cv = -1;
-		zero_node.is_surf = true;
-		zero_node.temp = -1;
-		nodes.resize(nodes.size() + 2, zero_node);
-		std::cout
-				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (make_binary_spring)";
-	}
-}
-
 /*********************/
 /* Spring properties */
 /*********************/

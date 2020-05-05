@@ -33,10 +33,6 @@ void add_spring_helper(spring spr);
 // Connects springs between all particles closer than max_dist in index range i_low -> i_high-1
 void connect_springs_dist(reb_simulation *const n_body_sim, double max_dist,
 		int i_low, int i_high, spring spr);
-// Connects springs between all particles closer than max_dist and farther than min_dist, no more than nodemax springs per particle
-void connect_springs_dist_nodemax(reb_simulation *const n_body_sim,
-		double min_dist, double max_dist, int i_low, int i_high, spring spr,
-		int nodemax);
 // Set damping coefficient of all springs
 void set_gamma(double new_gamma);
 // Set damping coefficient of all springs
@@ -54,9 +50,6 @@ void adjust_spring_props_ellipsoid_phase(reb_simulation *const n_body_sim,
 		double phi_0, double a, double b, double c, Vector x0, bool inside);
 // Kill springs that have failed
 void kill_springs(reb_simulation *const n_body_sim);
-// Make a binary system with a spring connecting them, orbiting with vector omega
-void make_binary_spring(reb_simulation *const n_body_sim, double m1, double m2,
-		double sep, Vector omega, spring spring_vals);
 
 /*********************/
 /* Spring properties */
@@ -66,8 +59,6 @@ void make_binary_spring(reb_simulation *const n_body_sim, double m1, double m2,
 Vector spring_r(reb_simulation *const n_body_sim, spring spr);
 // Get mean rest length of springs
 double mean_spring_length();
-// Mean spring constant
-double mean_ks(reb_simulation *const n_body_sim);
 // Compute spring midpoint location from arbitrary center in Cartesian coordinates
 Vector spr_mid(reb_simulation *const n_body_sim, spring spr, Vector center);
 // Returns strain on given spring

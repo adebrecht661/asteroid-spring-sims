@@ -19,9 +19,6 @@ void uniform_line(reb_simulation* const n_body_sim, int num_parts, double y_off)
 // Create particles approximately evenly distributed inside rectangular prism defined by sides x, y, z, no closer than min_dist, with total_mass
 void rand_rectangle(reb_simulation *const n_body_sim, double min_dist,
 		double x, double y, double z, double total_mass);
-// Create particles approximately evenly distributed inside rectangle (2D) defined by sides x, y, no closer than min_dist, with total_mass
-void rand_rectangle_2d(reb_simulation *const n_body_sim, double min_dist,
-		double x, double y, double total_mass);
 // Create particles approximately evenly distributed inside cone of radius, height, no closer than min_dist, with total_mass
 void rand_cone(reb_simulation *const n_body_sim, double min_dist,
 		double radius, double height, double total_mass);
@@ -46,9 +43,6 @@ void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 // Stretch particles in [i_low, i_high) by same amount in each direction
 void stretch(reb_simulation *const n_body_sim, int i_low, int i_high,
 		double scale);
-// Stretch particles in [i_low, i_high) by different amount in each direction
-void stretch_xyz(reb_simulation *const n_body_sim, int i_low, int i_high,
-		double x_scale, double y_scale, double z_scale);
 
 /*****************/
 /* Mark surfaces */

@@ -144,22 +144,3 @@ void heat_int_nodes_tidal(reb_simulation *const n_body_sim, double dt) {
 			nodes[jj].temp += dT_jj;
 	}
 }
-
-// Add a constant heating rate to each node (radiogenic)
-// dot_E_rad is energy per unit mass per unit time
-void heat_nodes_radiogenic(reb_simulation *n_body_sim, double dot_E_rad) {
-
-	// Node for each non-perturbing particle
-#pragma omp parallel for
-	for (int i = 0; i < n_body_sim->N - num_perts; i++) {
-
-		// Get temperature change
-		double dT_i = dot_E_rad * n_body_sim->dt / nodes[i].cv;
-
-		// Update interior nodes
-		// Radiogenic heating should affect all nodes??????
-		if (!nodes[i].is_surf) {
-			nodes[i].temp += dT_i;
-		}
-	}
-}

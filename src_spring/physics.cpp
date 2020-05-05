@@ -21,6 +21,7 @@ extern "C" {
 #include "rebound.h"
 }
 #include "matrix_math.h"
+#include "orb.h" // for sum_mass -- perhaps should make a misc functions file
 #include "springs.h"
 #include "physics.h"
 
@@ -37,7 +38,7 @@ extern const double L_EPS;
 Vector compute_com(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Get simulation information and initialize sums
 	reb_particle *particles = n_body_sim->particles;
-	double m_tot = 0.0;
+	double m_tot = sum_mass(n_body_sim, i_low, i_high);
 	Vector x_times_m(zero_vec);
 
 	// Sum masses and mass-weighted locations
@@ -45,7 +46,6 @@ Vector compute_com(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	for (int i = i_low; i < i_high; i++) {
 		x_times_m += particles[i].m * Vector( { particles[i].x, particles[i].y,
 				particles[i].z });
-		m_tot += particles[i].m;
 	}
 
 	// Calculate center of mass
@@ -57,14 +57,13 @@ Vector compute_cov(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Get simulation information and initialize sums
 	reb_particle *particles = n_body_sim->particles;
 	Vector v_times_m(zero_vec);
-	double m_tot = 0.0;
+	double m_tot = sum_mass(n_body_sim, i_low, i_high);
 
 	// Sum masses and mass-weighted velocities
 #pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		v_times_m += particles[i].m * Vector( { particles[i].vx,
 				particles[i].vy, particles[i].vz });
-		m_tot += particles[i].m;
 	}
 
 	return v_times_m / m_tot;
@@ -214,15 +213,7 @@ void spin_body(reb_simulation *const n_body_sim, int i_low, int i_high,
 Vector compute_Lorb(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	reb_particle *particles = n_body_sim->particles;
 	static bool first = true;
-	static double total_mass = 0.0;
-
-	// Only calculate mass of resolved body once
-	if (first) {
-		for (int i = i_low; i < i_high; i++) {
-			total_mass += n_body_sim->particles[i].m;
-		}
-		first = false;
-	}
+	static double total_mass = sum_mass(n_body_sim, i_low, i_high);
 
 	// Find center of mass and center of velocity of requested particles
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
@@ -452,23 +443,6 @@ void rotate_to_principal(reb_simulation *const n_body_sim, int i_low,
 /* Linear routines */
 /*******************/
 
-// Sum total momentum of particles
-Vector total_mom(reb_simulation *const n_body_sim, int i_low, int i_high) {
-	// Get particle info, initialize momentum vector
-	reb_particle *particles = n_body_sim->particles;
-	Vector p(zero_vec);
-
-	// Sum momentum
-#pragma omp parallel for
-	for (int i = i_low; i < i_high; i++) {
-		p += particles[i].m * Vector( { particles[i].vx, particles[i].vy,
-				particles[i].vz });
-	}
-
-	// Return momentum
-	return p;
-}
-
 // Shift the position and velocity of a resolved body with particles in set [i_low, i_high) by dx, dv
 void move_resolved(reb_simulation *const n_body_sim, Vector dx, Vector dv,
 		int i_low, int i_high) {
@@ -615,7 +589,6 @@ void adjust_mass_side(reb_simulation *const n_body_sim, double m_fac,
 	int i_high = n_body_sim->N - num_perts;
 
 	// If particle if right of x_min, adjust mass and count as modified
-	double total_mass = 0.0;
 	int num_mod = 0;
 #pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
@@ -625,11 +598,8 @@ void adjust_mass_side(reb_simulation *const n_body_sim, double m_fac,
 		}
 	}
 
-#pragma omp parallel for
 	// Renormalize particle masses
-	for (int i = i_low; i < i_high; i++) {
-		total_mass += particles[i].m;
-	}
+	double total_mass = sum_mass(n_body_sim, i_low, i_high);
 #pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		particles[i].m /= total_mass;
@@ -654,7 +624,6 @@ void adjust_mass_ellipsoid(reb_simulation *const n_body_sim, double m_fac,
 	double r_fac = pow(m_fac, 1.0 / 2.0);
 
 	// Init total mass and number of particles in core
-	double total_mass = 0.0;
 	int num_core = 0;
 
 	// For each particle
@@ -690,11 +659,7 @@ void adjust_mass_ellipsoid(reb_simulation *const n_body_sim, double m_fac,
 	}
 
 	// Renormalize particle masses
-#pragma omp parallel for
-	for (int i = i_low; i < i_high; i++) {
-		total_mass += particles[i].m;
-	}
-
+	double total_mass = sum_mass(n_body_sim, i_low, i_high);
 #pragma omp parallel for
 	for (int i = i_low; i < i_high; i++) {
 		particles[i].m /= total_mass;
