@@ -89,8 +89,8 @@ Matrix::Matrix(std::initializer_list<Vector> list) {
 		this->array[i][0] = l.getX();
 		this->array[i][1] = l.getY();
 		this->array[i][2] = l.getZ();
+		i++;
 	}
-	i++;
 }
 
 // Copy constructor
@@ -155,7 +155,7 @@ double Matrix::getZZ() const {
 /******************/
 
 // Return length of vector
-double Vector::len() {
+double Vector::len() const {
 	return sqrt(dot(*this, *this));
 }
 
@@ -168,9 +168,9 @@ double dot(Vector lhs, Vector rhs) {
 // Return cross product of vectors
 Vector cross(Vector lhs, Vector rhs) {
 	return Vector(
-			{ -lhs.getY() * rhs.getZ() + lhs.getZ() * rhs.getY(), -lhs.getZ()
-					* rhs.getX() + lhs.getX() * rhs.getZ(), -lhs.getX()
-					* rhs.getY() + lhs.getY() * rhs.getX() });
+			{ lhs.getY() * rhs.getZ() - lhs.getZ() * rhs.getY(), lhs.getZ()
+					* rhs.getX() - lhs.getX() * rhs.getZ(), lhs.getX()
+					* rhs.getY() - lhs.getY() * rhs.getX() });
 }
 
 // Return outer product of vectors
@@ -178,7 +178,7 @@ Matrix outer(Vector lhs, Vector rhs) {
 	double mat[3][3];
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
-			mat[i][j] = lhs.array[i] * lhs.array[j];
+			mat[i][j] = lhs.array[i] * rhs.array[j];
 		}
 	}
 	return Matrix(mat);
@@ -188,8 +188,9 @@ Matrix outer(Vector lhs, Vector rhs) {
 Vector eigenvector(Matrix mat, double eigval) {
 
 	// Check if matrix is symmetric
-	if (!mat.isSym())
-		return zero_vector;
+	if (!mat.isSym()) {
+		throw "Matrix isn't symmetric. Can't calculate eigenvectors using this routine.";
+	}
 
 	// Number of iterations
 	int N_ITS = 20;
@@ -237,7 +238,13 @@ Vector eigenvector(Matrix mat, double eigval) {
 
 // Compute inverse of 3x3 symmetric matrix
 Matrix inverse(Matrix mat) {
-	return (1.0 / det(mat))
+
+	double determ = det(mat);
+	if (determ == 0) {
+		throw "Determinant is zero. Inverse does not exist.";
+	}
+
+	return (1.0 / determ)
 			* (0.5 * (pow(trace(mat), 2.0) - trace(mat * mat)) * I
 					- mat * trace(mat) + mat * mat);
 }
@@ -257,15 +264,9 @@ double det(Matrix mat) {
 // eigs[0] >= eigs[1] >= eigs[2]
 void eigenvalues(Matrix mat, double eigs[3]) {
 
-	// Return 0 eigenvalues if matrix isn't symmetric or other error occurs
-	eigs[0] = eigs[1] = eigs[2] = 0;
-
 	// Check if matrix is symmetric
 	if (!mat.isSym()) {
-		std::cerr
-				<< "Matrix isn't symmetric. Can't be diagonalized with this routine."
-				<< std::endl;
-		return;
+		throw "Matrix isn't symmetric. Can't be diagonalized with this routine.";
 	}
 
 	// Recipe from Wikipedia for eigenvalues of a symmetric matrix
@@ -316,6 +317,18 @@ bool Matrix::isSym() {
 	return (this->array[0][1] == this->array[1][0]
 			&& this->array[0][2] == this->array[2][0]
 			&& this->array[1][2] == this->array[2][1]);
+}
+
+// Transpose matrix
+Matrix transpose(Matrix mat) {
+	Matrix res;
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			res.array[i][j] = mat.array[j][i];
+		}
+	}
+
+	return res;
 }
 
 // Return rotation matrix for rotation about X axis
@@ -415,12 +428,13 @@ Vector Vector::operator/(double scalar) {
 
 // Equality
 bool Vector::operator==(Vector rhs) const {
-	return (this->array[0] == rhs.array[0] && this->array[1] == rhs.array[1] && this->array[2] == rhs.array[2]);
+	return (this->array[0] == rhs.array[0] && this->array[1] == rhs.array[1]
+			&& this->array[2] == rhs.array[2]);
 }
 
 // Multiply a matrix by a vector
 Vector operator*(Matrix lhs, Vector rhs) {
-	Vector res;
+	Vector res(zero_vec);
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
 			res.array[i] += lhs.array[i][j] * rhs.array[j];
@@ -494,6 +508,19 @@ Matrix Matrix::operator+(Matrix rhs) {
 	return res;
 }
 
+// Negation
+Matrix Matrix::operator-() {
+	Matrix res;
+
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			res.array[i][j] = -this->array[i][j];
+		}
+	}
+
+	return res;
+}
+
 // Subtract two matrices
 Matrix Matrix::operator-(Matrix rhs) {
 	Matrix res;
@@ -527,6 +554,19 @@ Matrix Matrix::operator/(double scalar) {
 	return res;
 }
 
+// Equality
+bool Matrix::operator==(Matrix rhs) const {
+	return this->array[0][0] == rhs.array[0][0]
+			&& this->array[0][1] == rhs.array[0][1]
+			&& this->array[0][2] == rhs.array[0][2]
+			&& this->array[1][0] == rhs.array[1][0]
+			&& this->array[1][1] == rhs.array[1][1]
+			&& this->array[1][2] == rhs.array[1][2]
+			&& this->array[2][0] == rhs.array[2][0]
+			&& this->array[2][1] == rhs.array[2][1]
+			&& this->array[2][2] == rhs.array[2][2];
+}
+
 // Multiply matrix by scalar (scalar on lhs)
 Matrix operator*(double scalar, Matrix rhs) {
 	return rhs * scalar;
@@ -534,7 +574,7 @@ Matrix operator*(double scalar, Matrix rhs) {
 
 // Multiply two matrices
 Matrix operator*(Matrix lhs, Matrix rhs) {
-	Matrix res;
+	Matrix res(zero_mat);
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
 			for (int k = 0; k < 3; k++) {
@@ -550,6 +590,11 @@ void operator*=(Matrix &lhs, double scalar) {
 	lhs = lhs * scalar;
 }
 
+// Multiply matrix by vector with assignment
+void operator*=(Matrix &lhs, Matrix rhs) {
+	lhs = lhs * rhs;
+}
+
 // Divide matrix by scalar with assignment
 void operator/=(Matrix &lhs, double scalar) {
 	lhs = lhs / scalar;
@@ -557,7 +602,7 @@ void operator/=(Matrix &lhs, double scalar) {
 
 // Add two matrices with assignment
 void operator+=(Matrix &lhs, Matrix rhs) {
-	lhs = lhs - rhs;
+	lhs = lhs + rhs;
 }
 
 // Subtract two matrices with assignment

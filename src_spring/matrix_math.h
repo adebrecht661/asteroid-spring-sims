@@ -72,7 +72,7 @@ public:
 	/******************/
 
 	// Length of vector
-	double len();
+	double len() const;
 	// Outer product (much easier with access to private var)
 	friend Matrix outer(Vector lhs, Vector rhs);
 };
@@ -101,6 +101,8 @@ public:
 
 	// Matrix addition
 	Matrix operator+(Matrix rhs);
+	// Negation
+	Matrix operator-();
 	// Matrix subtraction
 	Matrix operator-(Matrix rhs);
 	// Matrix-vector multiplication
@@ -111,6 +113,8 @@ public:
 	Matrix operator*(double scalar);
 	// Divide matrix by scalar
 	Matrix operator/(double scalar);
+	// Equality
+	bool operator==(Matrix rhs) const;
 
 	/***********/
 	/* Getters */
@@ -132,6 +136,8 @@ public:
 
 	// Check if matrix is symmetric
 	bool isSym();
+	// Transpose matrix (requires access to array elements)
+	friend Matrix transpose(Matrix mat);
 };
 
 /*******************************/
@@ -192,10 +198,10 @@ Matrix getRotMatZ(double angle);
 
 // Multiply matrix by scalar, scalar LHS
 Matrix operator*(double scalar, Matrix rhs);
-// Multiply matrices and assign
-void operator*=(Matrix &lhs, Matrix rhs);
 // Multiply matrix by scalar and assign
 void operator*=(Matrix &lhs, double scalar);
+// Multiply matrices and assign
+void operator*=(Matrix &lhs, Matrix rhs);
 // Divide matrix by scalar and assign
 void operator/=(Matrix &lhs, double scalar);
 // Add matrices and assign
