@@ -25,6 +25,9 @@ log_file ?= $(shell date -I).log
 default: rebound config $(PROBLEM)
 
 all: rebound config $(PROBLEMS)
+ 
+tests: rebound config gtest
+	cd modules && make tests
 
 $(PROBLEMS): rebound config
 	cd modules && make PROBLEM=$@ INC=../$(INC)
@@ -36,6 +39,10 @@ rebound:
 config:
 	@echo "Compiling shared library libconfig ..."
 	cd libconfig; if [ ! -f "config.status" ] ; then ./configure; fi; make
+	
+gtest:
+	@echo "Compiling static library gtest ..."
+	cd googletest && cmake CMakeLists.txt && make
 
 clean:
 	cd libconfig; make clean
