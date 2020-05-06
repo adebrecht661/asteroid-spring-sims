@@ -7,6 +7,9 @@
 #ifndef _SPRING_H
 #define _SPRING_H
 
+extern "C" {
+#include "rebound.h"
+}
 #include "matrix_math.h"
 
 // Spring structure

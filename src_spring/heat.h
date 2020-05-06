@@ -1,7 +1,7 @@
 /*
  * heat.h
  *
- * Apply tidal or radiogenic heating to particles
+ * Apply tidal heating to particles
  *
  *  Created on: Apr 15, 2020
  *      Author: alex

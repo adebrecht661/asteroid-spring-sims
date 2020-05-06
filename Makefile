@@ -45,6 +45,15 @@ gtest:
 	cd googletest && cmake CMakeLists.txt && make
 
 clean:
+	@echo "Removing spring objects ..." 
+	cd src_spring; rm -f *.o
+	@echo "Removing spring problems ..."
+	for PROBLEM in $(PROBLEM); do  \
+	  rm -f modules/$$PROBLEM/problem.o; \
+	  rm -f modules/$$PROBLEM/rebound_spring; \
+	done
+
+allclean:
 	cd libconfig; make clean
 	cd src; make clean
 	@echo "Removing spring objects ..."
