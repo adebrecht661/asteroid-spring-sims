@@ -195,19 +195,22 @@ Vector eigenvector(Matrix mat, double eigval) {
 	// Number of iterations
 	int N_ITS = 20;
 
-	// Compute inverse of A= (C - lambda I)
+	// Compute inverse of A = (C - lambda I)
 	mat -= eigval * I;
 	Matrix inv_mat = inverse(mat); // inverse
 
 	// Initialize eigenvector
-	Vector eigvec( { 1.0, 1.0, 1.0 });
+	Vector eigvec = { 1.0, 1.0, 1.0 };
 
 	// Iterate LHS of eigenvector eqn of inverse
 	for (int i = 0; i < N_ITS; i++) {
-		double length = (inv_mat * eigvec).len();
 		// Normalize length of eigenvector at each loop
-		eigvec /= length;
+		eigvec /= eigvec.len();
+
+		eigvec = inv_mat * eigvec;
 	}
+	// Normalize length of eigenvector at end
+	eigvec /= eigvec.len();
 
 	// Calculate LHS eigenvector eqn
 	double diff1 = (mat * eigvec).len();
@@ -216,14 +219,17 @@ Vector eigenvector(Matrix mat, double eigval) {
 	Vector eigvec1 = eigvec;
 
 	// Reinitialize eigenvector
-	eigvec = Vector( { 1.0, -0.5, 0.5 });
+	eigvec = { 1.0, -0.5, 0.5 };
 
 	// Calculate LHS of eigenvector eqn for inverse matrix with new initial eigenvector
 	for (int i = 0; i < N_ITS; i++) {
-		double length = (inv_mat * eigvec).len();
 		// Normalize length of eigenvector at each loop
-		eigvec /= length;
+		eigvec /= eigvec.len();
+
+		eigvec = inv_mat * eigvec;
 	}
+	// Normalize length of eigenvector at end
+	eigvec /= eigvec.len();
 
 	// Calculate new LHS of eigenvector eqn
 	double diff2 = (mat * eigvec).len();
