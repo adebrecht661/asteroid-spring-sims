@@ -6,7 +6,7 @@
 # You can also build a particular problem module by running make <dir>, but to clean it you will need to 
 
 # Get list of problem directories
-PROBLEMS := $(patsubst modules/,,$(patsubst modules/%/,%,$(sort $(dir $(wildcard modules/*/)))))
+PROBLEMS := $(filter-out tests, $(patsubst modules/,,$(patsubst modules/%/,%,$(sort $(dir $(wildcard modules/*/))))))
 
 # Check for whether user specified the value of Problem using make PROBLEM=<dir>
 ifndef PROBLEM
@@ -27,7 +27,7 @@ default: rebound config $(PROBLEM)
 all: rebound config $(PROBLEMS)
  
 tests: rebound config gtest
-	cd modules && make tests
+	cd modules && mkdir -p tests && make tests
 
 $(PROBLEMS): rebound config
 	cd modules && make PROBLEM=$@ INC=../$(INC)
