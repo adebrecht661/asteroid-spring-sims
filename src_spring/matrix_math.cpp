@@ -443,7 +443,7 @@ Vector operator*(double scalar, Vector rhs) {
 void operator+=(Vector &lhs, double scalar) {
 	double scalar_vec[3] = { scalar, scalar, scalar };
 	Vector rhs(scalar_vec);
-	lhs = lhs - rhs;
+	lhs = lhs + rhs;
 }
 
 // Add two vectors with assignment
