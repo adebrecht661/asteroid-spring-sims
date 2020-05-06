@@ -413,6 +413,11 @@ Vector Vector::operator/(double scalar) {
 	return res;
 }
 
+// Equality
+bool Vector::operator==(Vector rhs) const {
+	return (this->array[0] == rhs.array[0] && this->array[1] == rhs.array[1] && this->array[2] == rhs.array[2]);
+}
+
 // Multiply a matrix by a vector
 Vector operator*(Matrix lhs, Vector rhs) {
 	Vector res;

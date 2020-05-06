@@ -56,6 +56,8 @@ public:
 	friend Vector operator*(Matrix lhs, Vector rhs);
 	// Divide vector by scalar
 	Vector operator/(double scalar);
+	// Equality
+	bool operator==(Vector rhs) const;
 
 	/***********/
 	/* Getters */

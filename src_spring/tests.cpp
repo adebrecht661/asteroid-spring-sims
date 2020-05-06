@@ -49,9 +49,45 @@ TEST(VectorTest, ArrayConstructor) {
 }
 
 TEST(VectorTest, ListConstructor) {
-	Vector testvec = {1,2,3};
+	Vector testvec = { 1, 2, 3 };
 
 	EXPECT_EQ(testvec.getX(), 1);
 	EXPECT_EQ(testvec.getY(), 2);
 	EXPECT_EQ(testvec.getZ(), 3);
+}
+
+// Not sure this does what I want it to
+TEST(VectorTest, CopyConstructor) {
+	Vector testvec;
+	{
+		Vector smallscopevec = { 1, 2, 3 };
+		testvec = smallscopevec;
+	}
+
+	EXPECT_EQ(testvec.getX(), 1);
+	EXPECT_EQ(testvec.getY(), 2);
+	EXPECT_EQ(testvec.getZ(), 3);
+}
+
+TEST(VectorTest, Addition) {
+	Vector vec1(zero_vec);
+	Vector vec2 = { 1, 2, 3 };
+	Vector vec3 = vec1 + vec2;
+	Vector vec4 = vec2 + 1;
+	vec2 += 2;
+	vec1 += vec4;
+
+	EXPECT_EQ(vec1, vec4);
+
+	EXPECT_EQ(vec2.getX(), 3);
+	EXPECT_EQ(vec2.getY(), 4);
+	EXPECT_EQ(vec2.getZ(), 5);
+
+	EXPECT_EQ(vec3.getX(), 1);
+	EXPECT_EQ(vec3.getY(), 2);
+	EXPECT_EQ(vec3.getZ(), 3);
+
+	EXPECT_EQ(vec4.getX(), 2);
+	EXPECT_EQ(vec4.getY(), 3);
+	EXPECT_EQ(vec4.getZ(), 4);
 }
