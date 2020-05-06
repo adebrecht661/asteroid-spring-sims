@@ -10,6 +10,7 @@ libconfig/tests/.libs/libconfig_tests
 
 # Custom executable
 *rebound_spring
+*tests
 
 # Prerequisites
 *.d
