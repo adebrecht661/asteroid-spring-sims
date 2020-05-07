@@ -29,6 +29,7 @@ extern "C" {
 
 using std::string;
 using std::vector;
+using std::abs;
 
 // Global values
 int num_springs = 0;	// Number of springs

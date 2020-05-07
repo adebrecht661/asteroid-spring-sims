@@ -31,6 +31,7 @@ using namespace libconfig;
 
 using std::string;
 using std::vector;
+using std::abs;
 
 // Global values
 int num_springs = 0;	// Global numbers of springs
@@ -87,8 +88,8 @@ int main(int argc, char *argv[]) {
 	n_body_sim->integrator = reb_simulation::REB_INTEGRATOR_LEAPFROG;
 	n_body_sim->gravity = reb_simulation::REB_GRAVITY_NONE;
 	n_body_sim->boundary = reb_simulation::REB_BOUNDARY_NONE;
-	n_body_sim->G = 6.67428e-8 / F_scale * pow(length_scale, 2.0)
-			/ pow(mass_scale, 2.0);
+	n_body_sim->G = 6.67428e-8 / F_scale / pow(length_scale, 2.0)
+			* pow(mass_scale, 2.0);
 	n_body_sim->additional_forces = additional_forces;
 
 	// Set more rebound parameters

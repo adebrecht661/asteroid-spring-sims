@@ -26,6 +26,7 @@ extern "C" {
 #include "shapes.h"
 
 using std::vector;
+using std::abs;
 
 extern vector<node> nodes;
 

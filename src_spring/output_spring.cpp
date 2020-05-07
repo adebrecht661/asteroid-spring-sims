@@ -36,6 +36,7 @@ extern "C" {
 
 using std::string;
 using std::vector;
+using std::abs;
 
 extern vector<spring> springs;
 extern int num_springs;
