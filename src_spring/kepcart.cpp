@@ -6,6 +6,8 @@
 #include "matrix_math.h"
 #include "kepcart.h"
 
+using std::abs;
+
 // Returns orbital elements given the phase space state
 OrbitalElements cart_to_kep(double GM, PhaseState state) {
 
@@ -13,30 +15,32 @@ OrbitalElements cart_to_kep(double GM, PhaseState state) {
 	Vector pos = state.x;
 	Vector r_hat = pos / pos.len();
 	Vector vel = state.v;
-	Vector L = cross(pos, vel);
+	Vector h = cross(pos, vel);
 
 	// Init return values
 	OrbitalElements orb_el;
-	// Calculate orbital inclination
-	orb_el.i = acos(L.getZ() / L.len());
-
-	// Calculate longitude of ascending node
-	if (L.getX() != 0.0 || L.getY() != 0.0) {
-		orb_el.long_asc_node = atan2(L.getX(), -L.getY());
-	} else {
-		orb_el.long_asc_node = 0.0;
-	}
 
 	// Calculate semimajor axis
 	// Negative if orbit is hyperbolic
 	orb_el.a = 1.0 / (2.0 / pos.len() - pow(vel.len(), 2.0) / GM);
 
 	// Calculate eccentricity
-	double e_cos_true_anom = pow(L.len(), 2.0) / (GM * pos.len()) - 1.0;
-	double e_sin_true_anom = dot(r_hat, vel) * L.len() / GM;
-	orb_el.e = sqrt(
-			e_cos_true_anom * e_cos_true_anom
-					+ e_sin_true_anom * e_sin_true_anom);
+	double p = pow(h.len(), 2.) / GM;
+	orb_el.e = sqrt(1. - p / orb_el.a);
+
+	// Calculate orbital inclination
+	orb_el.i = acos(h.getZ() / h.len());
+
+	// Calculate longitude of ascending node
+	if (h.getX() != 0.0 || h.getY() != 0.0) {
+		orb_el.long_asc_node = atan2(h.getX(), -h.getY());
+	} else {
+		orb_el.long_asc_node = 0.0;
+	}
+
+	// Calculate eccentricity
+	double e_cos_true_anom = pow(h.len(), 2.0) / (GM * pos.len()) - 1.0;
+	double e_sin_true_anom = dot(r_hat, vel) * h.len() / GM;
 
 	// Calculate true anomaly
 	double true_anom;
@@ -70,22 +74,18 @@ OrbitalElements cart_to_kep(double GM, PhaseState state) {
 	if (orb_el.arg_peri < -M_PI)
 		orb_el.arg_peri += 2.0 * M_PI;
 
-	// Calculate mean anomaly (and eccentric anomaly)
-	double foo = sqrt(abs(1.0 - orb_el.e) / (1.0 + orb_el.e));
-	double ecc_anom;
-	if (orb_el.e < 1.0) {
-		ecc_anom = 2.0 * atan(foo * tan(true_anom / 2.0));
-		orb_el.mean_anom = ecc_anom - orb_el.e * sin(ecc_anom);
-	} else {
-		ecc_anom = 2.0 * atanh(foo * tan(true_anom / 2.0));
-		orb_el.mean_anom = orb_el.e * sinh(ecc_anom) - ecc_anom;
-	}
+	// Calculate mean anomaly using series expansion
+	orb_el.mean_anom = true_anom - 2 * orb_el.e * sin(true_anom)
+			+ (0.75 * pow(orb_el.e, 2.) + 0.125 * pow(orb_el.e, 4.))
+					* sin(2 * true_anom)
+			- 1. / 3. * pow(orb_el.e, 3.) * sin(3 * true_anom)
+			+ 5. / 32. * pow(orb_el.e, 4.) * sin(4 * true_anom);
 
 	return orb_el;
 }
 
-/* given orbital elements return PhaseState */
-// hyperbolic orbits have e>1, not sure about convention for a positive or not
+// Given orbital elements, return PhaseState
+// Hyperbolic orbits have e > 1
 PhaseState kep_to_cart(double GM, OrbitalElements orb_el) {
 
 	// Calculate eccentric anomaly
@@ -118,25 +118,15 @@ PhaseState kep_to_cart(double GM, OrbitalElements orb_el) {
 	Vector vel = { -a * mean_motion * sin_ecc / r_over_a, foo * a * mean_motion
 			* cos_ecc / r_over_a, 0.0 };
 
-	// Rotate about z axis by argument of periapsis
-	Matrix rot_peri = getRotMatZ(orb_el.arg_peri);
-	pos = rot_peri * pos;
-	vel = rot_peri * vel;
-
-	// Rotate about x axis by inclination
-	Matrix rot_inc = getRotMatX(orb_el.i);
-	pos = rot_inc * pos;
-	vel = rot_inc * vel;
-
-	// Rotate about z axis by longitude of ascending node
-	Matrix rot_long = getRotMatZ(orb_el.long_asc_node);
-	pos = rot_long * pos;
-	vel = rot_long * vel;
-
-	// Set and return state vector
 	PhaseState state;
-	state.x = pos;
-	state.v = vel;
+
+	// Rotate about z axis by argument of periapsis, x by inclination, z by longitude of ascending node
+	Matrix rot_peri = getRotMatZ(orb_el.arg_peri);
+	Matrix rot_inc = getRotMatX(orb_el.i);
+	Matrix rot_long = getRotMatZ(orb_el.long_asc_node);
+
+	state.x = rot_long * rot_inc * rot_peri * pos;
+	state.v = rot_long * rot_inc * rot_peri * vel;
 
 	return state;
 }
@@ -152,6 +142,14 @@ PhaseState kep_to_cart(double GM, OrbitalElements orb_el) {
 // Iterate to get an estimate for eccentric anomaly (u) given the mean anomaly (l).
 // Works for values in all quadrants and at high eccentricity
 double eccentric_anomaly(double ecc, double mean_anom) {
+
+	if (ecc < 0) {
+		throw "Eccentricity cannot be negative.";
+	}
+	if (ecc > 1) {
+		throw "You're in a hyperbolic orbit. Use eccentric_anomaly_hyperbolic.";
+	}
+
 	// Initialize change, guess for eccentric anomaly
 	double delta_u = 1.0;
 	double u_guess = mean_anom + ecc * sin(mean_anom)
@@ -183,6 +181,14 @@ double eccentric_anomaly(double ecc, double mean_anom) {
 // Solve Kepler's equation in hyperbolic case
 // Iterate to get an estimate for eccentric anomaly (u) given the mean anomaly (l)
 double eccentric_anomaly_hyperbolic(double ecc, double mean_anom) {
+
+	if (ecc < 0) {
+		throw "Eccentricity cannot be negative.";
+	}
+	if (ecc < 1) {
+		throw "You're in an elliptic orbit. Use eccentric_anomaly.";
+	}
+
 	// Initialize change, guess for eccentric anomaly
 	double delta_u = 1.0;
 	double u_guess = log(2.0 * mean_anom / ecc + 1.8); // Danby guess
@@ -206,4 +212,37 @@ double eccentric_anomaly_hyperbolic(double ecc, double mean_anom) {
 
 	// Return best guess for eccentric anomaly
 	return u_guess;
+}
+
+/*************/
+/* Operators */
+/*************/
+
+// Equality
+bool operator==(OrbitalElements lhs, OrbitalElements rhs) {
+	return lhs.a == rhs.a && lhs.e == rhs.e && lhs.i == rhs.i
+			&& lhs.long_asc_node == rhs.long_asc_node
+			&& lhs.arg_peri == rhs.arg_peri
+			&& lhs.mean_anom == rhs.long_asc_node;
+}
+
+// Stream output
+std::ostream& operator<<(std::ostream &os, const OrbitalElements &orb_el) {
+	os << "Semi-major axis: " << orb_el.a << "\nEccentricity: " << orb_el.e
+			<< "\nInclination: " << orb_el.i
+			<< "\nLongitude of ascending node: " << orb_el.long_asc_node
+			<< "\nArgument of periapsis: " << orb_el.arg_peri
+			<< "\nMean anomaly: " << orb_el.mean_anom << std::endl;
+	return os;
+}
+
+// Equality
+bool operator==(PhaseState lhs, PhaseState rhs) {
+	return lhs.x == rhs.x && lhs.v == rhs.v;
+}
+
+// Stream output
+std::ostream& operator<<(std::ostream &os, const PhaseState &state) {
+	os << "Position: " << state.x << "\nVelocity: " << state.v << std::endl;
+	return os;
 }

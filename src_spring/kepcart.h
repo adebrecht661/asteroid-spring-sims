@@ -29,4 +29,18 @@ double eccentric_anomaly(double eccentricity, double mean_anomaly);
 // ... in hyperbolic case
 double eccentric_anomaly_hyperbolic(double eccentricity, double mean_anomaly);
 
+/*************/
+/* Operators */
+/*************/
+
+// Equality
+bool operator==(OrbitalElements lhs, OrbitalElements rhs);
+// Stream output
+std::ostream& operator<<(std::ostream &os, const OrbitalElements &orb_el);
+
+// Equality
+bool operator==(PhaseState lhs, PhaseState rhs);
+// Stream output
+std::ostream& operator<<(std::ostream &os, const PhaseState &state);
+
 #endif

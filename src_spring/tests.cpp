@@ -14,11 +14,16 @@
 
 #include <cmath>
 #include <vector>
+#include "libconfig.h++"
 #include "matrix_math.h"
+#include "kepcart.h"
 #include "springs.h"
+#include "input_spring.h"
 #include <gtest/gtest.h>
 
+using namespace libconfig;
 using std::vector;
+using std::abs;
 
 /* These globals are expected in other files */
 
@@ -325,6 +330,14 @@ TEST(MatrixTest, Operations) {
 	Matrix ans = { { -1. / 12., 1. / 4., 1. / 6. },
 			{ 1. / 4., -3. / 4., 1. / 2. }, { 1. / 6., 1. / 2., -1. / 3. } };
 
+	// Make sure we're comparing to normalized eigenvectors
+	Vector ans1 = { 1.11006, 0.78289, 1 };
+	ans1 /= ans1.len();
+	Vector ans2 = { 0.23141, -1.60543, 1 };
+	ans2 /= ans2.len();
+	Vector ans3 = { -1.21648, 0.44753, 1 };
+	ans3 /= -ans3.len(); // The routine returns the negative normalized eigenvector for this one
+
 	double eigs2[3], eigs4[3];
 	EXPECT_ANY_THROW(eigenvalues(mat2, eigs2));
 	EXPECT_ANY_THROW(eigenvector(mat2, eigs2[0]));
@@ -371,17 +384,17 @@ TEST(MatrixTest, Operations) {
 	EXPECT_NEAR(eigs4[1], -0.91117, 0.00001);
 	EXPECT_NEAR(eigs4[2], -3.20191, 0.00001);
 
-	EXPECT_NEAR(eig41.getX(), 1.11006, 0.00001);
-	EXPECT_NEAR(eig41.getY(), 0.78289, 0.00001);
-	EXPECT_NEAR(eig41.getZ(), 1, 0.00001);
+	EXPECT_NEAR(eig41.getX(), ans1.getX(), 0.00001);
+	EXPECT_NEAR(eig41.getY(), ans1.getY(), 0.00001);
+	EXPECT_NEAR(eig41.getZ(), ans1.getZ(), 0.00001);
 
-	EXPECT_NEAR(eig42.getX(), 0.23141, 0.00001);
-	EXPECT_NEAR(eig42.getY(), -1.60543, 0.00001);
-	EXPECT_NEAR(eig42.getZ(), 1, 0.00001);
+	EXPECT_NEAR(eig42.getX(), ans2.getX(), 0.00001);
+	EXPECT_NEAR(eig42.getY(), ans2.getY(), 0.00001);
+	EXPECT_NEAR(eig42.getZ(), ans2.getZ(), 0.00001);
 
-	EXPECT_NEAR(eig43.getX(), -1.21648, 0.00001);
-	EXPECT_NEAR(eig43.getY(), 0.44753, 0.00001);
-	EXPECT_NEAR(eig43.getZ(), 1, 0.00001);
+	EXPECT_NEAR(eig43.getX(), ans3.getX(), 0.00001);
+	EXPECT_NEAR(eig43.getY(), ans3.getY(), 0.00001);
+	EXPECT_NEAR(eig43.getZ(), ans3.getZ(), 0.00001);
 }
 
 TEST(MatrixTest, RotationMatrices) {
@@ -417,8 +430,12 @@ TEST(MatrixTest, MatrixMultiplication) {
 
 	EXPECT_EQ(ans2, mat2);
 
-	EXPECT_EQ(transpose(mat3), transpose(mat4)*transpose(mat1));
+	EXPECT_EQ(transpose(mat3), transpose(mat4) * transpose(mat1));
 }
+
+/*****************************/
+/* Mixed Matrix-Vector Tests */
+/*****************************/
 
 TEST(MatrixVectorTest, Multiplication) {
 	Vector vec1 = { 1, 2, 3 };
@@ -429,11 +446,140 @@ TEST(MatrixVectorTest, Multiplication) {
 	Vector vec3 = mat3 * vec1;
 
 	Matrix ans1 = { { 3, 2, 1 }, { 6, 4, 2 }, { 9, 6, 3 } };
-	Vector ans2 = {14, 32, 50};
+	Vector ans2 = { 14, 32, 50 };
 
 	EXPECT_EQ(mat1, ans1);
 
 	EXPECT_EQ(transpose(mat1), mat2);
 
 	EXPECT_EQ(vec3, ans2);
+}
+
+/****************************************/
+/* Keplerian-Cartesian Conversion Tests */
+/****************************************/
+
+TEST(KepCartTest, KepEqn) {
+	double eccentricity1 = 0.5;
+	double eccentricity2 = 1.5;
+	double mean_anom = 27 * (M_PI / 180);
+
+	EXPECT_NEAR(eccentric_anomaly(eccentricity1, mean_anom),
+			48.43417991487915 * (M_PI/180), 0.001);
+
+	EXPECT_ANY_THROW(eccentric_anomaly_hyperbolic(eccentricity1, mean_anom));
+
+	EXPECT_NEAR(eccentric_anomaly_hyperbolic(eccentricity2, mean_anom),
+			0.736899151737, 0.02);
+
+	EXPECT_ANY_THROW(eccentric_anomaly(eccentricity2, mean_anom));
+}
+
+TEST(KepCartTest, Conversions) {
+	PhaseState ans_state_units;
+	ans_state_units.x = { 1.5e8, 2e7, 3e6 };
+	ans_state_units.x /= length_scale;
+	ans_state_units.v = { 5e5, 1e6, 1e6 };
+	ans_state_units.v /= vel_scale;
+
+	OrbitalElements ans_orbel_units;
+	ans_orbel_units.a = 132145319.13522287 / length_scale;
+	ans_orbel_units.e = 0.45113207590986515;
+	ans_orbel_units.i = 0.81984644566308151337;
+	ans_orbel_units.long_asc_node = 0.11398192262875016245;
+	ans_orbel_units.arg_peri = 3.9982731061823910679 - 2 * M_PI;
+	ans_orbel_units.mean_anom = 1.4718545303922809797;
+
+	PhaseState ans_state_unitless;
+	ans_state_unitless.x = { -6.03224695, 0.29119389, 5.36967604 };
+	ans_state_unitless.v = { -0.11631944, -0.35758130, -0.07805506 };
+
+	OrbitalElements ans_orbel_unitless;
+	ans_orbel_unitless.a = 10;
+	ans_orbel_unitless.e = 0.2;
+	ans_orbel_unitless.i = 45 * (M_PI / 180);
+	ans_orbel_unitless.long_asc_node = 60 * (M_PI / 180);
+	ans_orbel_unitless.arg_peri = 90 * (M_PI / 180);
+	ans_orbel_unitless.mean_anom = 0.229607;
+
+	double G = 6.67428e-8 / F_scale / pow(length_scale, 2.0)
+			* pow(mass_scale, 2.0);
+	double M = 1; // 1 mass_scale
+
+	OrbitalElements test_orbel_units = cart_to_kep(G * M, ans_state_units);
+	OrbitalElements test_orbel_unitless = cart_to_kep(1, ans_state_unitless);
+
+	PhaseState test_state_units = kep_to_cart(G * M, ans_orbel_units);
+	PhaseState test_state_unitless = kep_to_cart(1, ans_orbel_unitless);
+
+	EXPECT_NEAR(test_orbel_units.a, ans_orbel_units.a,
+			abs(0.001 * ans_orbel_units.a));
+	EXPECT_NEAR(test_orbel_units.e, ans_orbel_units.e,
+			0.001 * ans_orbel_units.e);
+	EXPECT_NEAR(test_orbel_units.i, ans_orbel_units.i,
+			abs(0.0025 * ans_orbel_units.i));
+	EXPECT_NEAR(test_orbel_units.long_asc_node, ans_orbel_units.long_asc_node,
+			abs(0.001 * ans_orbel_units.long_asc_node));
+	EXPECT_NEAR(test_orbel_units.arg_peri, ans_orbel_units.arg_peri,
+			abs(0.002 * ans_orbel_units.arg_peri));
+	EXPECT_NEAR(test_orbel_units.mean_anom, ans_orbel_units.mean_anom,
+			abs(0.001 * ans_orbel_units.mean_anom));
+
+	EXPECT_NEAR(test_orbel_unitless.a, ans_orbel_unitless.a,
+			abs(0.001 * ans_orbel_unitless.a));
+	EXPECT_NEAR(test_orbel_unitless.e, ans_orbel_unitless.e,
+			0.001 * ans_orbel_unitless.e);
+	EXPECT_NEAR(test_orbel_unitless.i, ans_orbel_unitless.i,
+			abs(0.001 * ans_orbel_unitless.i));
+	EXPECT_NEAR(test_orbel_unitless.long_asc_node,
+			ans_orbel_unitless.long_asc_node,
+			abs(0.001 * ans_orbel_unitless.long_asc_node));
+	EXPECT_NEAR(test_orbel_unitless.arg_peri, ans_orbel_unitless.arg_peri,
+			abs(0.001 * ans_orbel_unitless.arg_peri));
+	EXPECT_NEAR(test_orbel_unitless.mean_anom, ans_orbel_unitless.mean_anom,
+			abs(0.001 * ans_orbel_unitless.mean_anom));
+
+	EXPECT_NEAR(test_state_units.x.getX(), ans_state_units.x.getX(),
+			abs(0.002 * ans_state_units.x.getX()));
+	EXPECT_NEAR(test_state_units.x.getY(), ans_state_units.x.getY(),
+			abs(0.002 * ans_state_units.x.getY()));
+	EXPECT_NEAR(test_state_units.x.getZ(), ans_state_units.x.getZ(),
+			abs(0.002 * ans_state_units.x.getZ()));
+	EXPECT_NEAR(test_state_units.v.getX(), ans_state_units.v.getX(),
+			abs(0.002 * ans_state_units.v.getX()));
+	EXPECT_NEAR(test_state_units.v.getY(), ans_state_units.v.getY(),
+			abs(0.002 * ans_state_units.v.getY()));
+	EXPECT_NEAR(test_state_units.v.getZ(), ans_state_units.v.getZ(),
+			abs(0.002 * ans_state_units.v.getZ()));
+
+	EXPECT_NEAR(test_state_unitless.x.getX(), ans_state_unitless.x.getX(),
+			abs(0.001 * ans_state_unitless.x.getX()));
+	EXPECT_NEAR(test_state_unitless.x.getY(), ans_state_unitless.x.getY(),
+			abs(0.002 * ans_state_unitless.x.getY()));
+	EXPECT_NEAR(test_state_unitless.x.getZ(), ans_state_unitless.x.getZ(),
+			abs(0.001 * ans_state_unitless.x.getZ()));
+	EXPECT_NEAR(test_state_unitless.v.getX(), ans_state_unitless.v.getX(),
+			abs(0.001 * ans_state_unitless.v.getX()));
+	EXPECT_NEAR(test_state_unitless.v.getY(), ans_state_unitless.v.getY(),
+			abs(0.001 * ans_state_unitless.v.getY()));
+	EXPECT_NEAR(test_state_unitless.v.getZ(), ans_state_unitless.v.getZ(),
+			abs(0.001 * ans_state_unitless.v.getZ()));
+}
+
+class MyEnvironment: public testing::Environment {
+public:
+	void SetUp() override {
+		Config cfg;
+		ASSERT_NO_THROW(cfg.readFile("problem.cfg"));
+
+		ASSERT_NO_THROW(read_scales(&cfg));
+	}
+};
+
+int main(int argc, char **argv) {
+	std::cout << "Running main from " << __FILE__ << "\n";
+
+	testing::InitGoogleTest(&argc, argv);
+	testing::AddGlobalTestEnvironment(new MyEnvironment);
+	return RUN_ALL_TESTS();
 }
