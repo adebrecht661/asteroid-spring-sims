@@ -15,7 +15,6 @@ extern "C" {
 #include "matrix_math.h"
 #include "stress.h"
 #include "physics.h"
-#include "heat.h"
 #include "springs.h"
 
 using std::vector;
@@ -33,26 +32,31 @@ extern const double L_EPS = 1e-6; // Softening for spring length
 /********************/
 
 // Delete spring at spring_index
-void del_spring(reb_simulation *const n_body_sim, int spring_index) {
-	// Overwrite spring at index with last spring, and reduce count (last spring is still present at original location)
-	if (num_springs > 0) {
-		springs[spring_index] = springs[num_springs - 1];
-		num_springs--;
+void del_spring(int spring_index) {
+
+	// Make sure numbers match
+	if (num_springs != (int) springs.size()) {
+		throw "Spring count and size of spring array don't match.\n";
 	}
+
+	// Erase spring at array location spring_index
+	springs.erase(springs.begin() + spring_index);
+	num_springs--;
 }
 
 // Add a spring connecting particle_1 and particle_2
 // Check that a spring doesn't already exist between these two particles
 // Set the natural distance of the spring to the current interparticle distance
 // Spring constant is not scaled
-// Return -1 if no spring created because you're trying to connect a particle to itself
+// Throw error if you're trying to connect a particle to itself
 int add_spring(reb_simulation *const n_body_sim, int particle_1, int particle_2,
 		spring spr) {
 	int particle_low, particle_high;
 
 	// Don't add spring if vertices are the same
-	if (particle_1 == particle_2)
-		return -1;
+	if (particle_1 == particle_2) {
+		throw "Cannot connect a particle to itself.\n";
+	}
 
 	// Place indices in order, for convenience
 	if (particle_2 < particle_1) {
@@ -67,29 +71,37 @@ int add_spring(reb_simulation *const n_body_sim, int particle_1, int particle_2,
 	// Don't apply OpenMP
 	for (int spring_index = 0; spring_index < num_springs; spring_index++) {
 		if ((springs[spring_index].particle_1 == particle_low)
-				&& (springs[spring_index].particle_2 == particle_high))
+				&& (springs[spring_index].particle_2 == particle_high)) {
+			std::cerr << "Warning: particles are already connected."
+					<< std::endl;
 			return spring_index;
+		}
 	}
 
 	// No spring connects these two indices. Create one.
 	spr.particle_1 = particle_low;
 	spr.particle_2 = particle_high;
 	spr.rs0 = spring_r(n_body_sim, spr).len(); // rest spring length
-	add_spring_helper(spr);
+	try {
+		add_spring_helper(spr);
+	} catch (char *str) {
+		std::cerr << str << "Exiting." << std::endl;
+		exit(1);
+	}
 	return num_springs - 1; // index of new spring!
 }
 
 // Helper function that adds a spring to array
 // Caution: no sanity checking
 void add_spring_helper(spring spr) {
-	// If max size is smaller than current size, increase
-	while (NSmax <= num_springs) {
-		NSmax += 128;
-		springs.resize(springs.size() + 128);
+
+	// Make sure numbers match
+	if (num_springs != (int) springs.size()) {
+		throw "Spring count and size of spring array don't match.\n";
 	}
 
 	// Add spring to end of array, update count
-	springs[num_springs] = spr;
+	springs.push_back(spr);
 	num_springs++;
 }
 
@@ -119,7 +131,12 @@ void connect_springs_dist(reb_simulation *const n_body_sim, double max_dist,
 
 			// Add spring if particles are close enough
 			if (dist < max_dist) {
-				add_spring(n_body_sim, i, j, spr); // Will not be added if there is already a spring present
+				try {
+					add_spring(n_body_sim, i, j, spr); // Will not be added if there is already a spring present
+				} catch (char *str) {
+					std::cerr << str << "Exiting." << std::endl;
+					exit(1);
+				}
 			}
 		}
 	}
@@ -132,7 +149,8 @@ void set_gamma(double new_gamma) {
 		springs[i].gamma = new_gamma;
 	}
 	std::cout.precision(2);
-	std::cout << "Spring damping coefficients set to " << new_gamma << std::endl;
+	std::cout << "Spring damping coefficients set to " << new_gamma
+			<< std::endl;
 }
 
 // Set the spring damping coefficient for all springs
@@ -176,81 +194,6 @@ void adjust_spring_props(reb_simulation *const n_body_sim, double new_k,
 	std::cout << "adjust_spring_props: \n\t Number of springs changed: " << NC
 			<< "\n\t Fraction of springs changed: "
 			<< (double) NC / (double) num_springs << std::endl;
-}
-
-// Adjust spring constant, damping coefficient, and heat diffusion coefficient for springs with midpoints between r_min and r_max from center of mass
-void adjust_spring_props_ellipsoid(reb_simulation *const n_body_sim,
-		double new_k, double new_gamma, double new_k_heat, double a, double b,
-		double c, Vector x0, bool inside) {
-
-	// Search all particles
-	int i_low = 0;
-	int i_high = n_body_sim->N - num_perts;
-
-	// Computer center of mass of all particles
-	Vector CoM = compute_com(n_body_sim, i_low, i_high);
-
-	// For each spring
-#pragma omp parallel for // spr_mid doesn't loop
-	for (int i = 0; i < num_springs; i++) {
-
-		// Compute spring mid point from central position
-		Vector x_mid = spr_mid(n_body_sim, springs[i], CoM);
-		Vector r = x_mid - x0;
-		double r_mid_2 = pow(r.getX() / a, 2.0) + pow(r.getY() / b, 2.0)
-				+ pow(r.getZ() / c, 2.0);
-
-		// Modify inside springs, or
-		if ((r_mid_2 <= 1.0) && inside) {
-			springs[i].k = new_k;
-			springs[i].gamma = new_gamma;
-			springs[i].k_heat = new_k_heat;
-		}
-		// Modify outside springs
-		if ((r_mid_2 >= 1.0) && !inside) {
-			springs[i].k = new_k;
-			springs[i].gamma = new_gamma;
-			springs[i].k_heat = new_k_heat;
-		}
-	}
-}
-
-// Adjust spring properties either inside or outside designated ellipse (center x0, semiaxes a,b,c) dependent on angle in xy plane
-void adjust_spring_props_ellipsoid_phase(reb_simulation *const n_body_sim,
-		double k_amp, double gamma_amp, double k_heat_amp, double freq,
-		double phi_0, double a, double b, double c, Vector x0, bool inside) {
-	// Search all particles
-	int i_low = 0;
-	int i_high = n_body_sim->N - num_perts;
-
-	// Computer center of mass of all particles
-	Vector CoM = compute_com(n_body_sim, i_low, i_high);
-
-	// For each spring
-#pragma omp parallel for // spr_mid doesn't loop
-	for (int i = 0; i < num_springs; i++) {
-
-		// Compute spring mid point from central position
-		Vector x_mid = spr_mid(n_body_sim, springs[i], CoM);
-		Vector r = x_mid - x0;
-		double r_mid_2 = pow(r.getX() / a, 2.0) + pow(r.getY() / b, 2.0)
-				+ pow(r.getZ() / c, 2.0);
-		double phi = atan2(r.getY(), r.getX());
-		double cos_fac = cos(freq * (phi - phi_0));
-
-		// Modify inside springs, or
-		if ((r_mid_2 <= 1.0) && inside) {
-			springs[i].k *= 1.0 + k_amp * cos_fac;
-			springs[i].gamma *= 1.0 + gamma_amp * cos_fac;
-			springs[i].k_heat *= 1.0 + k_heat_amp * cos_fac;
-		}
-		// Modify outside springs
-		if ((r_mid_2 >= 1.0) && !inside) {
-			springs[i].k *= 1.0 + k_amp * cos_fac;
-			springs[i].gamma *= 1.0 + gamma_amp * cos_fac;
-			springs[i].k_heat *= 1.0 + k_heat_amp * cos_fac;
-		}
-	}
 }
 
 // Kill springs that have failed
@@ -373,9 +316,9 @@ void spring_forces(reb_simulation *const n_body_sim) {
 		particles[i].ax += (spring_force / m_i).getX();
 		particles[j].ax -= (spring_force / m_j).getX();
 		particles[i].ay += (spring_force / m_i).getY();
-		particles[j].ay -= (spring_force / m_i).getY();
+		particles[j].ay -= (spring_force / m_j).getY();
 		particles[i].az += (spring_force / m_i).getZ();
-		particles[j].az -= (spring_force / m_i).getZ();
+		particles[j].az -= (spring_force / m_j).getZ();
 
 		// Apply damping, dependent on strain rate
 		double gamma = springs[spring_index].gamma;
@@ -386,7 +329,7 @@ void spring_forces(reb_simulation *const n_body_sim) {
 			Vector dv = v_i - v_j;
 
 			// Strain rate
-			double strain_rate = dot(dv, len_hat);
+			double strain_rate = dot(dv, len_hat) / len;
 
 			// Reduced mass
 			double m_red = m_i * m_j / (m_i + m_j);
@@ -410,17 +353,17 @@ Vector spring_i_force(reb_simulation *const n_body_sim, int spring_index) {
 	reb_particle *particles = n_body_sim->particles;
 
 	// Get spring lengths
-	double len = spring_r(n_body_sim, springs[spring_index]).len() + L_EPS;
 	double len0 = springs[spring_index].rs0;
 	double k = springs[spring_index].k;
 
-	// Get info for spring endpoint particles
+	// Get spring length vector
+	Vector dx = spring_r(n_body_sim, springs[spring_index]);
+	double len = dx.len() + L_EPS;
+	Vector len_hat = dx / len;
+
+	// Get particle masses
 	int i = springs[spring_index].particle_1;
 	int j = springs[spring_index].particle_2;
-	Vector x_i = { particles[i].x, particles[i].y, particles[i].z };
-	Vector x_j = { particles[j].x, particles[j].y, particles[j].z };
-	Vector dx = (x_i - x_j);
-	Vector len_hat = dx / len;
 	double m_i = particles[i].m;
 	double m_j = particles[j].m;
 
@@ -470,4 +413,16 @@ Vector spring_i_force_undamped(reb_simulation *const n_body_sim,
 
 	// Calculate force from spring
 	return -k * (len - len0) * len_hat;
+}
+
+/*************/
+/* Operators */
+/*************/
+
+std::ostream& operator<<(std::ostream &os, const spring &spr) {
+	os << "Gamma: " << spr.gamma << "\nSpring constant: " << spr.k
+			<< "\nRest length: " << spr.rs0 << "\nHeat conductance: "
+			<< spr.k_heat << "\nParticle 1: " << spr.particle_1
+			<< "\nParticle 2: " << spr.particle_2;
+	return os;
 }

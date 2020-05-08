@@ -15,10 +15,15 @@
 #include <cmath>
 #include <vector>
 #include "libconfig.h++"
+extern "C" {
+#include "rebound.h"
+}
 #include "matrix_math.h"
 #include "kepcart.h"
 #include "springs.h"
 #include "input_spring.h"
+#include "stress.h"
+#include "physics.h"
 #include <gtest/gtest.h>
 
 using namespace libconfig;
@@ -31,12 +36,88 @@ using std::abs;
 int num_springs = 0;	// Global numbers of springs
 vector<spring> springs;	// Global spring array
 int num_perts = 0;		// Number of perturbers
+extern vector<stress_tensor> stresses;
 
 // Global scales
 double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
 		p_scale, L_scale, a_scale, F_scale, E_scale, dEdt_scale, P_scale;
 
 /*********************************************/
+
+/************/
+/* Fixtures */
+/************/
+
+class SpringTest: public testing::Test {
+protected:
+
+	// Objects for fixture
+	const int num_parts = 3;
+	reb_simulation *n_body_sim = (reb_simulation*) malloc(
+			sizeof(reb_simulation));
+	spring spr;
+
+	// Allocate objects, set properties
+	void SetUp() override {
+		n_body_sim->particles = (reb_particle*) malloc(
+				sizeof(reb_particle) * num_parts);
+		n_body_sim->N = num_parts;
+
+		// Particle 1 position
+		n_body_sim->particles[0].x = 0;
+		n_body_sim->particles[0].y = 0;
+		n_body_sim->particles[0].z = 0;
+
+		// Particle 1 velocity
+		n_body_sim->particles[0].vx = 0;
+		n_body_sim->particles[0].vy = 0;
+		n_body_sim->particles[0].vz = 0;
+
+		// Particle 2 position
+		n_body_sim->particles[1].x = 1;
+		n_body_sim->particles[1].y = 2;
+		n_body_sim->particles[1].z = 2;
+
+		// Particle 2 velocity
+		n_body_sim->particles[1].vx = 1;
+		n_body_sim->particles[1].vy = 2;
+		n_body_sim->particles[1].vz = 2;
+
+		// Particle 3 position
+		n_body_sim->particles[2].x = 2;
+		n_body_sim->particles[2].y = 3;
+		n_body_sim->particles[2].z = 6;
+
+		// Particle 3 velocity
+		n_body_sim->particles[2].vx = 2;
+		n_body_sim->particles[2].vy = 3;
+		n_body_sim->particles[2].vz = 6;
+
+		// Particle masses
+		n_body_sim->particles[0].m = 1;
+		n_body_sim->particles[1].m = 2;
+		n_body_sim->particles[2].m = 3;
+
+		// Particles associated with spring
+		spr.particle_1 = 0;
+		spr.particle_2 = 1;
+
+		// Spring default properties
+		spr.rs0 = 1;
+		spr.k = 11;
+		spr.gamma = 35;
+		spr.k_heat = 4;
+	}
+
+	void TearDown() override {
+		// Ensure vectors are reallocated (rather than just changing nominal size)
+		vector<spring>().swap(springs);
+		num_springs = 0;
+		vector<stress_tensor>().swap(stresses);
+		free(n_body_sim->particles);
+		free(n_body_sim);
+	}
+};
 
 /*********************/
 /* Vector-only Tests */
@@ -564,6 +645,231 @@ TEST(KepCartTest, Conversions) {
 			abs(0.001 * ans_state_unitless.v.getY()));
 	EXPECT_NEAR(test_state_unitless.v.getZ(), ans_state_unitless.v.getZ(),
 			abs(0.001 * ans_state_unitless.v.getZ()));
+}
+
+/****************/
+/* Spring tests */
+/****************/
+
+TEST_F(SpringTest, Displacement) {
+
+	Vector dx = spring_r(n_body_sim, spr);
+
+	EXPECT_EQ(dx.len(), 3);
+
+	EXPECT_EQ(dx, Vector( { -1, -2, -2 }));
+}
+
+TEST_F(SpringTest, AddSprings) {
+	spring bad_spring;
+	bad_spring.particle_1 = 0;
+	bad_spring.particle_2 = 0;
+
+	ASSERT_NO_THROW(add_spring_helper(spr));
+
+	std::cout << "Expect warning: \n";
+	EXPECT_EQ(add_spring(n_body_sim, 0, 1, spr), 0);
+
+	springs.clear();
+	ASSERT_ANY_THROW(add_spring_helper(spr));
+	num_springs = 0;
+
+	EXPECT_EQ(add_spring(n_body_sim, 0, 1, spr), 0);
+	std::cout << "Expect warning: " << std::endl;
+	EXPECT_EQ(add_spring(n_body_sim, 0, 1, spr), 0);
+	EXPECT_EQ(add_spring(n_body_sim, 0, 2, spr), 1);
+
+	EXPECT_ANY_THROW(add_spring(n_body_sim, 0, 0, bad_spring));
+}
+
+TEST_F(SpringTest, DelSprings) {
+
+	ASSERT_EQ(add_spring(n_body_sim, 0, 1, spr), 0);
+
+	springs.clear();
+	EXPECT_ANY_THROW(del_spring(0));
+	num_springs = 0;
+
+	ASSERT_EQ(add_spring(n_body_sim, 0, 1, spr), 0);
+	EXPECT_EQ(springs[0].particle_1, 0);
+	EXPECT_EQ(springs[0].particle_2, 1);
+	ASSERT_EQ(add_spring(n_body_sim, 0, 2, spr), 1);
+
+	ASSERT_NO_THROW(del_spring(0));
+
+	EXPECT_EQ(springs[0].particle_1, 0);
+	EXPECT_EQ(springs[0].particle_2, 2);
+	EXPECT_EQ(springs[0].rs0, 7);
+
+	EXPECT_EQ(num_springs, 1);
+}
+
+TEST_F(SpringTest, Gammas) {
+	ASSERT_NO_THROW(add_spring(n_body_sim, 0, 1, spr));
+
+	set_gamma(5);
+
+	EXPECT_EQ(springs[0].gamma, 5);
+
+	divide_gamma(2);
+
+	EXPECT_EQ(springs[0].gamma, 2.5);
+}
+
+TEST_F(SpringTest, ConnectSprings) {
+	connect_springs_dist(n_body_sim, 5, 0, num_parts, spr);
+
+	ASSERT_EQ(num_springs, 2);
+
+	EXPECT_EQ(springs[0].particle_1, 0);
+	EXPECT_EQ(springs[1].particle_1, 1);
+}
+
+TEST_F(SpringTest, KillSprings) {
+	connect_springs_dist(n_body_sim, 5, 0, num_parts, spr);
+	set_gamma(5);
+
+	stresses.resize(num_springs);
+	stresses[0].failing = true;
+	stresses[1].failing = false;
+
+	kill_springs(n_body_sim);
+	EXPECT_EQ(springs[0].k, 0);
+	EXPECT_EQ(springs[0].gamma, 0);
+	EXPECT_EQ(springs[1].k, 11);
+	EXPECT_EQ(springs[1].gamma, 5);
+}
+
+TEST_F(SpringTest, MeanLength) {
+	EXPECT_TRUE(std::isnan(mean_spring_length()));
+
+	add_spring(n_body_sim, 0, 1, spr);
+
+	EXPECT_EQ(mean_spring_length(), 3);
+
+	add_spring(n_body_sim, 0, 2, spr);
+
+	EXPECT_EQ(mean_spring_length(), 5);
+}
+
+TEST_F(SpringTest, Midpoint) {
+	add_spring(n_body_sim, 0, 2, spr);
+	Vector x1 = spr_mid(n_body_sim, springs[0], Vector( { 0, 0, 0 }));
+	Vector x2 = spr_mid(n_body_sim, springs[0], Vector( { 1, 2, 4 }));
+
+	// Midpoint from origin is equidistant from particle at origin and particle at <2,3,6>
+	EXPECT_EQ(x1, Vector( { 2, 3, 6 }) / 2);
+
+	EXPECT_EQ(x2, Vector( { 0, -0.5, -1 }));
+}
+
+TEST_F(SpringTest, Strain) {
+	spring zero_spring = spr;
+	zero_spring.rs0 = 0;
+
+	EXPECT_TRUE(std::isinf(strain(n_body_sim, zero_spring)));
+
+	EXPECT_EQ(strain(n_body_sim, spr), 2);
+}
+
+TEST_F(SpringTest, Force) {
+	reb_particle *particles = n_body_sim->particles;
+	connect_springs_dist(n_body_sim, 100, 0, num_parts, spr);
+
+	set_gamma(0);
+
+	// Yay nice numbers
+	particles[0].x = 1;
+	particles[0].y = 1;
+	particles[0].z = 4;
+
+	Vector ans_len = spring_r(n_body_sim, springs[1]);
+	Vector ans_len_hat = ans_len / ans_len.len();
+
+	Vector test_force1 = spring_i_force_undamped(n_body_sim, 1);
+	Vector test_force2 = spring_i_force(n_body_sim, 1);
+	spring_forces(n_body_sim);
+	Vector ans_force = 44 * ans_len_hat;
+	Vector ans_accel0 = (ans_force + spring_i_force(n_body_sim, 0))
+			/ particles[0].m;
+	Vector ans_accel2 = (-ans_force - spring_i_force(n_body_sim, 2))
+			/ particles[2].m;
+
+	EXPECT_NEAR(test_force1.getX(), ans_force.getX(),
+			abs(0.000001 * ans_force.getX()));
+	EXPECT_NEAR(test_force1.getY(), ans_force.getY(),
+			abs(0.000001 * ans_force.getY()));
+	EXPECT_NEAR(test_force1.getZ(), ans_force.getZ(),
+			abs(0.000001 * ans_force.getZ()));
+
+	EXPECT_NEAR(test_force2.getX(), ans_force.getX(),
+			abs(0.000001 * ans_force.getX()));
+	EXPECT_NEAR(test_force2.getY(), ans_force.getY(),
+			abs(0.000001 * ans_force.getY()));
+	EXPECT_NEAR(test_force2.getZ(), ans_force.getZ(),
+			abs(0.000001 * ans_force.getZ()));
+
+	EXPECT_NEAR(particles[0].ax, ans_accel0.getX(),
+			abs(0.000001 * ans_accel0.getX()));
+	EXPECT_NEAR(particles[0].ay, ans_accel0.getY(),
+			abs(0.000001 * ans_accel0.getY()));
+	EXPECT_NEAR(particles[0].az, ans_accel0.getZ(),
+			abs(0.000001 * ans_accel0.getZ()));
+
+	EXPECT_NEAR(particles[2].ax, ans_accel2.getX(),
+			abs(0.000001 * ans_accel2.getX()));
+	EXPECT_NEAR(particles[2].ay, ans_accel2.getY(),
+			abs(0.000001 * ans_accel2.getY()));
+	EXPECT_NEAR(particles[2].az, ans_accel2.getZ(),
+			abs(0.000001 * ans_accel2.getZ()));
+
+	set_gamma(1);
+	zero_accel(n_body_sim);
+	spring_forces(n_body_sim);
+	Vector test_force3 = spring_i_force(n_body_sim, 1);
+	Vector ans_force2 = 44 * ans_len_hat
+			- 0.75 * dot(Vector( { -2, -3, -6 }), ans_len_hat) / ans_len.len()
+					* ans_len_hat;
+
+	Vector ans_accel01 = (spring_i_force(n_body_sim, 1)
+			+ spring_i_force(n_body_sim, 0)) / particles[0].m;
+	Vector ans_accel21 = (-spring_i_force(n_body_sim, 1)
+			- spring_i_force(n_body_sim, 2)) / particles[2].m;
+
+	EXPECT_NEAR(test_force3.getX(), ans_force2.getX(),
+			abs(0.000001 * ans_force2.getX()));
+	EXPECT_NEAR(test_force3.getY(), ans_force2.getY(),
+			abs(0.000001 * ans_force2.getY()));
+	EXPECT_NEAR(test_force3.getZ(), ans_force2.getZ(),
+			abs(0.000001 * ans_force2.getZ()));
+
+	EXPECT_NEAR(particles[0].ax, ans_accel01.getX(),
+			abs(0.000001 * ans_accel01.getX()));
+	EXPECT_NEAR(particles[0].ay, ans_accel01.getY(),
+			abs(0.000001 * ans_accel01.getY()));
+	EXPECT_NEAR(particles[0].az, ans_accel01.getZ(),
+			abs(0.000001 * ans_accel01.getZ()));
+
+	EXPECT_NEAR(particles[2].ax, ans_accel21.getX(),
+			abs(0.000001 * ans_accel21.getX()));
+	EXPECT_NEAR(particles[2].ay, ans_accel21.getY(),
+			abs(0.000001 * ans_accel21.getY()));
+	EXPECT_NEAR(particles[2].az, ans_accel21.getZ(),
+			abs(0.000001 * ans_accel21.getZ()));
+}
+
+TEST_F(SpringTest, AdjustProps) {
+	connect_springs_dist(n_body_sim, 100, 0, num_parts, spr);
+
+	adjust_spring_props(n_body_sim, 2, 5, 90, 0, 3);
+
+	EXPECT_EQ(springs[1].k, 2);
+	EXPECT_EQ(springs[1].gamma, 5);
+	EXPECT_EQ(springs[1].k_heat, 90);
+
+	EXPECT_EQ(springs[0].k, spr.k);
+	EXPECT_EQ(springs[0].gamma, spr.gamma);
+	EXPECT_EQ(springs[0].k_heat, spr.k_heat);
 }
 
 class MyEnvironment: public testing::Environment {

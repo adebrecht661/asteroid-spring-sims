@@ -27,7 +27,7 @@ struct spring {
 /*********************/
 
 // Delete spring i
-void del_spring(reb_simulation *const n_body_sim, int i);
+void del_spring(int i);
 // Add a spring with properties of spr between particle 1 and particle 2. Returns index of spring connecting these particles.
 int add_spring(reb_simulation *const n_body_sim, int particle_1, int particle_2,
 		spring spr);
@@ -43,14 +43,6 @@ void divide_gamma(double gamma_fac);
 // Modify spring constant, damping coefficient, heat diffusion coefficient of springs with midpoints inside [r_min, r_max]
 void adjust_spring_props(reb_simulation *const n_body_sim, double new_k,
 		double new_gamma, double new_k_heat, double r_min, double r_max);
-// Adjust spring properties either inside or outside designated ellipse (center x0, semiaxes a,b,c)
-void adjust_spring_props_ellipsoid(reb_simulation *const n_body_sim,
-		double new_k, double new_gamma, double new_k_heat, double a, double b,
-		double c, Vector x0, bool inside);
-// Adjust spring properties either inside or outside designated ellipse (center x0, semiaxes a,b,c) dependent on angle in xy plane
-void adjust_spring_props_ellipsoid_phase(reb_simulation *const n_body_sim,
-		double k_amp, double gamma_amp, double k_heat_amp, double freq,
-		double phi_0, double a, double b, double c, Vector x0, bool inside);
 // Kill springs that have failed
 void kill_springs(reb_simulation *const n_body_sim);
 
@@ -72,6 +64,13 @@ void spring_forces(reb_simulation *n_body_sim);
 Vector spring_i_force(reb_simulation *const n_body_sim, int i);
 // Get force from spring i (without damping)
 Vector spring_i_force_undamped(reb_simulation *const n_body_sim, int i);
+
+/*************/
+/* Operators */
+/*************/
+
+// Stream output
+std::ostream& operator<<(std::ostream &os, const spring &spr);
 
 #endif // _SPRING_H
 
