@@ -10,6 +10,10 @@
 #ifndef SRC_SPRING_SHAPES_H_
 #define SRC_SPRING_SHAPES_H_
 
+#include <vector>
+
+using std::vector;
+
 /**************/
 /* Generators */
 /**************/
@@ -50,13 +54,13 @@ void stretch(reb_simulation *const n_body_sim, int i_low, int i_high,
 
 // Mark surface particles and shrink interior particles of arbitrary shape defined by particles in set [i_low, i_high)
 void mark_surf_shrink_int_shape(reb_simulation *const n_body_sim,
-		int i_low, int i_high, double surf_dist);
+		int i_low, int i_high, double surf_dist, vector<bool> is_surf);
 // Mark surface particles and shrink interior particles of cone of radius and height
 void mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
-		double surf_dist, double radius, double height);
+		double surf_dist, double radius, double height, vector<bool> is_surf);
 // Mark surface particles and shrink interior particles of ellipsoid with semi-axes x, y, z
 void mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
-		double surf_dist, double x, double y, double z);
+		double surf_dist, double x, double y, double z, vector<bool> is_surf);
 
 /***********/
 /* Helpers */

@@ -28,7 +28,6 @@ extern "C" {
 #include "physics.h"
 #include "springs.h"
 #include "stress.h"
-#include "heat.h"
 #include "shapes.h"
 #include "orb.h"
 #include "input_spring.h" // For padding function - nowhere good for misc functions
@@ -42,8 +41,6 @@ extern vector<spring> springs;
 extern int num_springs;
 extern int num_perts;
 extern vector<stress_tensor> stresses;
-extern vector<node> nodes;
-extern vector<double> tot_power;
 
 /********************/
 /* Output functions */
@@ -52,7 +49,7 @@ extern vector<double> tot_power;
 // Write out positions and velocities of surface particles
 // Can write at multiple times
 void write_surf_part(reb_simulation *const n_body_sim, int i_low, int i_high,
-		string filename) {
+		string filename, bool is_surf[]) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -77,7 +74,7 @@ void write_surf_part(reb_simulation *const n_body_sim, int i_low, int i_high,
 
 	// Print tab-separated particle info at time t - t_off
 	for (int i = 0; i < n_body_sim->N; i++) {
-		if (nodes[i].is_surf)
+		if (is_surf[i])
 			outfile << std::setprecision(6) << n_body_sim->t - t_off << "\t"
 					<< particles[i].x << "\t" << particles[i].y << "\t"
 					<< particles[i].z << "\t" << particles[i].vx << "\t"
@@ -512,60 +509,6 @@ void write_particles(reb_simulation *const n_body_sim, string fileroot,
 			<< " particles to " << filename;
 }
 
-// Write node temperature file
-void write_nodes(reb_simulation *const n_body_sim, string filename) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
-
-	// Open output file to append (created if it doesn't exist)
-	std::ofstream outfile(filename, std::ios::out | std::ios::app);
-
-	// Print header first time only
-	static bool first = true;
-	if (first) {
-		outfile << "# i\tx\ty\tz\tvx\tvy\tvz\tT\tcv\tsurf\tm\txrot\tyrot\n";
-		first = false;
-	}
-
-	// Time
-	outfile << "# t = " << std::setprecision(3) << n_body_sim->t << "\n";
-
-	// Get indices for resolved body
-	int i_low = 0;
-	int i_high = n_body_sim->N - num_perts;
-
-	// Get center of mass of resolved body
-	Vector CoM = compute_com(n_body_sim, i_low, i_high);
-
-	// Get position of most recent perturber
-	int i_pert_1 = n_body_sim->N - 1;
-	Vector x_1 = { particles[i_pert_1].x, particles[i_pert_1].y,
-			particles[i_pert_1].z };
-
-	// Get relative direction of perturber
-	double theta = atan2(x_1.getY() - CoM.getY(), x_1.getX() - CoM.getX());
-	Matrix rot_mat = getRotMatZ(theta);
-	outfile << "# x1\ty1\tz1\txb\tyb\tzb\ttheta\n";
-	outfile << std::setprecision(3) << x_1.getX() << "\t" << x_1.getY() << "\t"
-			<< x_1.getZ() << "\t" << CoM.getX() << "\t" << CoM.getY() << "\t"
-			<< CoM.getZ() << "\t" << theta << "\n";
-
-	for (int i = i_low; i < i_high; i++) {
-		Vector x = { particles[i].x, particles[i].y, particles[i].z };
-		Vector x_rot = rot_mat * x;
-		outfile << std::setprecision(4) << i << "\t";
-		outfile << std::setprecision(10) << particles[i].x << "\t"
-				<< particles[i].y << "\t" << particles[i].z << "\t"
-				<< particles[i].vx << "\t" << particles[i].vy << "\t"
-				<< particles[i].vz << "\t";
-		outfile << std::setprecision(10) << nodes[i].temp << "\t" << nodes[i].cv
-				<< "\t" << nodes[i].is_surf << "\t";
-		outfile << std::setprecision(10) << x_rot.getX() << "\t" << x_rot.getY()
-				<< "\n";
-	}
-	outfile.close();
-}
-
 // Write out stress file
 void write_stresses(reb_simulation *const n_body_sim, string filename) {
 	// Get particle info
@@ -605,108 +548,6 @@ void write_stresses(reb_simulation *const n_body_sim, string filename) {
 	outfile.close();
 }
 
-// Write out heat file
-// Takes num_timesteps that we've recorded power at
-// powerfac is how much of heat to distribute at center of spring rather than at nodes
-// also outputs rotated xy, after rotates assuming xy plane for orbit and toward pertuber
-void write_heat(reb_simulation *const n_body_sim, string filename,
-		int num_timesteps, double power_fac) {
-	reb_particle *particles = n_body_sim->particles;
-
-	// Get average power over our timesteps
-	normalize_tot_power(num_timesteps);
-
-	// Open output file to append (created if it doesn't exist)
-	std::ofstream outfile(filename, std::ios::out | std::ios::app);
-
-	// Print header first time only
-	static bool first = true;
-	if (first) {
-		outfile << "# x\ty\tz\tdedt\txrot\tyrot\n";
-		first = false;
-	}
-
-	// Time
-	outfile << std::setprecision(2) << "# t = " << n_body_sim->t;
-
-	// Get resolved body indices
-	int i_low = 0;
-	int i_high = n_body_sim->N - num_perts;
-
-	// Get center of mass
-	Vector CoM = compute_com(n_body_sim, i_low, i_high);
-
-	// Index for primary perturber
-	int i_prim = n_body_sim->N - 1;
-
-	// Location of primary perturber
-	Vector x_prim = { particles[i_prim].x, particles[i_prim].y,
-			particles[i_prim].z };
-	double theta = atan2(x_prim.getY() - CoM.getY(),
-			x_prim.getX() - CoM.getX());
-
-	// Print primary perturber info
-	outfile << std::setprecision(3) << "# primary info: " << x_prim.getX()
-			<< "\t" << x_prim.getY() << "\t" << x_prim.getZ() << "\t"
-			<< CoM.getX() << "\t" << CoM.getY() << "\t" << CoM.getZ() << "\t"
-			<< theta << "\n";
-
-	// Get rotation matrix
-	Matrix rot_mat = getRotMatZ(theta);
-
-	// Print info for each spring (and connected nodes)
-	for (int i = 0; i < num_springs; i++) {
-
-		// Get spring midpoint location
-		Vector x = spr_mid(n_body_sim, springs[i], CoM);
-
-		// Rotate around center of body in xy plane so that +x is toward perturber, +y is direction of rotation of perturber w.r.t to body
-		// (So -y is headwind direction for body and +y is tailwind surface on body)
-		Vector x_rot = rot_mat * x;
-
-		// Get average power for this spring
-		double power = tot_power[i];
-
-		// Write average power applied to center of spring
-		outfile << i << "\t" << std::setprecision(3) << x.getX() << "\t"
-				<< x.getY() << "\t" << x.getZ() << "\t" << power * power_fac
-				<< "\t" << x_rot.getX() << "\t" << x_rot.getY() << "\n";
-
-		// Write heat on nodes as well as center of spring
-		if (power_fac < 1.0) {
-			// Get nodes spring is connected to
-			int part_1 = springs[i].particle_1;
-			int part_2 = springs[i].particle_2;
-
-			// Get displacements of each particle from center of mass
-			Vector x_1 = { particles[part_1].x, particles[part_1].y,
-					particles[part_1].z };
-			Vector dx_1 = x_1 - CoM;
-
-			Vector x_2 = { particles[part_2].x, particles[part_2].y,
-					particles[part_2].z };
-			Vector dx_2 = x_2 - CoM;
-
-			// Write info for each particle
-			outfile << i << "\t" << std::setprecision(3) << dx_1.getX() << "\t"
-					<< dx_1.getY() << "\t" << dx_1.getZ() << "\t"
-					<< power * (1.0 - power_fac) * 0.5 << "\t" << x_rot.getX()
-					<< "\t" << x_rot.getY() << "\n";
-			outfile << i << "\t" << std::setprecision(3) << dx_2.getX() << "\t"
-					<< dx_2.getY() << "\t" << dx_2.getZ() << "\t"
-					<< power * (1.0 - power_fac) * 0.5 << "\t" << x_rot.getX()
-					<< "\t" << x_rot.getY() << "\n";
-		}
-	}
-	outfile.close();
-
-	// Reset total power to start sum again
-#pragma omp parallel for
-	for (int i = 0; i < num_springs; i++) {
-		tot_power[i] = 0;
-	}
-}
-
 // Print doubles to file and standard out
 void print_run_double(double quantity, string label, std::ofstream *outfile) {
 	// Set precision based on size of quantity
@@ -719,31 +560,9 @@ void print_run_double(double quantity, string label, std::ofstream *outfile) {
 	}
 }
 
-/****************/
-/* Heat helpers */
-/****************/
-
-// Normalize total power by number of timesteps for output
-void normalize_tot_power(double ndt) {
-#pragma omp parallel for
-	for (int i = 0; i < num_springs; i++) {
-		tot_power[i] /= ndt;
-	}
-}
-
 /********************/
 /* Filename helpers */
 /********************/
-
-// Make a heat filename dependent on interval at which to print
-string heat_filename(reb_simulation *const n_body_sim, string root,
-		double print_interval) {
-	// Get integer file number
-	int xd = (int) (n_body_sim->t / print_interval);
-
-	// Return filename
-	return root + "_" + zero_pad_int(6, xd) + "_heat.txt";
-}
 
 // Make a node filename dependent on interval at which to print
 string node_filename(reb_simulation *const n_body_sim, string root,

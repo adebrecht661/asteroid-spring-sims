@@ -31,7 +31,6 @@ extern "C" {
 #include "physics.h"
 #include "stress.h"
 #include "shapes.h"
-#include "heat.h"
 #include "orb.h"
 
 using namespace libconfig;
@@ -44,13 +43,12 @@ using std::abs;
 int num_springs = 0;	// Global numbers of springs
 vector<spring> springs;	// Global spring array
 
-extern vector<node> nodes;
-
 // Default global values
 int num_perts = 0;		// Number of perturbers
 double def_gamma, t_damp, print_interval, lat_pulse, long_pulse, dt_pulse,
 		force_pulse, dangle_pulse;		// Read in - see cfg
 string fileroot;		// Output file base name
+vector<bool> is_surf;
 
 // Shape model selectors
 const int BENNU = 0, ELLIPSOID = 1, CONE = 2;
@@ -168,7 +166,8 @@ int main(int argc, char *argv[]) {
 		std::cout << "Shape filled.\n";
 
 		// Find surface particles
-		mark_surf_shrink_int_shape(n_body_sim, 0, N_bennu, surf_dist);
+		is_surf.resize(n_body_sim->N);
+		mark_surf_shrink_int_shape(n_body_sim, 0, N_bennu, surf_dist, is_surf);
 
 		// Clean up shape vertices
 		rm_particles(n_body_sim, 0, N_bennu);
@@ -193,9 +192,8 @@ int main(int argc, char *argv[]) {
 		// Create random ellipsoide and mark its surface
 		rand_ellipsoid(n_body_sim, min_part_dist, r_ball, r_ball * ratio1,
 				r_ball * ratio2, m_ball);
-		init_nodes(n_body_sim, 0, 0);
 		mark_surf_shrink_int_ellipsoid(n_body_sim, surf_dist, r_ball,
-				r_ball * ratio1, r_ball * ratio2);
+				r_ball * ratio1, r_ball * ratio2, is_surf);
 		break;
 	}
 		// Random cone
@@ -212,9 +210,9 @@ int main(int argc, char *argv[]) {
 
 		// Create random cone particles and mark surface particles
 		rand_cone(n_body_sim, min_part_dist, r_cone, r_cone * ratio1, m_ball);
-		init_nodes(n_body_sim, 0, 0);
+		is_surf.resize(n_body_sim->N);
 		mark_surf_shrink_int_cone(n_body_sim, surf_dist, r_cone,
-				r_cone * ratio1);
+				r_cone * ratio1, is_surf);
 		break;
 	}
 	default: {
@@ -292,7 +290,7 @@ int main(int argc, char *argv[]) {
 	// Get number of surface particles
 	int Nsurf = 0;
 	for (int i = 0; i < n_body_sim->N; i++) {
-		if (nodes[i].is_surf) {
+		if (is_surf[i]) {
 			Nsurf++;
 		}
 	}
@@ -382,7 +380,7 @@ void apply_impact(reb_simulation *const n_body_sim, double lat, double longi,
 		first = false;
 		t0 = n_body_sim->t;
 		for (int i = 0; i < n_body_sim->N - num_perts; i++) {
-			if (nodes[i].is_surf) {
+			if (is_surf[i]) {
 				r0 = n_body_sim->particles[i].r;
 				break;
 			}
@@ -400,7 +398,7 @@ void apply_impact(reb_simulation *const n_body_sim, double lat, double longi,
 	for (int i = 0; i < n_body_sim->N - num_perts; i++) {
 
 		// If particle is on surface
-		if (nodes[i].is_surf) {
+		if (is_surf[i]) {
 			// Get particle location
 			Vector x = { particles[i].x, particles[i].y, particles[i].z };
 			Vector x_hat = x / x.len();
@@ -423,7 +421,7 @@ void apply_impact(reb_simulation *const n_body_sim, double lat, double longi,
 	for (int i = 0; i < n_body_sim->N - num_perts; i++) {
 
 		// If particle is on surface
-		if (nodes[i].is_surf) {
+		if (is_surf[i]) {
 			// Get particle info
 			double m = particles[i].m;
 			Vector x = { particles[i].x, particles[i].y, particles[i].z };
@@ -458,7 +456,7 @@ void apply_impact(reb_simulation *const n_body_sim, double lat, double longi,
 	// Ensure display radius is restored at end of pulse
 	if (t >= tau - 2.1 * n_body_sim->dt) {
 		for (int i = 0; i < n_body_sim->N - num_perts; i++) {
-			if (nodes[i].is_surf)
+			if (is_surf[i])
 				particles[i].r = r0;
 		}
 	}
@@ -478,7 +476,7 @@ void additional_forces(reb_simulation *n_body_sim) {
 // Reset surface particle radii post-impact
 void reset_surface_radii(reb_simulation *const n_body_sim, double b_distance) {
 	for (int i = 0; i < n_body_sim->N; i++) {
-		if (nodes[i].is_surf)
+		if (is_surf[i])
 			n_body_sim->particles[i].r = b_distance / 4;
 	}
 }

@@ -25,7 +25,6 @@ extern "C" {
 }
 #include "springs.h"
 #include "shapes.h" // For mindist - nowhere good for misc functions
-#include "heat.h"
 #include "input_spring.h"
 
 using namespace libconfig;
@@ -33,7 +32,6 @@ using std::string;
 using std::vector;
 
 extern int num_springs;		// Total number of springs
-extern vector<node> nodes;	// Node vector
 
 // Global scales
 extern double mass_scale, time_scale, length_scale, temp_scale, omega_scale,
@@ -95,7 +93,12 @@ void read_springs(string fileroot, int index) {
 			throw "I/O error in read_springs.";
 
 		// Add spring
-		add_spring_helper(spr);
+		try {
+			add_spring_helper(spr);
+		} catch (char *str) {
+			std::cerr << str << "Exiting." << std::endl;
+			exit(1);
+		}
 	}
 	spring_file.close();
 	std::cout << "Read " << num_springs << "springs." << std::endl;
@@ -130,17 +133,6 @@ void read_particles(reb_simulation *const n_body_sim, string fileroot,
 	}
 	particle_file.close();
 	std::cout << "Read " << n_body_sim->N << " particles." << std::endl;
-
-	// If nodes vector has already been initialized, increase size to account for new particles
-	if (!nodes.empty()) {
-		node zero_node;
-		zero_node.cv = -1;
-		zero_node.is_surf = true;
-		zero_node.temp = -1;
-		nodes.resize(nodes.size() + n_body_sim->N, zero_node);
-		std::cout
-				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (read_particles)";
-	}
 }
 
 // Read in a vertex (shape) file from filename

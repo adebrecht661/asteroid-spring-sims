@@ -15,13 +15,11 @@ extern "C" {
 #include "springs.h"
 #include "kepcart.h"
 #include "physics.h"
-#include "heat.h"
 #include "orb.h"
 
 using std::vector;
 
 extern int num_perts;
-extern vector<node> nodes;
 
 // Add binary perturbers separated by distance sep in a circular orbit
 // Center of mass of new particles set to be in orbit with given orbital elements
@@ -90,17 +88,6 @@ double add_bin_kep(reb_simulation *const n_body_sim, double m_prim,
 	pt.m = m_1;
 	pt.r = r_1;
 	reb_add(n_body_sim, pt);
-
-	// If nodes vector has already been initialized, increase size to account for new particles
-	if (!nodes.empty()) {
-		node zero_node;
-		zero_node.cv = -1;
-		zero_node.is_surf = true;
-		zero_node.temp = -1;
-		nodes.resize(nodes.size() + 2, zero_node);
-		std::cout
-				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (add_bin_kep)";
-	}
 
 	// Get orbital angular velocity (mean motion) of resolved body
 	double a = orb_el.a;
@@ -189,17 +176,6 @@ double add_pt_mass_kep(reb_simulation *const n_body_sim, int i_low, int i_high,
 
 	// Add new particle
 	reb_add(n_body_sim, pt);
-
-	// If nodes vector has already been initialized, increase size to account for new particles
-	if (!nodes.empty()) {
-		node zero_node;
-		zero_node.cv = -1;
-		zero_node.is_surf = true;
-		zero_node.temp = -1;
-		nodes.resize(nodes.size() + 1, zero_node);
-		std::cout
-				<< "Caution: nodes vector size increased, but new nodes were initialized with nonsense. (add_pt_mass_kep)";
-	}
 
 	// Return mean motion of new orbit
 	double a = orb_el.a;

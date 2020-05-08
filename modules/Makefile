@@ -10,7 +10,6 @@ LDFLAGS=-Wl,-R -Wl,../../src/ -Wl,-R -Wl,../../libconfig/lib/.libs/
 MYSOURCES=../src_spring/matrix_math.cpp \
 		  ../src_spring/springs.cpp \
 		  ../src_spring/kepcart.cpp \
-		  ../src_spring/heat.cpp \
 		  ../src_spring/orb.cpp \
 		  ../src_spring/input_spring.cpp \
 		  ../src_spring/physics.cpp \

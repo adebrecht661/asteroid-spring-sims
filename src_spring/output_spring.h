@@ -47,8 +47,6 @@ void write_springs(reb_simulation *const n_body_sim, string fileroot,
 // Write particle info to file fileroot_%06d_particles.txt
 void write_particles(reb_simulation *const n_body_sim, string fileroot,
 		int index);
-// Write all node info to file
-void write_nodes(reb_simulation *const n_body_sim, string filename);
 // Write all stress info to file
 void write_stresses(reb_simulation *const n_body_sim, string filename);
 // Write all heat info to file
