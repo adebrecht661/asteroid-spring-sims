@@ -195,9 +195,6 @@ int main(int argc, char *argv[]) {
 	// Spin the body
 	spin_body(n_body_sim, i_low, i_high, omega);
 
-	// Not required??????
-	//subtract_cov(n_body_sim, i_low, i_high); // center of velocity subtracted
-
 	// Connect all particles within max_spring_dist by hot springs
 	connect_springs_dist(n_body_sim, max_spring_dist, 0, n_body_sim->N,
 			def_spring);
@@ -221,7 +218,7 @@ int main(int argc, char *argv[]) {
 
 	// Change properties of interior of shell
 	std::cout << "Rshell = " << R_shell << "\n";
-	adjust_spring_props(n_body_sim, k_int, gamma_int, 0.0, 0.0, R_shell);
+	adjust_spring_props(n_body_sim, k_int, gamma_int, 0.0, R_shell);
 
 	// Get eigenvalues of moment of inertia
 	Matrix inertia_mat = mom_inertia(n_body_sim, 0, n_body_sim->N);

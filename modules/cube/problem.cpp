@@ -111,7 +111,6 @@ int main(int argc, char *argv[]) {
 	spring def_spring;
 	def_spring.gamma = def_gamma;
 	def_spring.k = k_short;
-	def_spring.k_heat = 1.0;
 	double short_spring_dist = min_part_dist * max_short_spring_fac;
 	double med_spring_dist = min_part_dist * max_med_spring_fac;
 	double long_spring_dist = min_part_dist * max_long_spring_fac;

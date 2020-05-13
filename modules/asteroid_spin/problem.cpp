@@ -123,9 +123,6 @@ int main(int argc, char *argv[]) {
 	// Add spin to resolved body
 	spin_body(n_body_sim, i_low, i_high, omega);
 
-	// Should not have added any velocity??????
-	//subtract_cov(n_body_sim, i_low, i_high);
-
 	// Print spin period to file
 	double spin_period = abs(2.0 * M_PI / omega.len());
 	std::cout << "Spin period: " << std::setprecision(6) << spin_period << "\n";

@@ -110,7 +110,6 @@ int main(int argc, char *argv[]) {
 	// Set up spring
 	spring def_spring;
 	def_spring.gamma = def_gamma * gamma_fac;
-	def_spring.k_heat = 0.0;
 	def_spring.k = k;
 
 	// Connect springs within L_overlap

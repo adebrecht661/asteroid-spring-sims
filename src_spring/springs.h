@@ -17,7 +17,6 @@ struct spring {
 	double k;		// Spring constant
 	double rs0;		// Rest length
 	double gamma; 	// Damping coefficient
-	double k_heat;// Heat diffusion coefficient (actually thermal conductance????? W/K vs W/m*K)
 	int particle_1;	// Attached to particle 1
 	int particle_2;	// Attached to particle 2
 };
@@ -41,8 +40,7 @@ void set_gamma(double new_gamma);
 // Set damping coefficient of all springs
 void divide_gamma(double gamma_fac);
 // Modify spring constant, damping coefficient, heat diffusion coefficient of springs with midpoints inside [r_min, r_max]
-void adjust_spring_props(reb_simulation *const n_body_sim, double new_k,
-		double new_gamma, double new_k_heat, double r_min, double r_max);
+void adjust_spring_props(reb_simulation *const n_body_sim, double new_k, double new_gamma, double r_min, double r_max);
 // Kill springs that have failed
 void kill_springs(reb_simulation *const n_body_sim);
 
@@ -73,4 +71,3 @@ Vector spring_i_force_undamped(reb_simulation *const n_body_sim, int i);
 std::ostream& operator<<(std::ostream &os, const spring &spr);
 
 #endif // _SPRING_H
-

@@ -237,7 +237,7 @@ int main(int argc, char *argv[]) {
 
 	// Adjust spring strength in core
 	if (r_int > 0.0) {
-		adjust_spring_props(n_body_sim, k_int, 0.0, 0.0, 0.0, r_int);
+		adjust_spring_props(n_body_sim, k_int, 0.0, 0.0, r_int);
 		print_run_double(Young_mesh(n_body_sim, i_low, i_high, 0.0, r_int),
 				"Young's modulus hot", &outfile);
 	}

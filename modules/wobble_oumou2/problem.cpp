@@ -167,9 +167,6 @@ int main(int argc, char *argv[]) {
 	// Spin the body
 	spin_body(n_body_sim, i_low, i_high, omega);
 
-	// Not required??????
-	//subtract_cov(n_body_sim, i_low, i_high); // center of velocity subtracted
-
 	// Connect all particles within max_spring_dist by hot springs
 	connect_springs_dist(n_body_sim, max_spring_dist, 0, n_body_sim->N,
 			def_spring);

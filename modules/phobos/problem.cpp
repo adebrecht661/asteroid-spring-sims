@@ -217,9 +217,6 @@ int main(int argc, char *argv[]) {
 	// Spin the body
 	spin_body(n_body_sim, i_low, i_high, omega);
 
-	// Not required??????
-	//subtract_cov(n_body_sim, i_low, i_high); // center of velocity subtracted
-
 	// Spin period
 	double speriod = abs(2.0 * M_PI / omega.getZ());
 	print_run_double(speriod, "spin period", &outfile);

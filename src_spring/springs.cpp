@@ -165,7 +165,7 @@ void divide_gamma(double gamma_fac) {
 
 // Adjust spring constant, damping coefficient, and heat diffusion coefficient for springs with midpoints between r_min and r_max from center of mass
 void adjust_spring_props(reb_simulation *const n_body_sim, double new_k,
-		double new_gamma, double new_k_heat, double r_min, double r_max) {
+		double new_gamma, double r_min, double r_max) {
 
 	// Search all particles
 	int i_low = 0;
@@ -186,7 +186,6 @@ void adjust_spring_props(reb_simulation *const n_body_sim, double new_k,
 		if ((r_mid >= r_min) && (r_mid <= r_max)) {
 			springs[i].k = new_k;
 			springs[i].gamma = new_gamma;
-			springs[i].k_heat = new_k_heat;
 			NC++;
 		}
 	}
@@ -422,7 +421,7 @@ Vector spring_i_force_undamped(reb_simulation *const n_body_sim,
 std::ostream& operator<<(std::ostream &os, const spring &spr) {
 	os << "Gamma: " << spr.gamma << "\nSpring constant: " << spr.k
 			<< "\nRest length: " << spr.rs0 << "\nHeat conductance: "
-			<< spr.k_heat << "\nParticle 1: " << spr.particle_1
-			<< "\nParticle 2: " << spr.particle_2;
+			<< "\nParticle 1: " << spr.particle_1 << "\nParticle 2: "
+			<< spr.particle_2;
 	return os;
 }

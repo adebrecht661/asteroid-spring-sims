@@ -89,7 +89,7 @@ void read_springs(string fileroot, int index) {
 		std::istringstream input_stream(line);
 
 		if (!(input_stream >> spr.particle_1 >> spr.particle_2 >> spr.k
-				>> spr.rs0 >> spr.gamma >> spr.k_heat))
+				>> spr.rs0 >> spr.gamma))
 			throw "I/O error in read_springs.";
 
 		// Add spring
