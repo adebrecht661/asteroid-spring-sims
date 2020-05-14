@@ -40,7 +40,8 @@ void set_gamma(double new_gamma);
 // Set damping coefficient of all springs
 void divide_gamma(double gamma_fac);
 // Modify spring constant, damping coefficient, heat diffusion coefficient of springs with midpoints inside [r_min, r_max]
-void adjust_spring_props(reb_simulation *const n_body_sim, double new_k, double new_gamma, double r_min, double r_max);
+void adjust_spring_props(reb_simulation *const n_body_sim, double new_k,
+		double new_gamma, double r_min, double r_max);
 // Kill springs that have failed
 void kill_springs(reb_simulation *const n_body_sim);
 

@@ -49,7 +49,7 @@ extern vector<stress_tensor> stresses;
 // Write out positions and velocities of surface particles
 // Can write at multiple times
 void write_surf_part(reb_simulation *const n_body_sim, int i_low, int i_high,
-		string filename, bool is_surf[]) {
+		string filename, vector<bool> is_surf) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -117,9 +117,7 @@ void write_resolved_with_E(reb_simulation *const n_body_sim, int i_low,
 			<< CoV.getZ() << "\t";
 
 	// Spin angular momentum
-	// What's the difference between omega and L???????
-	double eigs[3];
-	Vector omega = body_spin(n_body_sim, i_low, i_high, eigs);
+	Vector omega = body_spin(n_body_sim, i_low, i_high);
 	Vector L = measure_L(n_body_sim, i_low, i_high);
 	outfile << std::setprecision(4) << omega.getX() << "\t" << omega.getY()
 			<< "\t" << omega.getZ() << "\t";
@@ -184,9 +182,7 @@ void write_resolved_no_E(reb_simulation *const n_body_sim, int i_low,
 			<< CoV.getZ() << "\t";
 
 	// Spin angular momentum
-	// What's the difference between omega and L???????
-	double eigs[3];
-	Vector omega = body_spin(n_body_sim, i_low, i_high, eigs);
+	Vector omega = body_spin(n_body_sim, i_low, i_high);
 	Vector L = measure_L(n_body_sim, i_low, i_high);
 	outfile << std::setprecision(4) << omega.getX() << "\t" << omega.getY()
 			<< "\t" << omega.getZ() << "\t";
@@ -319,21 +315,16 @@ void write_resolved_orb(reb_simulation *const n_body_sim, string filename) {
 			<< incl << "\t";
 
 	// Spin
-	// Why both omega and L??????
-	double eigs[3];
-	Vector omega = body_spin(n_body_sim, i_low, i_high, eigs);
+	Vector omega = body_spin(n_body_sim, i_low, i_high);
 	outfile << std::setprecision(4) << omega.getX() << "\t" << omega.getY()
 			<< "\t" << omega.getZ() << "\t";
-	outfile << std::setprecision(3) << eigs[0] << "\t" << eigs[1] << "\t"
-			<< eigs[2] << "\t";
 
 	// Young's modulus
 	double r_min = 0.0, r_max = 0.5;
 	outfile << std::setprecision(3)
 			<< Young_mesh(n_body_sim, i_low, i_high, r_min, r_max) << "\t";
 
-	// Spin
-	// Why both omega and L??????
+	// Spin angular momentum
 	Vector L = measure_L(n_body_sim, i_low, i_high);
 	outfile << std::setprecision(5) << L.getX() << "\t" << L.getY() << "\t"
 			<< L.getZ() << "\t";
@@ -475,8 +466,8 @@ void write_springs(reb_simulation *const n_body_sim, string fileroot,
 		outfile << springs[i].particle_1 << "\t" << springs[i].particle_2
 				<< "\t" << std::setprecision(6) << springs[i].k << "\t"
 				<< springs[i].rs0 << "\t" << springs[i].gamma << "\t"
-				<< springs[i].k_heat << "\t" << strain(n_body_sim, springs[i])
-				<< "\t" << spring_r(n_body_sim, springs[i]).len() << "\n";
+				<< strain(n_body_sim, springs[i]) << "\t"
+				<< spring_r(n_body_sim, springs[i]).len() << "\n";
 	}
 	outfile.close();
 	std::cout << "write_springs: Printed " << num_springs << " springs to "

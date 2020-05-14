@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
 
 	// Output surface particle info at first timestep
 	filename = fileroot + "_surf_nosprings.txt";
-	write_surf_part(n_body_sim, 0, n_body_sim->N - num_perts, filename);
+	write_surf_part(n_body_sim, 0, n_body_sim->N - num_perts, filename, is_surf);
 
 	// Integrate simulation
 	if (t_max == 0.0) {
@@ -335,7 +335,7 @@ void heartbeat(reb_simulation *const n_body_sim) {
 		if (reb_output_check(n_body_sim, print_interval * n_body_sim->dt)) {
 			string filename = fileroot
 					+ zero_pad_int(5, (int) n_body_sim->dt / print_interval);
-			write_surf_part(n_body_sim, 0, n_body_sim->N - num_perts, filename);
+			write_surf_part(n_body_sim, 0, n_body_sim->N - num_perts, filename, is_surf);
 		}
 	}
 

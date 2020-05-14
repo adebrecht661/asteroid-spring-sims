@@ -106,7 +106,6 @@ protected:
 		spr.rs0 = 1;
 		spr.k = 11;
 		spr.gamma = 35;
-		spr.k_heat = 4;
 	}
 
 	void TearDown() override {
@@ -116,6 +115,33 @@ protected:
 		vector<stress_tensor>().swap(stresses);
 		free(n_body_sim->particles);
 		free(n_body_sim);
+	}
+};
+
+class PhysicsTest: public SpringTest {
+protected:
+	void SetUp() override {
+
+		SpringTest::SetUp();
+
+		// Particle 1 acceleration
+		n_body_sim->particles[0].ax = 0;
+		n_body_sim->particles[0].ay = 0;
+		n_body_sim->particles[0].az = 0;
+
+		// Particle 2 acceleration
+		n_body_sim->particles[1].ax = 1;
+		n_body_sim->particles[1].ay = 2;
+		n_body_sim->particles[1].az = 2;
+
+		// Particle 3 acceleration
+		n_body_sim->particles[2].ax = 2;
+		n_body_sim->particles[2].ay = 3;
+		n_body_sim->particles[2].az = 6;
+	}
+
+	void TearDown() override {
+		SpringTest::TearDown();
 	}
 };
 
@@ -861,15 +887,308 @@ TEST_F(SpringTest, Force) {
 TEST_F(SpringTest, AdjustProps) {
 	connect_springs_dist(n_body_sim, 100, 0, num_parts, spr);
 
-	adjust_spring_props(n_body_sim, 2, 5, 90, 0, 3);
+	adjust_spring_props(n_body_sim, 2, 5, 0, 3);
 
 	EXPECT_EQ(springs[1].k, 2);
 	EXPECT_EQ(springs[1].gamma, 5);
-	EXPECT_EQ(springs[1].k_heat, 90);
 
 	EXPECT_EQ(springs[0].k, spr.k);
 	EXPECT_EQ(springs[0].gamma, spr.gamma);
-	EXPECT_EQ(springs[0].k_heat, spr.k_heat);
+}
+
+/*****************/
+/* Physics tests */
+/*****************/
+
+TEST_F(PhysicsTest, ZeroAccel) {
+	reb_particle *particles = n_body_sim->particles;
+
+	ASSERT_EQ(particles[1].ax, 1);
+	ASSERT_EQ(particles[1].ay, 2);
+	ASSERT_EQ(particles[1].az, 2);
+
+	zero_accel(n_body_sim);
+
+	EXPECT_EQ(particles[0].ax, 0);
+	EXPECT_EQ(particles[0].ay, 0);
+	EXPECT_EQ(particles[0].az, 0);
+
+	EXPECT_EQ(particles[1].ax, 0);
+	EXPECT_EQ(particles[1].ay, 0);
+	EXPECT_EQ(particles[1].az, 0);
+
+	EXPECT_EQ(particles[2].ax, 0);
+	EXPECT_EQ(particles[2].ay, 0);
+	EXPECT_EQ(particles[2].az, 0);
+}
+
+TEST_F(PhysicsTest, MoveResolved) {
+	reb_particle *particles = n_body_sim->particles;
+	move_resolved(n_body_sim, -1, 1, 0, num_parts);
+
+	EXPECT_EQ(particles[0].x, -1);
+	EXPECT_EQ(particles[0].y, -1);
+	EXPECT_EQ(particles[0].z, -1);
+
+	EXPECT_EQ(particles[1].x, 0);
+	EXPECT_EQ(particles[1].y, 1);
+	EXPECT_EQ(particles[1].z, 1);
+
+	EXPECT_EQ(particles[0].vx, 1);
+	EXPECT_EQ(particles[0].vy, 1);
+	EXPECT_EQ(particles[0].vz, 1);
+
+	EXPECT_EQ(particles[1].vx, 2);
+	EXPECT_EQ(particles[1].vy, 3);
+	EXPECT_EQ(particles[1].vz, 3);
+}
+
+TEST_F(PhysicsTest, CoM) {
+	reb_particle *particles = n_body_sim->particles;
+	Vector orig_CoM = { 4. / 3., 13. / 6., 11. / 3. };
+
+	EXPECT_EQ(compute_com(n_body_sim, 0, num_parts), orig_CoM);
+
+	ASSERT_NO_THROW(subtract_com(n_body_sim, 0, num_parts));
+
+	EXPECT_EQ(particles[0].x, -orig_CoM.getX());
+	EXPECT_EQ(particles[0].y, -orig_CoM.getY());
+	EXPECT_EQ(particles[0].z, -orig_CoM.getZ());
+
+	EXPECT_EQ(particles[1].x, 1 - orig_CoM.getX());
+	EXPECT_EQ(particles[1].y, 2 - orig_CoM.getY());
+	EXPECT_EQ(particles[1].z, 2 - orig_CoM.getZ());
+
+	EXPECT_EQ(particles[0].vx, 0);
+	EXPECT_EQ(particles[0].vy, 0);
+	EXPECT_EQ(particles[0].vz, 0);
+
+	Vector new_CoM = compute_com(n_body_sim, 0, num_parts);
+
+	EXPECT_NEAR(new_CoM.getX(), 0, 1e-15);
+	EXPECT_NEAR(new_CoM.getY(), 0, 1e-15);
+	EXPECT_NEAR(new_CoM.getZ(), 0, 1e-15);
+}
+
+TEST_F(PhysicsTest, CoV) {
+	reb_particle *particles = n_body_sim->particles;
+	Vector orig_CoV = { 5. / 3., 13. / 6., 11. / 3. };
+	particles[1].vx = 2;
+
+	EXPECT_EQ(compute_cov(n_body_sim, 0, num_parts), orig_CoV);
+
+	ASSERT_NO_THROW(subtract_cov(n_body_sim, 0, num_parts));
+
+	EXPECT_EQ(particles[0].vx, -orig_CoV.getX());
+	EXPECT_EQ(particles[0].vy, -orig_CoV.getY());
+	EXPECT_EQ(particles[0].vz, -orig_CoV.getZ());
+
+	EXPECT_EQ(particles[1].vx, 2 - orig_CoV.getX());
+	EXPECT_EQ(particles[1].vy, 2 - orig_CoV.getY());
+	EXPECT_EQ(particles[1].vz, 2 - orig_CoV.getZ());
+
+	EXPECT_EQ(particles[0].x, 0);
+	EXPECT_EQ(particles[0].y, 0);
+	EXPECT_EQ(particles[0].z, 0);
+
+	Vector new_CoV = compute_cov(n_body_sim, 0, num_parts);
+
+	EXPECT_NEAR(new_CoV.getX(), 0, 1e-15);
+	EXPECT_NEAR(new_CoV.getY(), 0, 1e-15);
+	EXPECT_NEAR(new_CoV.getZ(), 0, 1e-15);
+}
+
+TEST_F(PhysicsTest, CenterAll) {
+	reb_particle *particles = n_body_sim->particles;
+	Vector orig_CoM = { 4. / 3., 13. / 6., 11. / 3. };
+	ASSERT_EQ(orig_CoM, compute_com(n_body_sim, 0, num_parts));
+
+	ASSERT_NO_THROW(center_sim(n_body_sim, 0, 2));
+
+	EXPECT_EQ(particles[0].x, -2. / 3.);
+	EXPECT_EQ(particles[0].y, -4. / 3.);
+	EXPECT_EQ(particles[0].z, -4. / 3.);
+
+	EXPECT_EQ(particles[2].x, 2 - 2. / 3.);
+	EXPECT_EQ(particles[2].y, 3 - 4. / 3.);
+	EXPECT_EQ(particles[2].z, 6 - 4. / 3.);
+}
+
+TEST_F(PhysicsTest, AdjustMass) {
+	reb_particle *particles = n_body_sim->particles;
+	particles[3].m = 0;
+
+	ASSERT_NO_THROW(adjust_mass_side(n_body_sim, 1. / 2., 1.5));
+
+	EXPECT_EQ(particles[0].m, 2. / 9.);
+	EXPECT_EQ(particles[1].m, 4. / 9.);
+	EXPECT_EQ(particles[2].m, 1. / 3.);
+}
+
+TEST_F(PhysicsTest, Inertia) {
+	Matrix inertia_mat = mom_inertia(n_body_sim, 0, num_parts);
+
+	EXPECT_DOUBLE_EQ(inertia_mat.getXX(), 253. / 6.);
+	EXPECT_DOUBLE_EQ(inertia_mat.getYY(), 116. / 3.);
+	EXPECT_DOUBLE_EQ(inertia_mat.getZZ(), 61. / 6.);
+	EXPECT_DOUBLE_EQ(inertia_mat.getXY(), -14. / 3.);
+	EXPECT_DOUBLE_EQ(inertia_mat.getXZ(), -32. / 3.);
+	EXPECT_DOUBLE_EQ(inertia_mat.getYZ(), -43. / 3.);
+}
+
+TEST_F(PhysicsTest, GPE) {
+	double G = 6.67428e-8 / F_scale / pow(length_scale, 2.0)
+			* pow(mass_scale, 2.0);
+	n_body_sim->G = G;
+
+	EXPECT_EQ(grav_potential_energy(n_body_sim, 0, num_parts),
+			-G * (23. / 21. + sqrt(2.)));
+}
+
+TEST_F(PhysicsTest, MeasureAngularMomentum) {
+	// Add perturbing particle
+	num_perts = 1;
+	reb_particle temp_particles[num_parts];
+	for (int i = 0; i < num_parts; i++) {
+		temp_particles[i] = n_body_sim->particles[i];
+	}
+
+	n_body_sim->particles = (reb_particle*) malloc(
+			sizeof(reb_particle) * (num_parts + num_perts));
+	n_body_sim->N = num_parts + num_perts;
+	for (int i = 0; i < num_parts; i++) {
+		n_body_sim->particles[i] = temp_particles[i];
+	}
+
+	// Perturber location
+	n_body_sim->particles[3].x = 12;
+	n_body_sim->particles[3].y = 16;
+	n_body_sim->particles[3].z = 21;
+
+	// Perturber velocity
+	n_body_sim->particles[3].vx = 12;
+	n_body_sim->particles[3].vy = 16;
+	n_body_sim->particles[3].vz = 21;
+
+	// Perturber mass
+	n_body_sim->particles[3].m = 200;
+
+	Vector test_L = measure_L(n_body_sim, 0, num_parts);
+	Vector test_Lo = compute_Lorb(n_body_sim, 0, num_parts);
+	Vector test_L_origin = measure_L_origin(n_body_sim, 0, num_parts);
+
+	EXPECT_NEAR(test_L.getX(), 0., 1e-15);
+	EXPECT_NEAR(test_L.getY(), 0., 1e-15);
+	EXPECT_NEAR(test_L.getZ(), 0., 1e-15);
+
+	EXPECT_NEAR(test_Lo.getX(), 0., 1e-13);
+	EXPECT_NEAR(test_Lo.getY(), 0., 1e-13);
+	EXPECT_NEAR(test_Lo.getZ(), 0., 1e-13);
+
+	EXPECT_NEAR(test_L_origin.getX(), 0., 1e-13);
+	EXPECT_NEAR(test_L_origin.getY(), 0., 1e-13);
+	EXPECT_NEAR(test_L_origin.getZ(), 0., 1e-13);
+}
+
+TEST_F(PhysicsTest, Spin) {
+	Vector ans_omega = { 1, 12, 12 };
+	Vector orig_CoV = compute_cov(n_body_sim, 0, num_parts);
+
+	ASSERT_NO_THROW(spin_body(n_body_sim, 0, num_parts, ans_omega));
+
+	Vector test_omega = body_spin(n_body_sim, 0, num_parts);
+	Vector test_CoV = compute_cov(n_body_sim, 0, num_parts);
+
+	EXPECT_NEAR(test_omega.getX(), ans_omega.getX(), 1e-13);
+	EXPECT_NEAR(test_omega.getY(), ans_omega.getY(), 1e-13);
+	EXPECT_NEAR(test_omega.getZ(), ans_omega.getZ(), 1e-13);
+
+	EXPECT_NEAR(test_CoV.getX(), orig_CoV.getX(), 1e-15);
+	EXPECT_NEAR(test_CoV.getY(), orig_CoV.getY(), 1e-15);
+	EXPECT_NEAR(test_CoV.getZ(), orig_CoV.getZ(), 1e-15);
+}
+
+TEST_F(PhysicsTest, RotateBody) {
+	reb_particle *particles = n_body_sim->particles;
+	rotate_body(n_body_sim, 0, num_parts, 1, 1, 1);
+
+	EXPECT_NEAR(particles[0].x, 0.375236, 0.000001);
+	EXPECT_NEAR(particles[0].y, 4.0924, 0.0001);
+	EXPECT_NEAR(particles[0].z, -0.243612, 0.000001);
+}
+
+TEST_F(PhysicsTest, RotateOrigin) {
+	reb_particle *particles = n_body_sim->particles;
+	rotate_origin(n_body_sim, 0, num_parts, 1, 1, 1);
+
+	EXPECT_NEAR(particles[1].x, -0.0750932, 0.0000001);
+	EXPECT_NEAR(particles[1].y, -1.30969, 0.00001);
+	EXPECT_NEAR(particles[1].z, 2.69798, 0.00001);
+}
+
+TEST_F(PhysicsTest, RotateToPrinciple) {
+	Matrix orig_inertia = mom_inertia(n_body_sim, 0, num_parts);
+	double orig_eigs[3];
+	eigenvalues(orig_inertia, orig_eigs);
+
+	rotate_to_principal(n_body_sim, 0, num_parts);
+
+	Matrix test_inertia = mom_inertia(n_body_sim, 0, num_parts);
+	double test_eigs[3];
+	eigenvalues(test_inertia, test_eigs);
+
+	EXPECT_NEAR(test_inertia.getXY(), 0, 1e-13);
+	EXPECT_NEAR(test_inertia.getXZ(), 0, 1e-13);
+	EXPECT_NEAR(test_inertia.getYX(), 0, 1e-13);
+	EXPECT_NEAR(test_inertia.getYZ(), 0, 1e-13);
+	EXPECT_NEAR(test_inertia.getZX(), 0, 1e-13);
+	EXPECT_NEAR(test_inertia.getZY(), 0, 1e-13);
+
+	EXPECT_NEAR(test_eigs[0], orig_eigs[0], 1e-13);
+	EXPECT_NEAR(test_eigs[1], orig_eigs[1], 1e-13);
+	EXPECT_NEAR(test_eigs[2], orig_eigs[2], 1e-13);
+}
+
+TEST_F(PhysicsTest, SpringPower) {
+	reb_particle *particles = n_body_sim->particles;
+	connect_springs_dist(n_body_sim, 100, 0, num_parts, spr);
+	set_gamma(1);
+
+	// Yay nice numbers
+	particles[0].x = 1;
+	particles[0].y = 1;
+	particles[0].z = 4;
+
+	ASSERT_EQ(springs[1].particle_1, 0);
+	ASSERT_EQ(springs[1].particle_2, 2);
+
+	Vector ans_len = spring_r(n_body_sim, springs[1]);
+	Vector ans_len_hat = ans_len / ans_len.len();
+	double ans_pow = 0.75
+			* pow(dot(Vector( { -2, -3, -6 }), ans_len_hat) / ans_len.len(),
+					2.);
+	EXPECT_NEAR(dEdt(n_body_sim, springs[1]), ans_pow, 1e-5);
+
+	double ans_total_pow = dEdt(n_body_sim, springs[0])
+			+ dEdt(n_body_sim, springs[1]) + dEdt(n_body_sim, springs[2]);
+
+	EXPECT_EQ(dEdt_total(n_body_sim), ans_total_pow);
+}
+
+TEST_F(PhysicsTest, SPE) {
+	reb_particle *particles = n_body_sim->particles;
+	connect_springs_dist(n_body_sim, 100, 0, num_parts, spr);
+
+	// Yay nice numbers
+	particles[0].x = 1;
+	particles[0].y = 1;
+	particles[0].z = 4;
+
+	EXPECT_NEAR(spring_potential_energy(n_body_sim), 88+3.20975, 0.0001);
+}
+
+TEST_F(PhysicsTest, NonTransKE) {
+	EXPECT_EQ(compute_rot_kin(n_body_sim, 0, num_parts), 22.75);
 }
 
 class MyEnvironment: public testing::Environment {

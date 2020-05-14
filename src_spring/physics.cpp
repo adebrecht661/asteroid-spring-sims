@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <vector>
 extern "C" {
 #include "rebound.h"
 }
@@ -25,8 +26,10 @@ extern "C" {
 #include "springs.h"
 #include "physics.h"
 
+using std::vector;
+
 extern int num_springs;
-extern spring springs[];
+extern vector<spring> springs;
 extern int num_perts;
 extern const double L_EPS;
 
@@ -162,8 +165,7 @@ Vector measure_L(reb_simulation *const n_body_sim, int i_low, int i_high) {
 
 // Compute spin vector of body with particles in range [i_low,i_high) using inverse of moment of inertia matrix
 // Also returns eigenvalues of moment of inertia matrix, eigs[0] >= eigs[1] >= eigs[2]
-Vector body_spin(reb_simulation *const n_body_sim, int i_low, int i_high,
-		double eigs[3]) {
+Vector body_spin(reb_simulation *const n_body_sim, int i_low, int i_high) {
 
 	// Compute moment of inertia matrix
 	Matrix inertia_mat = mom_inertia(n_body_sim, i_low, i_high);
@@ -174,8 +176,7 @@ Vector body_spin(reb_simulation *const n_body_sim, int i_low, int i_high,
 	// Compute angular momentum vector with respect to its center of mass position and velocity
 	Vector L = measure_L(n_body_sim, i_low, i_high);
 
-	// Compute eigenvalues and spin vector
-	eigenvalues(inertia_mat, eigs);
+	// Compute spin vector
 	return inv_mom_inert * L;
 }
 
@@ -197,12 +198,12 @@ void spin_body(reb_simulation *const n_body_sim, int i_low, int i_high,
 
 			Vector dx = { particles[i].x, particles[i].y, particles[i].z };
 			dx -= CoM;
-			Vector r_cross_omega = cross(dx, omega);
+			Vector omega_cross_r = cross(omega, dx);
 
 			// Set it spinning with respect to center of mass
-			particles[i].vx = CoV.getX() + r_cross_omega.getX();
-			particles[i].vy = CoV.getY() + r_cross_omega.getY();
-			particles[i].vz = CoV.getZ() + r_cross_omega.getZ();
+			particles[i].vx = CoV.getX() + omega_cross_r.getX();
+			particles[i].vy = CoV.getY() + omega_cross_r.getY();
+			particles[i].vz = CoV.getZ() + omega_cross_r.getZ();
 		}
 	}
 
@@ -212,7 +213,7 @@ void spin_body(reb_simulation *const n_body_sim, int i_low, int i_high,
 // About central mass if number of perturbers is 1, otherwise about the center of mass of all the perturbers
 Vector compute_Lorb(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	reb_particle *particles = n_body_sim->particles;
-	static double total_mass = sum_mass(n_body_sim, i_low, i_high);
+	double total_mass = sum_mass(n_body_sim, i_low, i_high);
 
 	// Find center of mass and center of velocity of requested particles
 	Vector CoM = compute_com(n_body_sim, i_low, i_high);
@@ -239,51 +240,7 @@ Vector compute_Lorb(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	// Calculate and return orbital angular momentum
 	Vector dx = CoM0 - CoM;
 	Vector dv = CoV0 - CoV;
-	return total_mass*cross(dx, dv);
-
-}
-
-// Compute non-translational kinetic energy of particles in range [i_low,i_high)
-// Caution: Includes kinetic energy in vibration as well as rotation
-double compute_rot_kin(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
-
-	// Find center of velocity of requested particles
-	Vector CoV = compute_cov(n_body_sim, i_low, i_high);
-
-	// Sum all non-body kinetic energy (rotational, vibrational)
-	double KE = 0.0;
-#pragma omp parallel for
-	for (int i = i_low; i < i_high; i++) {
-		// Get velocity difference from bulk
-		Vector v = { particles[i].vx, particles[i].vy, particles[i].vz };
-		v -= CoV;
-
-		// Add kinetic energy
-		KE += 0.5 * particles[i].m * pow(v.len(), 2.0);
-	}
-	return KE;
-}
-
-// Compute (spin) angular momentum vector of all particles in range [i_low, i_high) with respect to origin
-Vector measure_L_origin(reb_simulation *const n_body_sim, int i_low,
-		int i_high) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
-
-	// Calculate angular momentum
-	Vector L;
-#pragma omp parallel for
-	for (int i = i_low; i < i_high; i++) {
-		Vector dx = { particles[i].x, particles[i].y, particles[i].z };
-		Vector dv = { particles[i].vx, particles[i].vy, particles[i].vz };
-		L += particles[i].m * cross(dx, dv);
-	}
-
-	// Return angular momentum vector
-	return L;
+	return total_mass * cross(dx, dv);
 }
 
 // Rotate a body with particle indices [i_low, i_high) about center of mass using Euler angles
@@ -380,24 +337,16 @@ void rotate_to_principal(reb_simulation *const n_body_sim, int i_low,
 
 	// Calculate moment of inertia matrix
 	Matrix inertia_mat = mom_inertia(n_body_sim, i_low, i_high);
-	std::cout.precision(3);
-	std::cout << "rotate_to_principal initial moment of inertia: "
-			<< inertia_mat << "\n";
 
 	// Get eigenvalues of moment of inertia
 	double eigs[3];
 	eigenvalues(inertia_mat, eigs);
-	std::cout << "Moment of inertia eigenvalues: " << eigs[0] << ", " << eigs[1]
-			<< ", " << eigs[2] << "\n";
 
 	// Get eigenvectors of moment of inertia matrix
 	// Note order
 	Vector eigvec1 = eigenvector(inertia_mat, eigs[2]);
-	std::cout << "MoI eigvec 1: << " << eigvec1 << "\n";
 	Vector eigvec2 = eigenvector(inertia_mat, eigs[1]);
-	std::cout << "MoI eigvec 2: << " << eigvec2 << "\n";
 	Vector eigvec3 = eigenvector(inertia_mat, eigs[0]);
-	std::cout << "MoI eigvec 3: << " << eigvec3 << "\n";
 
 	// Get eigenvector matrix for rotations
 	Matrix eigvec_mat = { eigvec1, eigvec2, eigvec3 };
@@ -428,14 +377,6 @@ void rotate_to_principal(reb_simulation *const n_body_sim, int i_low,
 		particles[i].vy = v_rot.getY();
 		particles[i].vz = v_rot.getZ();
 	}
-
-	// Check if rotation worked
-	inertia_mat = mom_inertia(n_body_sim, i_low, i_high);
-	std::cout << "rotate_to_principal final moment of inertia: " << inertia_mat
-			<< "\n";
-	eigenvalues(inertia_mat, eigs);
-	std::cout << "Moment of inertia eigenvalues: " << eigs[0] << ", " << eigs[1]
-			<< ", " << eigs[2] << std::endl;
 }
 
 /*******************/
@@ -491,7 +432,7 @@ double dEdt(reb_simulation *const n_body_sim, spring spr) {
 	Vector dv = v_i - v_j;
 
 	// Strain rate
-	double strain_rate = dot(dv, len_hat);
+	double strain_rate = dot(dv, len_hat) / len;
 
 	// Reduced mass
 	double m_red = m_i * m_j / (m_i + m_j);
@@ -565,6 +506,49 @@ double grav_potential_energy(reb_simulation *const n_body_sim, int i_low,
 	return GPE;
 }
 
+// Compute non-translational kinetic energy of particles in range [i_low,i_high)
+// Caution: Includes kinetic energy in vibration as well as rotation
+double compute_rot_kin(reb_simulation *const n_body_sim, int i_low,
+		int i_high) {
+	// Get particle info
+	reb_particle *particles = n_body_sim->particles;
+
+	// Find center of velocity of requested particles
+	Vector CoV = compute_cov(n_body_sim, i_low, i_high);
+
+	// Sum all non-body kinetic energy (rotational, vibrational)
+	double KE = 0.0;
+#pragma omp parallel for
+	for (int i = i_low; i < i_high; i++) {
+		// Get velocity difference from bulk
+		Vector v = { particles[i].vx, particles[i].vy, particles[i].vz };
+		v -= CoV;
+
+		// Add kinetic energy
+		KE += 0.5 * particles[i].m * pow(v.len(), 2.0);
+	}
+	return KE;
+}
+
+// Compute (spin) angular momentum vector of all particles in range [i_low, i_high) with respect to origin
+Vector measure_L_origin(reb_simulation *const n_body_sim, int i_low,
+		int i_high) {
+	// Get particle info
+	reb_particle *particles = n_body_sim->particles;
+
+	// Calculate angular momentum
+	Vector L;
+#pragma omp parallel for
+	for (int i = i_low; i < i_high; i++) {
+		Vector dx = { particles[i].x, particles[i].y, particles[i].z };
+		Vector dv = { particles[i].vx, particles[i].vy, particles[i].vz };
+		L += particles[i].m * cross(dx, dv);
+	}
+
+	// Return angular momentum vector
+	return L;
+}
+
 /********/
 /* Misc */
 /********/
@@ -606,65 +590,4 @@ void adjust_mass_side(reb_simulation *const n_body_sim, double m_fac,
 
 	std::cout << "adjust_mass_side: Modified masses of " << num_mod
 			<< " particles." << std::endl;
-}
-
-// Multiply all masses either inside or outside of ellipsoid by factor m_fac, then rescale
-void adjust_mass_ellipsoid(reb_simulation *const n_body_sim, double m_fac,
-		double a, double b, double c, Vector x0, bool inside) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
-	int i_low = 0;
-	int i_high = n_body_sim->N - num_perts;
-
-	// Get center of mass
-	Vector CoM = compute_com(n_body_sim, i_low, i_high);
-
-	// Factor by which to adjust display radius of particles
-	double r_fac = pow(m_fac, 1.0 / 2.0);
-
-	// Init total mass and number of particles in core
-	int num_core = 0;
-
-	// For each particle
-#pragma omp parallel for
-	for (int i = i_low; i < i_high; i++) {
-
-		// Get particle position
-		Vector x = { particles[i].x, particles[i].y, particles[i].z };
-		Vector r = x - CoM;
-		double r_mid_2 = pow(r.getX() / a, 2.0) + pow(r.getY() / b, 2.0)
-				+ pow(r.getZ() / c, 2.0);
-
-		// Adjust masses either inside ellipsoid, or
-		if (inside) {
-			if (r_mid_2 < 1.0) {
-				particles[i].m *= m_fac;
-				particles[i].r *= r_fac;
-				num_core++;
-			} else {
-				particles[i].r /= r_fac;
-			}
-		}
-		// Outside ellipsoid
-		if (!inside) {
-			if (r_mid_2 > 1.0) {
-				particles[i].m *= m_fac;
-				particles[i].r *= r_fac;
-			} else {
-				particles[i].r /= r_fac;
-				num_core++;
-			}
-		}
-	}
-
-	// Renormalize particle masses
-	double total_mass = sum_mass(n_body_sim, i_low, i_high);
-#pragma omp parallel for
-	for (int i = i_low; i < i_high; i++) {
-		particles[i].m /= total_mass;
-	}
-
-	std::cout << "adjust_mass_ellipsoid: There are " << num_core
-			<< " core particles and " << n_body_sim->N - num_perts - num_core
-			<< " shell particles." << std::endl;
 }

@@ -8,8 +8,11 @@
 #ifndef SRC_SPRING_OUTPUT_SPRING_H_
 #define SRC_SPRING_OUTPUT_SPRING_H_
 
+#include <vector>
 #include <string>
+
 using std::string;
+using std::vector;
 
 /********************/
 /* Output functions */
@@ -18,7 +21,7 @@ using std::string;
 // Write information about surface particles to specified filename
 // t x y z vx vy vz ax ay az r m
 void write_surf_part(reb_simulation *const n_body_sim, int i_low, int i_high,
-		string filename);
+		string filename, vector<bool> is_surf);
 // Write information about resolved body to specified filename
 // t x y z vx vy vz omx omy omz llx lly llz Ixx Iyy Izz Ixy Iyz Ixz KErot PEspr PEgrav Etot dEdtnow dEdtave
 void write_resolved_with_E(reb_simulation *const n_body_sim, int i_low,
