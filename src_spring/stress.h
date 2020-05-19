@@ -37,4 +37,11 @@ double Young_mesh(reb_simulation *const n_body_sim, int i_low,
 // Caution: Assumes radius = 1
 double Young_full_mesh();
 
+/*************/
+/* Operators */
+/*************/
+
+// Stream output
+std::ostream& operator<<(std::ostream &os, const stress_tensor &stress);
+
 #endif /* SRC_SPRING_STRESS_H_ */

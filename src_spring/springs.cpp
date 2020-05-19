@@ -61,7 +61,7 @@ int add_spring(reb_simulation *const n_body_sim, int particle_1, int particle_2,
 	// Place indices in order, for convenience
 	if (particle_2 < particle_1) {
 		particle_low = particle_2;
-		particle_high = particle_1; // order of indices
+		particle_high = particle_1;
 	} else {
 		particle_low = particle_1;
 		particle_high = particle_2;
@@ -357,7 +357,7 @@ Vector spring_i_force(reb_simulation *const n_body_sim, int spring_index) {
 
 	// Get spring length vector
 	Vector dx = spring_r(n_body_sim, springs[spring_index]);
-	double len = dx.len() + L_EPS;
+	double len = dx.len();
 	Vector len_hat = dx / len;
 
 	// Get particle masses

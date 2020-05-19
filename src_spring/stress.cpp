@@ -19,7 +19,7 @@ extern "C" {
 
 using std::vector;
 
-extern spring springs[];
+extern vector<spring> springs;
 extern int num_springs; // Number of springs
 extern int num_perts;
 
@@ -51,8 +51,8 @@ void update_stress(reb_simulation *const n_body_sim) {
 #pragma omp parallel for
 	for (int k = 0; k < num_springs; k++) {
 		// Get particles
-		int ii = springs[k].particle_1;
-		int jj = springs[k].particle_2;
+		int i = springs[k].particle_1;
+		int j = springs[k].particle_2;
 
 		// Calculate force and length vector of spring k
 		Vector F = spring_i_force(n_body_sim, k);
@@ -60,18 +60,18 @@ void update_stress(reb_simulation *const n_body_sim) {
 
 		// Add stresses to each node
 		// Tensile stress should be negative
-		stresses[ii].stress += outer(F, L);
-		stresses[jj].stress -= outer(F, L);
+		stresses[i].stress += outer(F, L);
+		stresses[j].stress -= outer(F, L);
 
 		// Keep track of which spring is applying maximum force
 		double F_mag = F.len();
-		if (F_mag > stresses[ii].max_force) {
-			stresses[ii].max_force = F_mag;
-			stresses[ii].max_force_spring = k;
+		if (F_mag > stresses[i].max_force) {
+			stresses[i].max_force = F_mag;
+			stresses[i].max_force_spring = k;
 		}
-		if (F_mag > stresses[jj].max_force) {
-			stresses[jj].max_force = F_mag;
-			stresses[jj].max_force_spring = k;
+		if (F_mag > stresses[j].max_force) {
+			stresses[j].max_force = F_mag;
+			stresses[j].max_force_spring = k;
 		}
 	}
 
@@ -117,6 +117,7 @@ int mark_failed_nodes(reb_simulation *const n_body_sim, double mass_div,
 		// Get particle mass and tensile strength
 		double m = n_body_sim->particles[i].m;
 		double tens_str;
+
 		// Particle is interior if mass is above pmass_div
 		if (m > mass_div) {
 			tens_str = tens_str_int;
@@ -127,14 +128,11 @@ int mark_failed_nodes(reb_simulation *const n_body_sim, double mass_div,
 		// Compare stress eigenvalues to failure conditions
 		double tau1 = stresses[i].eigs[0];
 		double tau3 = stresses[i].eigs[2];
-		bool fail = false;
 		double tau13 = tau1 - tau3;
 		if (((tau1 < -3.0 * tau3) && (tau3 < tens_str))
 				|| ((tau1 >= -3.0 * tau3)
-						&& (tau13 * tau13 + 8.0 * tens_str * tau13 > 0)))
-			fail = true;
-		if (fail) {
-			stresses[i].failing = 1;
+						&& (tau13 * tau13 + 8.0 * tens_str * tau13 > 0))) {
+			stresses[i].failing = true;
 			n_fail++;
 		}
 	}
@@ -150,8 +148,8 @@ int mark_failed_nodes(reb_simulation *const n_body_sim, double mass_div,
 // Equation 20 by Kot et al. 2014 -> sum_i [k_i L_i^2]/(6V)
 // Uses rest lengths
 // Only computes center of mass using particles in range [i_low,i_high)
-double Young_mesh(reb_simulation *const n_body_sim, int i_low,
-		int i_high, double r_min, double r_max) {
+double Young_mesh(reb_simulation *const n_body_sim, int i_low, int i_high,
+		double r_min, double r_max) {
 	// Initialize sum
 	double sum = 0.0;
 
@@ -199,4 +197,18 @@ double Young_full_mesh() {
 
 	// Return Young's modulus
 	return sum / (6.0 * volume);
+}
+
+/*************/
+/* Operators */
+/*************/
+
+// Stream output
+std::ostream& operator<<(std::ostream &os, const stress_tensor &stress) {
+	os << "Stress tensor: " << stress.stress << "\nEigenvalues: "
+			<< stress.eigs[0] << ", " << stress.eigs[1] << ", "
+			<< stress.eigs[2] << "\nMax force: " << stress.max_force
+			<< "\nSpring with max force: " << stress.max_force_spring
+			<< "\nFailing?: " << stress.failing;
+	return os;
 }

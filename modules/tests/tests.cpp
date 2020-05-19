@@ -142,6 +142,27 @@ protected:
 
 	void TearDown() override {
 		SpringTest::TearDown();
+		num_perts = 0;
+	}
+};
+
+class StressTest: public PhysicsTest {
+protected:
+	void SetUp() override {
+		PhysicsTest::SetUp();
+
+		// Set velocities to 0 for spring 2 - to eliminate damping
+		n_body_sim->particles[1].vx = 0;
+		n_body_sim->particles[1].vy = 0;
+		n_body_sim->particles[1].vz = 0;
+
+		n_body_sim->particles[2].vx = 0;
+		n_body_sim->particles[2].vy = 0;
+		n_body_sim->particles[2].vz = 0;
+	}
+
+	void TearDown() override {
+		PhysicsTest::TearDown();
 	}
 };
 
@@ -849,6 +870,8 @@ TEST_F(SpringTest, Force) {
 	EXPECT_NEAR(particles[2].az, ans_accel2.getZ(),
 			abs(0.000001 * ans_accel2.getZ()));
 
+	EXPECT_EQ(spring_i_force(n_body_sim, 2), zero_vector);
+
 	set_gamma(1);
 	zero_accel(n_body_sim);
 	spring_forces(n_body_sim);
@@ -882,6 +905,16 @@ TEST_F(SpringTest, Force) {
 			abs(0.000001 * ans_accel21.getY()));
 	EXPECT_NEAR(particles[2].az, ans_accel21.getZ(),
 			abs(0.000001 * ans_accel21.getZ()));
+
+	particles[1].vx = 0;
+	particles[1].vy = 0;
+	particles[1].vz = 0;
+
+	particles[2].vx = 0;
+	particles[2].vy = 0;
+	particles[2].vz = 0;
+
+	EXPECT_EQ(spring_i_force(n_body_sim, 2), zero_vector);
 }
 
 TEST_F(SpringTest, AdjustProps) {
@@ -1184,11 +1217,90 @@ TEST_F(PhysicsTest, SPE) {
 	particles[0].y = 1;
 	particles[0].z = 4;
 
-	EXPECT_NEAR(spring_potential_energy(n_body_sim), 88+3.20975, 0.0001);
+	EXPECT_NEAR(spring_potential_energy(n_body_sim), 88 + 3.20975, 0.0001);
 }
 
 TEST_F(PhysicsTest, NonTransKE) {
 	EXPECT_EQ(compute_rot_kin(n_body_sim, 0, num_parts), 22.75);
+}
+
+/****************/
+/* Stress tests */
+/****************/
+
+TEST_F(StressTest, CalcStress) {
+	reb_particle *particles = n_body_sim->particles;
+
+	connect_springs_dist(n_body_sim, 100, 0, num_parts, spr);
+
+	// Yay nice numbers
+	particles[0].x = 1;
+	particles[0].y = 1;
+	particles[0].z = 4;
+
+	update_stress(n_body_sim);
+// Not actually sure what the stress should be... need to figure that out. (????????)
+}
+
+TEST_F(StressTest, FailTest) {
+	reb_particle *particles = n_body_sim->particles;
+
+	connect_springs_dist(n_body_sim, 100, 0, num_parts, spr);
+
+	// Yay nice numbers
+	particles[0].x = 1;
+	particles[0].y = 1;
+	particles[0].z = 4;
+
+	update_stress(n_body_sim);
+
+	// Fail outside
+	EXPECT_EQ(mark_failed_nodes(n_body_sim, 100, -100, 500), 3);
+	EXPECT_TRUE(stresses[0].failing);
+	EXPECT_TRUE(stresses[1].failing);
+	EXPECT_TRUE(stresses[2].failing);
+
+	for (int i = 0; i < num_parts; i++) {
+		stresses[i].failing = false;
+	}
+
+	// Fail inside
+	EXPECT_EQ(mark_failed_nodes(n_body_sim, 1e-6, 500, -100), 3);
+	EXPECT_TRUE(stresses[0].failing);
+	EXPECT_TRUE(stresses[1].failing);
+	EXPECT_TRUE(stresses[2].failing);
+
+	for (int i = 0; i < num_parts; i++) {
+		stresses[i].failing = false;
+	}
+
+	// Fail particle 0
+	EXPECT_EQ(mark_failed_nodes(n_body_sim, 1.5, -100, 500), 1);
+	EXPECT_TRUE(stresses[0].failing);
+	EXPECT_FALSE(stresses[1].failing);
+	EXPECT_FALSE(stresses[2].failing);
+
+	for (int i = 0; i < num_parts; i++) {
+		stresses[i].failing = false;
+	}
+
+	// Fail particles 1 and 2
+	EXPECT_EQ(mark_failed_nodes(n_body_sim, 1.5, 500, -100), 2);
+	EXPECT_FALSE(stresses[0].failing);
+	EXPECT_TRUE(stresses[1].failing);
+	EXPECT_TRUE(stresses[2].failing);
+}
+
+TEST_F(StressTest, YoungsMod) {
+	Vector orig_CoM = { 4. / 3., 13. / 6., 11. / 3. };
+	connect_springs_dist(n_body_sim, 100, 0, num_parts, spr);
+
+	EXPECT_EQ(Young_full_mesh(), spr.k*76/6/(4*M_PI/3));
+	EXPECT_NEAR(Young_mesh(n_body_sim, 0, num_parts, 0, 100),
+			spr.k*76/6/(4*M_PI*(pow(100,3.))/3), 1e-15);
+
+	EXPECT_NEAR(Young_mesh(n_body_sim, 0, num_parts, 0, 2),
+			spr.k*67/6/(4*M_PI*(pow(2,3.))/3),1e-15);
 }
 
 class MyEnvironment: public testing::Environment {
