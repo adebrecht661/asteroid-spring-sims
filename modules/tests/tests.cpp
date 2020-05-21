@@ -24,6 +24,7 @@ extern "C" {
 #include "input_spring.h"
 #include "stress.h"
 #include "physics.h"
+#include "orb.h"
 #include <gtest/gtest.h>
 
 using namespace libconfig;
@@ -166,6 +167,48 @@ protected:
 	}
 };
 
+class OrbTest: public SpringTest {
+protected:
+	void SetUp() override {
+		SpringTest::SetUp();
+
+		double G = 6.67428e-8 / F_scale / pow(length_scale, 2.0)
+				* pow(mass_scale, 2.0);
+		n_body_sim->G = G;
+
+		// Add perturbing particle
+		num_perts = 1;
+		reb_particle temp_particles[num_parts];
+		for (int i = 0; i < num_parts; i++) {
+			temp_particles[i] = n_body_sim->particles[i];
+		}
+
+		n_body_sim->particles = (reb_particle*) malloc(
+				sizeof(reb_particle) * (num_parts + num_perts));
+		n_body_sim->N = num_parts + num_perts;
+		for (int i = 0; i < num_parts; i++) {
+			n_body_sim->particles[i] = temp_particles[i];
+		}
+
+		// Perturber location
+		n_body_sim->particles[3].x = 12;
+		n_body_sim->particles[3].y = 16;
+		n_body_sim->particles[3].z = 21;
+
+		// Perturber velocity
+		n_body_sim->particles[3].vx = 12;
+		n_body_sim->particles[3].vy = 16;
+		n_body_sim->particles[3].vz = 21;
+
+		// Perturber mass
+		n_body_sim->particles[3].m = 200;
+	}
+
+	void TearDown() override {
+		SpringTest::TearDown();
+		num_perts = 0;
+	}
+};
 /*********************/
 /* Vector-only Tests */
 /*********************/
@@ -1300,7 +1343,288 @@ TEST_F(StressTest, YoungsMod) {
 			spr.k*76/6/(4*M_PI*(pow(100,3.))/3), 1e-15);
 
 	EXPECT_NEAR(Young_mesh(n_body_sim, 0, num_parts, 0, 2),
-			spr.k*67/6/(4*M_PI*(pow(2,3.))/3),1e-15);
+			spr.k*67/6/(4*M_PI*(pow(2,3.))/3), 1e-15);
+}
+
+/*************/
+/* Orb tests */
+/*************/
+
+TEST_F(OrbTest, TotMass) {
+	EXPECT_EQ(sum_mass(n_body_sim, 0, num_parts), 6);
+}
+
+TEST_F(OrbTest, ComputeOrb) {
+	reb_particle *particles = n_body_sim->particles;
+	reb_particle perturber = particles[n_body_sim->N - num_perts];
+	double test_a, test_mean_motion, test_e, test_i, test_L, tot_mass =
+			sum_mass(n_body_sim, 0, num_parts);
+
+	ASSERT_NO_THROW(
+			compute_orb(n_body_sim, 0, num_parts, &test_a, &test_mean_motion,
+					&test_e, &test_i, &test_L));
+	PhaseState test_state;
+	test_state.v = Vector( { perturber.vx, perturber.vy, perturber.vz })
+			- compute_cov(n_body_sim, 0, num_parts);
+	test_state.x = Vector( { perturber.x, perturber.y, perturber.z })
+			- compute_com(n_body_sim, 0, num_parts);
+
+	OrbitalElements test_orb_el = cart_to_kep(
+			n_body_sim->G * (perturber.m + tot_mass), test_state);
+
+	EXPECT_NEAR(test_a, test_orb_el.a, 1e-8);
+	EXPECT_EQ(test_e, test_orb_el.e);
+	EXPECT_EQ(test_i, test_orb_el.i);
+	EXPECT_EQ(test_L, compute_Lorb(n_body_sim, 0, num_parts).len() / tot_mass);
+	EXPECT_EQ(test_mean_motion,
+			sqrt(
+					n_body_sim->G * (perturber.m + tot_mass)
+							/ pow(test_orb_el.a, 3.)));
+}
+
+TEST_F(OrbTest, QuadAccel) {
+	reb_particle *particles = n_body_sim->particles;
+	zero_accel(n_body_sim);
+
+	double J2squig = 5, Rp = 50, GM = n_body_sim->G
+			* n_body_sim->particles[3].m;
+
+	double J2 = -J2squig * GM * pow(Rp, 2.);
+	double ans_accel[4][3];
+
+	Vector x_p = { particles[3].x, particles[3].y, particles[3].z };
+	for (int i = 0; i < num_parts; i++) {
+		Vector x_1 = { particles[i].x, particles[i].y, particles[i].z };
+		double x = x_p.getX() - x_1.getX();
+		double y = x_p.getY() - x_1.getY();
+		double z = x_p.getZ() - x_1.getZ();
+		ans_accel[i][0] = J2 * x / pow((x_p - x_1).len(), 7.)
+				* (6 * (pow(z, 2)) - 3. / 2. * (pow(x, 2) + pow(y, 2)))
+				/ particles[i].m;
+		ans_accel[i][1] = J2 * y / pow((x_p - x_1).len(), 7.)
+				* (6 * (pow(z, 2)) - 3. / 2. * (pow(x, 2) + pow(y, 2)))
+				/ particles[i].m;
+		ans_accel[i][2] = J2 * z / pow((x_p - x_1).len(), 7.)
+				* (3 * (pow(z, 2)) - 9. / 2. * (pow(x, 2) + pow(y, 2)))
+				/ particles[i].m;
+		for (int j = 0; j < 3; j++) {
+			ans_accel[3][j] -= ans_accel[i][j] * particles[i].m
+					/ particles[3].m;
+		}
+	}
+
+	quadrupole_accel(n_body_sim, J2squig, Rp, 0, 0, n_body_sim->N - num_perts);
+
+	for (int i = 0; i < num_parts; i++) {
+		EXPECT_NEAR(particles[i].ax, ans_accel[i][0],
+				abs(1e-5 * ans_accel[i][0]));
+		EXPECT_NEAR(particles[i].ay, ans_accel[i][1],
+				abs(1e-5 * ans_accel[i][1]));
+		EXPECT_NEAR(particles[i].az, ans_accel[i][2],
+				abs(1e-5 * ans_accel[i][2]));
+	}
+
+	EXPECT_NEAR(particles[3].ax, ans_accel[3][0], abs(1e-5 * ans_accel[3][0]));
+	EXPECT_NEAR(particles[3].ay, ans_accel[3][1], abs(1e-5 * ans_accel[3][1]));
+	EXPECT_NEAR(particles[3].az, ans_accel[3][2], abs(1e-5 * ans_accel[3][2]));
+
+	// Should probably test the tilt too, but this sort of does (just simplest case)
+}
+
+TEST_F(OrbTest, DriftRes) {
+	reb_particle *particles = n_body_sim->particles;
+	double ans_v[4][3];
+
+	Vector CoM = compute_com(n_body_sim, 0, num_parts);
+	Vector CoV = compute_cov(n_body_sim, 0, num_parts);
+	Vector x = CoM
+			- Vector( { particles[3].x, particles[3].y, particles[3].z });
+	Vector v = CoV
+			- Vector( { particles[3].vx, particles[3].vy, particles[3].vz });
+
+	Vector orb_dir = cross(x, cross(x, v));
+	orb_dir /= orb_dir.len();
+
+	double m1 = sum_mass(n_body_sim, 0, num_parts), m2 = particles[3].m;
+	double GM = n_body_sim->G * (m1 + m2);
+	double v_cent = sqrt(GM / x.len());
+	Vector v_c = v_cent * orb_dir;
+
+	Vector dv = v - v_c;
+
+	for (int i = 0; i < num_parts; i++) {
+		ans_v[i][0] = particles[i].vx
+				- 10 * (v.getX() * 1. / 10. + dv.getX() * 1. / 5.) * m1
+						/ (m1 + m2);
+		ans_v[i][1] = particles[i].vy
+				- 10 * (v.getY() * 1. / 10. + dv.getY() * 1. / 5.) * m1
+						/ (m1 + m2);
+		ans_v[i][2] = particles[i].vz
+				- 10 * (v.getZ() * 1. / 10. + dv.getZ() * 1. / 5.) * m1
+						/ (m1 + m2);
+	}
+
+	ans_v[3][0] = particles[3].vx
+			- 10 * (v.getX() * 1. / 10. + dv.getX() * 1. / 5.) * m2 / (m1 + m2);
+	ans_v[3][1] = particles[3].vy
+			- 10 * (v.getY() * 1. / 10. + dv.getY() * 1. / 5.) * m2 / (m1 + m2);
+	ans_v[3][2] = particles[3].vz
+			- 10 * (v.getZ() * 1. / 10. + dv.getZ() * 1. / 5.) * m2 / (m1 + m2);
+
+	drift_resolved(n_body_sim, 10., 1. / 5., 1. / 5., 3., 0, num_parts);
+
+	for (int i = 0; i < num_parts + num_perts; i++) {
+		EXPECT_NEAR(particles[i].vx, ans_v[i][0], abs(1e-5 * ans_v[i][0]));
+		EXPECT_NEAR(particles[i].vy, ans_v[i][1], abs(1e-5 * ans_v[i][1]));
+		EXPECT_NEAR(particles[i].vz, ans_v[i][2], abs(1e-5 * ans_v[i][2]));
+	}
+}
+
+TEST_F(OrbTest, AddBin) {
+	OrbitalElements bin_orb_el;
+	bin_orb_el.a = 60;
+	bin_orb_el.e = 0.2;
+	bin_orb_el.i = M_PI / 6.;
+	bin_orb_el.long_asc_node = M_PI / 4.;
+	bin_orb_el.arg_peri = M_PI / 3.;
+	bin_orb_el.mean_anom = M_PI / 2.;
+
+	double bin_sep = 20, G = n_body_sim->G;
+	add_bin_kep(n_body_sim, 400, 1, 1. / 4., bin_sep, bin_orb_el);
+	// Update pointer after
+	reb_particle *particles = n_body_sim->particles;
+
+	PhaseState ans_state = kep_to_cart(G * 506, bin_orb_el);
+
+	// Center of mass of binary relative to resolved body should match orb_el
+	Vector res_CoM = compute_com(n_body_sim, 0, num_parts);
+	Vector res_CoV = compute_cov(n_body_sim, 0, num_parts);
+	Vector test_bin_CoM = compute_com(n_body_sim, 4, 6) - res_CoM;
+	Vector test_bin_CoV = compute_cov(n_body_sim, 4, 6) - res_CoV;
+
+	EXPECT_NEAR(test_bin_CoM.getX(), ans_state.x.getX(), 1e-10);
+	EXPECT_NEAR(test_bin_CoM.getY(), ans_state.x.getY(), 1e-10);
+	EXPECT_NEAR(test_bin_CoM.getZ(), ans_state.x.getZ(), 1e-10);
+
+	EXPECT_NEAR(test_bin_CoV.getX(), ans_state.v.getX(), 1e-10);
+	EXPECT_NEAR(test_bin_CoV.getY(), ans_state.v.getY(), 1e-10);
+	EXPECT_NEAR(test_bin_CoV.getZ(), ans_state.v.getZ(), 1e-10);
+
+	// Actual particle positions are relative to zero
+	EXPECT_DOUBLE_EQ(particles[4].x,
+			res_CoM.getX() + test_bin_CoM.getX() + bin_sep / 5.);
+	EXPECT_DOUBLE_EQ(particles[4].y, res_CoM.getY() + test_bin_CoM.getY());
+	EXPECT_DOUBLE_EQ(particles[4].z, res_CoM.getZ() + test_bin_CoM.getZ());
+	EXPECT_DOUBLE_EQ(particles[5].x,
+			res_CoM.getX() + test_bin_CoM.getX() - 4 * bin_sep / 5.);
+	EXPECT_DOUBLE_EQ(particles[5].y, res_CoM.getY() + test_bin_CoM.getY());
+	EXPECT_DOUBLE_EQ(particles[5].z, res_CoM.getZ() + test_bin_CoM.getZ());
+
+	EXPECT_DOUBLE_EQ(particles[4].vx, res_CoV.getX() + test_bin_CoV.getX());
+	EXPECT_DOUBLE_EQ(particles[4].vy,
+			res_CoV.getY() + test_bin_CoV.getY()
+					+ sqrt(G * 500 / bin_sep) / 5.);
+	EXPECT_DOUBLE_EQ(particles[4].vz, res_CoV.getZ() + test_bin_CoV.getZ());
+	EXPECT_DOUBLE_EQ(particles[5].vx, res_CoV.getX() + test_bin_CoV.getX());
+	EXPECT_DOUBLE_EQ(particles[5].vy,
+			res_CoV.getY() + test_bin_CoV.getY()
+					- 4. * sqrt(G * 500 / bin_sep) / 5.);
+	EXPECT_DOUBLE_EQ(particles[5].vz, res_CoV.getZ() + test_bin_CoV.getZ());
+}
+
+TEST_F(OrbTest, AddPtMass) {
+	OrbitalElements test_orb_el;
+	test_orb_el.a = 60;
+	test_orb_el.e = 0.2;
+	test_orb_el.i = M_PI / 6.;
+	test_orb_el.long_asc_node = M_PI / 4.;
+	test_orb_el.arg_peri = M_PI / 3.;
+	test_orb_el.mean_anom = M_PI / 2.;
+
+	add_pt_mass_kep(n_body_sim, 0, num_parts, -1, 500, 1, test_orb_el);
+	reb_particle *particles = n_body_sim->particles;
+
+	double G = n_body_sim->G;
+
+	PhaseState ans_state1 = kep_to_cart(G * 506, test_orb_el);
+
+	// Center of mass of resolved body should match orb_el
+	Vector test_CoM = compute_com(n_body_sim, 0, num_parts);
+	Vector test_CoV = compute_cov(n_body_sim, 0, num_parts);
+
+	EXPECT_NEAR(test_CoM.getX(), ans_state1.x.getX(), 1e-10);
+	EXPECT_NEAR(test_CoM.getY(), ans_state1.x.getY(), 1e-10);
+	EXPECT_NEAR(test_CoM.getZ(), ans_state1.x.getZ(), 1e-10);
+
+	EXPECT_NEAR(test_CoV.getX(), ans_state1.v.getX(), 1e-10);
+	EXPECT_NEAR(test_CoV.getY(), ans_state1.v.getY(), 1e-10);
+	EXPECT_NEAR(test_CoV.getZ(), ans_state1.v.getZ(), 1e-10);
+
+	// New particle should be at origin, not moving
+	EXPECT_EQ(particles[4].x, 0);
+	EXPECT_EQ(particles[4].y, 0);
+	EXPECT_EQ(particles[4].z, 0);
+	EXPECT_EQ(particles[4].vx, 0);
+	EXPECT_EQ(particles[4].vy, 0);
+	EXPECT_EQ(particles[4].vz, 0);
+
+	add_pt_mass_kep(n_body_sim, 0, num_parts, 3, 100, 1, test_orb_el);
+	particles = n_body_sim->particles;
+
+	PhaseState ans_state2 = kep_to_cart(G * 300, test_orb_el);
+
+	EXPECT_NEAR(particles[5].x - particles[3].x, ans_state2.x.getX(), 1e-10);
+	EXPECT_NEAR(particles[5].y - particles[3].y, ans_state2.x.getY(), 1e-10);
+	EXPECT_NEAR(particles[5].z - particles[3].z, ans_state2.x.getZ(), 1e-10);
+
+	EXPECT_NEAR(particles[5].vx - particles[3].vx, ans_state2.v.getX(), 1e-10);
+	EXPECT_NEAR(particles[5].vy - particles[3].vy, ans_state2.v.getY(), 1e-10);
+	EXPECT_NEAR(particles[5].vz - particles[3].vz, ans_state2.v.getZ(), 1e-10);
+}
+
+TEST_F(OrbTest, DriftBin) {
+	double ans_v[4][3];
+	OrbitalElements test_orb_el;
+	test_orb_el.a = 60;
+	test_orb_el.e = 0.2;
+	test_orb_el.i = M_PI / 6.;
+	test_orb_el.long_asc_node = M_PI / 4.;
+	test_orb_el.arg_peri = M_PI / 3.;
+	test_orb_el.mean_anom = M_PI / 2.;
+
+	add_pt_mass_kep(n_body_sim, 0, num_parts, 3, 100, 1, test_orb_el);
+	reb_particle *particles = n_body_sim->particles;
+	double G = n_body_sim->G;
+
+	Vector x = Vector( { particles[5].x, particles[5].y, particles[5].z })
+			- Vector( { particles[3].x, particles[3].y, particles[3].z });
+	Vector v5 = { particles[5].vx, particles[5].vy, particles[5].vz };
+	Vector v3 = { particles[3].vx, particles[3].vy, particles[3].vz };
+	Vector v = v5 - v3;
+
+	Vector orb_dir = cross(x, cross(x, v));
+	orb_dir /= orb_dir.len();
+
+	double m1 = particles[5].m, m2 = particles[3].m;
+	double GM = n_body_sim->G * (m1 + m2);
+	double v_cent = sqrt(GM / x.len());
+	Vector v_c = v_cent * orb_dir;
+
+	Vector dv = v - v_c;
+	Vector dv1 = 10 * (v / 10. + dv / 5.);
+	Vector dv2 = 10 * (v / 10. + dv / 5.);
+	dv1 *= m1 / (m1 + m2);
+	dv2 *= m2 / (m1 + m2);
+
+	drift_bin(n_body_sim, 10, 1. / 5., 1. / 5., 3, 5);
+
+	EXPECT_NEAR(particles[5].vx, v5.getX() - dv1.getX(), 1e-10);
+	EXPECT_NEAR(particles[5].vy, v5.getY() - dv1.getY(), 1e-10);
+	EXPECT_NEAR(particles[5].vz, v5.getZ() - dv1.getZ(), 1e-10);
+
+	EXPECT_NEAR(particles[3].vx, v3.getX() - dv2.getX(), 1e-10);
+	EXPECT_NEAR(particles[3].vy, v3.getY() - dv2.getY(), 1e-10);
+	EXPECT_NEAR(particles[3].vz, v3.getZ() - dv2.getZ(), 1e-10);
 }
 
 class MyEnvironment: public testing::Environment {

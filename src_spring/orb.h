@@ -14,21 +14,21 @@
 /* Perturber operations */
 /************************/
 
-// Add binary perturbers with primary mass m_prim, display radius r_prim
+// Add binary perturbers with primary mass m_prim, secondary mass m_prim * m_ratio, display radius r_prim
 // Resolved body orbits center of mass of binary system in orbit defined by orb_el
-double add_bin_kep(reb_simulation *const n_body_sim, double m_prim, double r_prim,
-		double m_ratio, double sep, OrbitalElements orb_el);
+double add_bin_kep(reb_simulation *const n_body_sim, double m_prim,
+		double r_prim, double m_ratio, double sep, OrbitalElements orb_el);
 // Add perturbing mass of mass and radius
 // if i_p < 0, mass is placed at origin and resolved body orbits it in orbit defined by orb_el
 // if i_p >= 0, mass is placed into orbit defined by orb_el around mass at i_p
-double add_pt_mass_kep(reb_simulation *const n_body_sim, int i_low,
-		int i_high, int i_p, double mass, double radius, OrbitalElements orb_el);
+double add_pt_mass_kep(reb_simulation *const n_body_sim, int i_low, int i_high,
+		int i_p, double mass, double radius, OrbitalElements orb_el);
 // Drift orbits of binary particles 1 and 2
-void drift_bin(reb_simulation *const n_body_sim, double timestep, double inv_tau_a,
-		double inv_tau_e, int part_1, int part_2);
+void drift_bin(reb_simulation *const n_body_sim, double timestep,
+		double inv_tau_a, double inv_tau_e, int part_1, int part_2);
 // Drift orbits of particle and resolved body
-void drift_resolved(reb_simulation *const n_body_sim, double timestep, double inv_tau_a,
-		double inv_tau_e, int i_part, int i_low, int i_high);
+void drift_resolved(reb_simulation *const n_body_sim, double timestep,
+		double inv_tau_a, double inv_tau_e, int i_part, int i_low, int i_high);
 // Apply quadrupole moment acceleration from particle i_p (with dimensionless quadrupole coefficient J2_p)
 void quadrupole_accel(reb_simulation *const n_body_sim, double J2_p, double R_p,
 		double phi_p, double theta_p, int i_p);

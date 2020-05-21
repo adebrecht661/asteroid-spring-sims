@@ -25,10 +25,10 @@ extern int num_perts;
 // Center of mass of new particles set to be in orbit with given orbital elements
 // r_prim is radius for display of primary
 // Orbital elements refer to orbit of resolved body (particles [0,N)) about binary
-// The resolved body is assumed to be alone and at origin
+// The resolved body is assumed to be alone (i.e. this doesn't take into account any perturbers already present)
 // Returns mean motion of resolved body around binary
-double add_bin_kep(reb_simulation *const n_body_sim, double m_prim,
-		double r_prim, double m_ratio, double sep, OrbitalElements orb_el) {
+double add_bin_kep(reb_simulation *n_body_sim, double m_prim, double r_prim,
+		double m_ratio, double sep, OrbitalElements orb_el) {
 
 	// Initialize particle
 	reb_particle pt;
@@ -63,31 +63,39 @@ double add_bin_kep(reb_simulation *const n_body_sim, double m_prim,
 		r_2 = 1.0;
 
 	// Get phase space state
-	// +1 here for extended body
-	double GM = n_body_sim->G * (mtot + 1.0);
+	// Need mass, location, and relative velocity of extended body
+	int i_low = 0;
+	int i_high = n_body_sim->N - num_perts;
+
+	double GM = n_body_sim->G * (mtot + sum_mass(n_body_sim, i_low, i_high));
 	PhaseState state = kep_to_cart(GM, orb_el);
 
-	// Add secondary
-	pt.x = state.x.getX() + x_2;
-	pt.y = state.x.getY();
-	pt.z = state.x.getZ();
-	pt.vx = state.v.getX();
-	pt.vy = state.v.getY() + vy_2;
-	pt.vz = state.v.getZ();
-	pt.m = m_2;
-	pt.r = r_2;
-	reb_add(n_body_sim, pt);
+	Vector res_CoM = compute_com(n_body_sim, i_low, i_high);
+	Vector res_CoV = compute_cov(n_body_sim, i_low, i_high);
 
 	// Add primary
-	pt.x = state.x.getX() + x_1;
-	pt.y = state.x.getY();
-	pt.z = state.x.getZ();
-	pt.vx = state.v.getX();
-	pt.vy = state.v.getY() + vy_1;
-	pt.vz = state.v.getZ();
+	pt.x = res_CoM.getX() + state.x.getX() + x_1;
+	pt.y = res_CoM.getY() + state.x.getY();
+	pt.z = res_CoM.getZ() + state.x.getZ();
+	pt.vx = res_CoV.getX() + state.v.getX();
+	pt.vy = res_CoV.getY() + state.v.getY() + vy_1;
+	pt.vz = res_CoV.getZ() + state.v.getZ();
 	pt.m = m_1;
 	pt.r = r_1;
 	reb_add(n_body_sim, pt);
+	num_perts++;
+
+	// Add secondary
+	pt.x = res_CoM.getX() + state.x.getX() + x_2;
+	pt.y = res_CoM.getY() + state.x.getY();
+	pt.z = res_CoM.getZ() + state.x.getZ();
+	pt.vx = res_CoV.getX() + state.v.getX();
+	pt.vy = res_CoV.getY() + state.v.getY() + vy_2;
+	pt.vz = res_CoV.getZ() + state.v.getZ();
+	pt.m = m_2;
+	pt.r = r_2;
+	reb_add(n_body_sim, pt);
+	num_perts++;
 
 	// Get orbital angular velocity (mean motion) of resolved body
 	double a = orb_el.a;
@@ -267,7 +275,7 @@ void drift_resolved(reb_simulation *const n_body_sim, double timestep,
 	double rad = x.len();
 	double v_cent = sqrt(GM / rad);
 
-	// Get unit vector in direction of orbit (r x r x v = r x L)
+	// Get unit vector in direction of orbit (r x r x v = r x omega)
 	Vector r_cross_L = cross(x, cross(x, v));
 	r_cross_L /= r_cross_L.len();
 
@@ -284,12 +292,12 @@ void drift_resolved(reb_simulation *const n_body_sim, double timestep,
 	Vector dv_2 = m2 * dv / (m1 + m2);
 
 	// Particle
-	particles[i_part].vx -= dv_2.getX();
-	particles[i_part].vy -= dv_2.getY();
-	particles[i_part].vz -= dv_2.getZ();
+	particles[i_part].vx -= dv_1.getX();
+	particles[i_part].vy -= dv_1.getY();
+	particles[i_part].vz -= dv_1.getZ();
 
 	// Resolved body -- update velocities only
-	move_resolved(n_body_sim, zero_vector, dv_1, i_low, i_high);
+	move_resolved(n_body_sim, zero_vector, -dv_2, i_low, i_high);
 }
 
 // Apply quadrupole force of particle with index i_p onto all particles
@@ -336,7 +344,7 @@ void quadrupole_accel(reb_simulation *const n_body_sim, double J2_p, double R_p,
 			double cos2 = pow(dot(r, xhat) / r.len(), 2.0);
 
 			// Get acceleration of particle i
-			Vector a = constant * r / r5 * (5.0 * cos2 - diff);
+			Vector a = constant * r / r5 * (5.0 * cos2 - diff) / particles[i].m;
 
 			// Note: Forces can also be written as
 			// F = 3/2 G M J2_p R_p^2 r_vec / r^5 (5 z^2/r^2 - <1, 1, 3>)
@@ -362,6 +370,7 @@ void quadrupole_accel(reb_simulation *const n_body_sim, double J2_p, double R_p,
 
 // Compute orbital properties of resolved body (particles in range [i_low, i_high)) about all perturbing particles
 // L is orbital angular momentum per unit mass
+// Uses pointers for custom output (not orb_el or actual angular momentum)
 void compute_orb(reb_simulation *const n_body_sim, int i_low, int i_high,
 		double *a, double *mean_motion, double *e, double *i, double *L) {
 
