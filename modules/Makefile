@@ -27,7 +27,7 @@ EXECUTABLE = $(PROBLEM)/rebound_spring
 default: $(EXECUTABLE)
 
 tests: $(MYOBJECTS) tests/tests.cpp
-	$(CPP) -o tests/tests tests/tests.cpp $(LIB) $(INCLUDES) $(LDFLAGS) -I../googletest/googletest/include/ ../googletest/lib/libgtest.a $(MYOBJECTS) -pthread $(LINKER)
+	$(CPP) -o tests/tests tests/tests.cpp $(LIB) $(INCLUDES) $(LDFLAGS) -I../googletest/googletest/include/ ../googletest/lib/libgtest.a $(MYOBJECTS) -pthread -lGL -lGLU $(LINKER)
 
 $(EXECUTABLE) : $(MYOBJECTS) $(MYPROBLEMOBJ)
 	@echo "Compiling $@ ..."

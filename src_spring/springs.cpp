@@ -425,3 +425,10 @@ std::ostream& operator<<(std::ostream &os, const spring &spr) {
 			<< spr.particle_2;
 	return os;
 }
+
+// Equality
+bool operator==(const spring lhs, const spring rhs) {
+	return lhs.gamma == rhs.gamma && lhs.k == rhs.k &&
+			lhs.particle_1 == rhs.particle_1 &&
+			lhs.particle_2 == rhs.particle_2 && lhs.rs0 == rhs.rs0;
+}

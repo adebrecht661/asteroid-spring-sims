@@ -1,6 +1,6 @@
 /**
  * @file        spring.h
- * @brief       springs 
+ * @brief       springs
  * @author      Alice Quillen
  */
 
@@ -70,5 +70,7 @@ Vector spring_i_force_undamped(reb_simulation *const n_body_sim, int i);
 
 // Stream output
 std::ostream& operator<<(std::ostream &os, const spring &spr);
+// Equality
+bool operator==(const spring lhs, const spring rhs);
 
 #endif // _SPRING_H

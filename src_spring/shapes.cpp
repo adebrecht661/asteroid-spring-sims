@@ -18,6 +18,8 @@
 #include <cfloat>
 #include <cmath>
 #include <vector>
+#include <iostream>
+#include <iomanip>
 extern "C" {
 #include "rebound.h"
 }
@@ -63,9 +65,6 @@ void uniform_line(reb_simulation *const n_body_sim, int num_parts,
 // No particles closer than min_dist created
 void rand_rectangle(reb_simulation *const n_body_sim, double min_dist, double x,
 		double y, double z, double total_mass) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
-
 	// Guess at number of random particles we need to generate
 	int n_part = 40.0 * x * y * z / pow(min_dist, 3.0);
 	std::cout << "rand_rectangle: Trying to create " << n_part << " particles."
@@ -99,8 +98,9 @@ void rand_rectangle(reb_simulation *const n_body_sim, double min_dist, double x,
 		N = n_body_sim->N;
 		// Can't parallelize this loop - exit condition invalid in OpenMP loop
 		for (int j = i_0; not too_near && j < N; j++) {
-			Vector dx = { pt.x - particles[j].x, pt.y - particles[j].y, pt.z
-					- particles[j].z };
+			Vector dx = { pt.x - n_body_sim->particles[j].x, pt.y
+					- n_body_sim->particles[j].y, pt.z
+					- n_body_sim->particles[j].z };
 			if (dx.len() < min_dist)
 				too_near = true;
 		}
@@ -117,7 +117,7 @@ void rand_rectangle(reb_simulation *const n_body_sim, double min_dist, double x,
 	double particle_mass = total_mass / (N - i_0);
 #pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
-		particles[i].m = particle_mass;
+		n_body_sim->particles[i].m = particle_mass;
 	}
 
 	// Double-check min_dist in created particles
@@ -131,14 +131,15 @@ void rand_rectangle(reb_simulation *const n_body_sim, double min_dist, double x,
 // No particles closer than min_dist created
 void rand_cone(reb_simulation *const n_body_sim, double min_dist, double radius,
 		double height, double total_mass) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
 
 	// Calculate slope of sides of cone
 	double slope = height / radius;
 
 	// Guess at number of random particles we need to generate
 	int n_part = 40 * pow(2.0 * radius / min_dist, 3.0);
+
+	std::cout << "rand_cone: Trying to create " << n_part << " particles."
+			<< std::endl;
 
 	// Set defaults for particles
 	reb_particle pt;
@@ -174,8 +175,9 @@ void rand_cone(reb_simulation *const n_body_sim, double min_dist, double radius,
 			N = n_body_sim->N;
 			// Can't parallelize this loop - exit condition invalid in OpenMP loop
 			for (int j = i_0; not too_near && j < N; j++) {
-				Vector dx = { pt.x - particles[j].x, pt.y - particles[j].y, pt.z
-						- particles[j].z };
+				Vector dx = { pt.x - n_body_sim->particles[j].x, pt.y
+						- n_body_sim->particles[j].y, pt.z
+						- n_body_sim->particles[j].z };
 				if (dx.len() < min_dist)
 					too_near = true;
 			}
@@ -193,7 +195,7 @@ void rand_cone(reb_simulation *const n_body_sim, double min_dist, double radius,
 	double particle_mass = total_mass / (N - i_0);
 #pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
-		particles[i].m = particle_mass;
+		n_body_sim->particles[i].m = particle_mass;
 	}
 
 	// Double check min_dist
@@ -207,12 +209,10 @@ void rand_cone(reb_simulation *const n_body_sim, double min_dist, double radius,
 // No particles closer than min_dist created
 void rand_ellipsoid(reb_simulation *const n_body_sim, double min_dist, double x,
 		double y, double z, double total_mass) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
 
 	// Guess at number of random particles we need to generate
 	int n_part = 40 * pow(2.0 * x / min_dist, 3.0);
-	std::cout << "rand_ellipsoid: Creating " << n_part << " particles."
+	std::cout << "rand_ellipsoid: Trying to create " << n_part << " particles."
 			<< std::endl;
 
 	// Set particle defaults
@@ -247,8 +247,9 @@ void rand_ellipsoid(reb_simulation *const n_body_sim, double min_dist, double x,
 			N = n_body_sim->N;
 			// Can't parallelize this loop - exit condition invalid in OpenMP loop
 			for (int j = i_0; not too_near && j < N; j++) {
-				Vector dx = { pt.x - particles[j].x, pt.y - particles[j].y, pt.z
-						- particles[j].z };
+				Vector dx = { pt.x - n_body_sim->particles[j].x, pt.y
+						- n_body_sim->particles[j].y, pt.z
+						- n_body_sim->particles[j].z };
 				if (dx.len() < min_dist)
 					too_near = true;
 			}
@@ -266,7 +267,7 @@ void rand_ellipsoid(reb_simulation *const n_body_sim, double min_dist, double x,
 	double particle_mass = total_mass / (N - i_0);
 #pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
-		particles[i].m = particle_mass;
+		n_body_sim->particles[i].m = particle_mass;
 	}
 
 	// Double check min_dist
@@ -280,8 +281,6 @@ void rand_ellipsoid(reb_simulation *const n_body_sim, double min_dist, double x,
 // No particles closer than min_dist created
 void hcp_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 		double y, double z, double total_mass) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
 
 	// Set particle defaults
 	reb_particle pt;
@@ -310,6 +309,9 @@ void hcp_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 	int nx = (int) (1.2 * x / dx);
 	int ny = (int) (1.2 * y / yfac);
 	int nz = (int) (1.2 * z / zfac);
+
+	std::cout << "hcp_ellipsoid: Creating " << 6 * nx * ny * nz << " particles."
+			<< std::endl;
 
 	// Make an HCP grid
 #pragma omp parallel for private(pt)
@@ -345,8 +347,8 @@ void hcp_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 	double min_d = mindist(n_body_sim, i_0, N);
 #pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
-		particles[i].m = particle_mass;
-		particles[i].r = min_d / 4.0;
+		n_body_sim->particles[i].m = particle_mass;
+		n_body_sim->particles[i].r = min_d / 4.0;
 	}
 
 	std::cout << "hcp_ellipsoid: Created " << N - i_0
@@ -358,8 +360,6 @@ void hcp_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 // No particles closer than min_dist created
 void cubic_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 		double y, double z, double total_mass) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
 
 	// Set particle defaults
 	reb_particle pt;
@@ -377,8 +377,12 @@ void cubic_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 	int i_0 = N;
 
 	// Lattice size
-	int nx, ny, nz;
-	nx = ny = nz = (int) (1.2 * x / min_dist);
+	int nx = (int) (1.2 * x / min_dist);
+	int ny = (int) (1.2 * y / min_dist);
+	int nz = (int) (1.2 * z / min_dist);
+
+	std::cout << "cubic_ellipsoid: Creating " << 6 * nx * ny * nz
+			<< " particles." << std::endl;
 
 	// Lattice spacing factor
 	double fac = min_dist;
@@ -417,11 +421,11 @@ void cubic_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 	double min_d = mindist(n_body_sim, i_0, N);
 #pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
-		particles[i].m = particle_mass;
-		particles[i].r = min_d / 4.0;
+		n_body_sim->particles[i].m = particle_mass;
+		n_body_sim->particles[i].r = min_d / 4.0;
 	}
 
-	std::cout << "hcp_ellipsoid: Created " << N - i_0
+	std::cout << "cubic_ellipsoid: Created " << N - i_0
 			<< " particles, separated by minimum distance " << min_d
 			<< std::endl;
 }
@@ -430,8 +434,6 @@ void cubic_ellipsoid(reb_simulation *n_body_sim, double min_dist, double x,
 // No particles closer than min_dist created
 void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 		double total_mass) {
-	// Get particle info
-	reb_particle *particles = n_body_sim->particles;
 
 	// Shape model vertices should already have been read in
 	// Should be particles [0, N-1]
@@ -443,6 +445,9 @@ void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 
 	// Guess at number of random particles we need to generate
 	int n_part = 40 * pow(2.0 * max_r_shape / min_dist, 3.0);
+
+	std::cout << "rand_shape: Trying to create " << n_part << " particles."
+			<< std::endl;
 
 	// Set particle defaults
 	reb_particle pt;
@@ -468,6 +473,11 @@ void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 		bool inside = within_shape(n_body_sim, 0, N_shape, min_r_shape,
 				max_r_shape, Vector( { pt.x, pt.y, pt.z }));
 
+//		if (~(i % 10000)) {
+//			std::cout << std::setprecision(4) << "Completed "
+//					<< i / (double) n_part * 100 << " percent." << std::endl;
+//		}
+
 		// Check if particle is inside shape
 		if (inside) {
 
@@ -476,8 +486,9 @@ void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 			N = n_body_sim->N;
 			// Can't parallelize this loop - exit condition invalid in OpenMP loop
 			for (int j = i_0; not too_near && j < N; j++) {
-				Vector dx = { pt.x - particles[j].x, pt.y - particles[j].y, pt.z
-						- particles[j].z };
+				Vector dx = { pt.x - n_body_sim->particles[j].x, pt.y
+						- n_body_sim->particles[j].y, pt.z
+						- n_body_sim->particles[j].z };
 				if (dx.len() < min_dist)
 					too_near = true;
 			}
@@ -495,13 +506,13 @@ void rand_shape(reb_simulation *const n_body_sim, double min_dist,
 	double particle_mass = total_mass / (N - i_0);
 #pragma omp parallel for
 	for (int i = i_0; i < N; i++) {
-		particles[i].m = particle_mass;
+		n_body_sim->particles[i].m = particle_mass;
 	}
 
 	// Double-check min_dist
 	double min_d = mindist(n_body_sim, i_0, N);
 	std::cout << "rand_shape: Created " << N - i_0
-			<< "particle separated by a minimum of " << min_d << std::endl;
+			<< " particles separated by a minimum of " << min_d << std::endl;
 }
 
 /*************/
@@ -575,6 +586,7 @@ void mark_surf_shrink_int_shape(reb_simulation *const n_body_sim, int i_low,
 		int nearest_particle = nearest_to_point(n_body_sim, 0, i_high, x);
 
 		// Get distance to nearest point
+		// Not great for low-res shapes, but fine in general
 		Vector x_shape = { particles[nearest_particle].x,
 				particles[nearest_particle].y, particles[nearest_particle].z };
 		Vector dx = x - x_shape;
@@ -591,7 +603,7 @@ void mark_surf_shrink_int_shape(reb_simulation *const n_body_sim, int i_low,
 	}
 
 	// Return boolean array of which particles are on surface
-	std::cout << "Number of vertices on surface of shape: " << num_at_surf
+	std::cout << "Number of particles on surface of shape: " << num_at_surf
 			<< std::endl;
 }
 
@@ -765,8 +777,9 @@ double min_radius(reb_simulation *const n_body_sim, int i_low, int i_high) {
 	for (int i = i_low; i < i_high; i++) {
 		Vector x = { particles[i].x, particles[i].y, particles[i].z };
 		double r = x.len();
-		if (r < min_r)
+		if (r < min_r) {
 			min_r = r;
+		}
 	}
 
 	// Return smallest radius

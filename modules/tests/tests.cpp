@@ -14,6 +14,8 @@
 
 #include <cmath>
 #include <vector>
+#include <iostream>
+#include <fstream>
 #include "libconfig.h++"
 extern "C" {
 #include "rebound.h"
@@ -25,7 +27,13 @@ extern "C" {
 #include "stress.h"
 #include "physics.h"
 #include "orb.h"
+#include "shapes.h"
+#include "output_spring.h"
 #include <gtest/gtest.h>
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
+#include <GL/glu.h>
 
 using namespace libconfig;
 using std::vector;
@@ -41,7 +49,7 @@ extern vector<stress_tensor> stresses;
 
 // Global scales
 double mass_scale, time_scale, length_scale, temp_scale, omega_scale, vel_scale,
-		p_scale, L_scale, a_scale, F_scale, E_scale, dEdt_scale, P_scale;
+		p_scale, L_scale, a_scale, F_scale, P_scale, E_scale, dEdt_scale;
 
 /*********************************************/
 
@@ -209,6 +217,166 @@ protected:
 		num_perts = 0;
 	}
 };
+
+int num_verts = 0;
+class ShapesTest: public testing::Test {
+protected:
+	reb_simulation *n_body_sim;
+
+	void SetUp() override {
+		n_body_sim = reb_create_simulation();
+	}
+
+	void TearDown() override {
+		reb_free_simulation(n_body_sim);
+		num_verts = 0;
+	}
+};
+
+class OutputTest: public testing::Test {
+protected:
+	reb_simulation *n_body_sim;
+
+	void SetUp() override {
+		n_body_sim = reb_create_simulation();
+		rand_ellipsoid(n_body_sim, .2, 1, 1.25, 1.5, 250);
+		n_body_sim->dt = 0.01;
+		n_body_sim->t = 20000;
+	}
+
+	void TearDown() override {
+		reb_free_simulation(n_body_sim);
+	}
+};
+
+/********************/
+/* Helper functions */
+/********************/
+
+int xRot = 0, yRot = 0;
+static void key_callback(GLFWwindow *window, int key, int scancode, int action,
+		int mods) {
+	glm::mat4 this_rot;
+	glm::vec3 x_vec(1, 0, 0);
+	glm::vec3 y_vec(0, 1, 0);
+	double delta = M_PI / 10.;
+	if (key == GLFW_KEY_LEFT) {
+		yRot--;
+	}
+	if (key == GLFW_KEY_RIGHT) {
+		yRot++;
+	}
+	if (key == GLFW_KEY_UP) {
+		xRot++;
+	}
+	if (key == GLFW_KEY_DOWN) {
+		xRot--;
+	}
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+	}
+}
+
+static void scroll_callback(GLFWwindow *window, double x, double y) {
+	if (y > 0) {
+		glTranslatef(0, 0, .1);
+	}
+	if (y < 0) {
+		glTranslatef(0, 0, -.1);
+	}
+}
+
+int width = 1920, height = 1080;
+double ratio = width / (float) height;
+void draw_sim(reb_simulation const *n_body_sim) {
+	GLFWwindow *window;
+
+	xRot = 0, yRot = 0;
+	if (!glfwInit()) {
+		std::cerr << "Failed to initialize OpenGL window." << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	window = glfwCreateWindow(width, height, "TEST TEST TEST", nullptr,
+			nullptr);
+	if (!window) {
+		glfwTerminate();
+		exit(EXIT_FAILURE);
+	}
+
+	glfwSetKeyCallback(window, key_callback);
+	glfwSetScrollCallback(window, scroll_callback);
+	glfwMakeContextCurrent(window);
+	gluPerspective(30, ratio, 3, -3);
+	glTranslatef(0, 0, -7);
+
+	while (!glfwWindowShouldClose(window)) {
+
+		glfwGetFramebufferSize(window, &width, &height);
+		ratio = width / (float) height;
+
+		glViewport(0, 0, width, height);
+
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		glPushMatrix();
+		glRotatef(xRot, 1., 0., 0.);
+		glRotatef(yRot, 0., 1., 0.);
+		if (num_verts == 0) {
+			glColor3f(1, 1, 1);
+			glPointSize(2);
+			glBegin(GL_POINTS);
+			for (int i = 0; i < n_body_sim->N; i++) {
+				glVertex3f(n_body_sim->particles[i].x,
+						n_body_sim->particles[i].y, n_body_sim->particles[i].z);
+			}
+			glEnd();
+		} else {
+			glColor3f(0, 1, 0);
+			glPointSize(6);
+			glBegin(GL_POINTS);
+			for (int i = 0; i < num_verts; i++) {
+				glVertex3f(n_body_sim->particles[i].x,
+						n_body_sim->particles[i].y, n_body_sim->particles[i].z);
+			}
+			glEnd();
+			glColor3f(1, 1, 1);
+			glPointSize(2);
+			glBegin(GL_POINTS);
+			for (int i = num_verts; i < n_body_sim->N; i++) {
+				glVertex3f(n_body_sim->particles[i].x,
+						n_body_sim->particles[i].y, n_body_sim->particles[i].z);
+			}
+			glEnd();
+		}
+		glPopMatrix();
+		glFinish();
+
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
+
+	glfwDestroyWindow(window);
+	glfwTerminate();
+}
+
+// Operator particle output to simplify tests
+std::ostream& operator<<(std::ostream &os, const reb_particle part) {
+	os << "a: " << Vector( { part.ax, part.ay, part.az }) << "\nv: "
+			<< Vector( { part.vx, part.vy, part.vz }) << "\nx: " << Vector( {
+					part.x, part.y, part.z }) << "\nr: " << part.r << "\nm: "
+			<< part.m;
+	return os;
+}
+
+// Operator particle equality to simplify tests
+bool operator==(const reb_particle lhs, const reb_particle rhs) {
+	return lhs.ax == rhs.ax && lhs.ay == rhs.ay && lhs.az == rhs.az
+			&& lhs.m == rhs.m && lhs.vx == rhs.vx && lhs.vy == rhs.vy
+			&& lhs.vz == rhs.vz && lhs.x == rhs.x && lhs.y == rhs.y
+			&& lhs.z == rhs.z;
+}
+
 /*********************/
 /* Vector-only Tests */
 /*********************/
@@ -1625,6 +1793,500 @@ TEST_F(OrbTest, DriftBin) {
 	EXPECT_NEAR(particles[3].vx, v3.getX() - dv2.getX(), 1e-10);
 	EXPECT_NEAR(particles[3].vy, v3.getY() - dv2.getY(), 1e-10);
 	EXPECT_NEAR(particles[3].vz, v3.getZ() - dv2.getZ(), 1e-10);
+}
+
+/****************/
+/* Input tests */
+/****************/
+
+TEST(InputTest, ZeroPad) {
+	EXPECT_EQ("00009", zero_pad_int(5, 9));
+	EXPECT_EQ("00019", zero_pad_int(5, 19));
+	EXPECT_EQ("00129", zero_pad_int(5, 129));
+	EXPECT_EQ("12349", zero_pad_int(5, 12349));
+
+	EXPECT_EQ("000000000000000009", zero_pad_int(18, 9));
+}
+
+TEST(InputTest, ReadScales) {
+	Config cfg;
+	ASSERT_NO_THROW(cfg.readFile("problem.cfg"));
+	read_scales(&cfg);
+
+	EXPECT_EQ(mass_scale, 5.972e27);
+	EXPECT_EQ(time_scale, 3.154e7);
+	EXPECT_EQ(length_scale, 6.371e8);
+	EXPECT_EQ(temp_scale, 1e2);
+
+	EXPECT_DOUBLE_EQ(omega_scale, 1. / 3.154e7);
+	EXPECT_DOUBLE_EQ(vel_scale, 6.371e8 / 3.154e7);
+	EXPECT_DOUBLE_EQ(p_scale, 6.371e8 / 3.154e7 * 5.972e27);
+	EXPECT_DOUBLE_EQ(L_scale, pow(6.371e8, 2.) / 3.154e7 * 5.972e27);
+	EXPECT_DOUBLE_EQ(a_scale, 6.371e8 / pow(3.154e7, 2.));
+	EXPECT_DOUBLE_EQ(F_scale, 6.371e8 / pow(3.154e7, 2.) * 5.972e27);
+	EXPECT_DOUBLE_EQ(P_scale, 1. / pow(3.154e7, 2.) * 5.972e27 / 6.371e8);
+	EXPECT_DOUBLE_EQ(E_scale, pow(6.371e8, 2.) / pow(3.154e7, 2.) * 5.972e27);
+	EXPECT_DOUBLE_EQ(dEdt_scale,
+			pow(6.371e8, 2.) / pow(3.154e7, 3.) * 5.972e27);
+}
+
+TEST(InputTest, ReadSprings) {
+	ASSERT_NO_THROW(read_springs("test", 1));
+	spring test_spring0;
+	test_spring0.gamma = 5;
+	test_spring0.rs0 = 50;
+	test_spring0.k = 11;
+	test_spring0.particle_2 = 1;
+	test_spring0.particle_1 = 0;
+
+	spring test_spring1;
+	test_spring1.gamma = 4;
+	test_spring1.rs0 = 80;
+	test_spring1.k = 9;
+	test_spring1.particle_2 = 2;
+	test_spring1.particle_1 = 0;
+
+	spring test_spring2;
+	test_spring2.gamma = 3;
+	test_spring2.rs0 = 30;
+	test_spring2.k = 7;
+	test_spring2.particle_2 = 2;
+	test_spring2.particle_1 = 1;
+
+	EXPECT_EQ(springs[0], test_spring0);
+	EXPECT_EQ(springs[1], test_spring1);
+	EXPECT_EQ(springs[2], test_spring2);
+}
+
+TEST(InputTest, ReadParticles) {
+	reb_simulation *n_body_sim = reb_create_simulation();
+	ASSERT_NO_THROW(read_particles(n_body_sim, "test", 1));
+	reb_particle *particles = n_body_sim->particles;
+
+	reb_particle test_particle0;
+	test_particle0.ax = 0;
+	test_particle0.ay = 0;
+	test_particle0.az = 0;
+	test_particle0.x = 1;
+	test_particle0.y = 2;
+	test_particle0.z = 3;
+	test_particle0.vx = 4;
+	test_particle0.vy = 5;
+	test_particle0.vz = 6;
+	test_particle0.r = 10;
+	test_particle0.m = 20;
+
+	reb_particle test_particle1;
+	test_particle1.ax = 0;
+	test_particle1.ay = 0;
+	test_particle1.az = 0;
+	test_particle1.x = 2;
+	test_particle1.y = 3;
+	test_particle1.z = 1;
+	test_particle1.vx = 5;
+	test_particle1.vy = 6;
+	test_particle1.vz = 4;
+	test_particle1.r = 20;
+	test_particle1.m = 30;
+
+	reb_particle test_particle2;
+	test_particle2.ax = 0;
+	test_particle2.ay = 0;
+	test_particle2.az = 0;
+	test_particle2.x = 43;
+	test_particle2.y = 22;
+	test_particle2.z = 32;
+	test_particle2.vx = 73;
+	test_particle2.vy = 14;
+	test_particle2.vz = 534;
+	test_particle2.r = 444;
+	test_particle2.m = 6453;
+
+	EXPECT_EQ(particles[0], test_particle0);
+	EXPECT_EQ(particles[1], test_particle1);
+	EXPECT_EQ(particles[2], test_particle2);
+
+	reb_free_simulation(n_body_sim);
+}
+
+TEST(InputTest, ReadVertices) {
+	reb_simulation *n_body_sim = reb_create_simulation();
+	ASSERT_NO_THROW(read_vertices(n_body_sim, "test_vertices.txt"));
+	reb_particle *particles = n_body_sim->particles;
+
+	reb_particle test_particle0;
+	test_particle0.ax = 0;
+	test_particle0.ay = 0;
+	test_particle0.az = 0;
+	test_particle0.x = 4;
+	test_particle0.y = 0;
+	test_particle0.z = 0;
+	test_particle0.vx = 0;
+	test_particle0.vy = 0;
+	test_particle0.vz = 0;
+	test_particle0.m = 1;
+
+	reb_particle test_particle1;
+	test_particle1.ax = 0;
+	test_particle1.ay = 0;
+	test_particle1.az = 0;
+	test_particle1.x = -4;
+	test_particle1.y = 0;
+	test_particle1.z = 0;
+	test_particle1.vx = 0;
+	test_particle1.vy = 0;
+	test_particle1.vz = 0;
+	test_particle1.m = 1;
+
+	reb_particle test_particle2;
+	test_particle2.ax = 0;
+	test_particle2.ay = 0;
+	test_particle2.az = 0;
+	test_particle2.x = 0;
+	test_particle2.y = 0;
+	test_particle2.z = 2;
+	test_particle2.vx = 0;
+	test_particle2.vy = 0;
+	test_particle2.vz = 0;
+	test_particle2.m = 1;
+
+	reb_particle test_particle3;
+	test_particle3.ax = 0;
+	test_particle3.ay = 0;
+	test_particle3.az = 0;
+	test_particle3.x = 0;
+	test_particle3.y = 0;
+	test_particle3.z = -2;
+	test_particle3.vx = 0;
+	test_particle3.vy = 0;
+	test_particle3.vz = 0;
+	test_particle3.m = 1;
+
+	reb_particle test_particle4;
+	test_particle4.ax = 0;
+	test_particle4.ay = 0;
+	test_particle4.az = 0;
+	test_particle4.x = 0;
+	test_particle4.y = 4;
+	test_particle4.z = 0;
+	test_particle4.vx = 0;
+	test_particle4.vy = 0;
+	test_particle4.vz = 0;
+	test_particle4.m = 1;
+
+	reb_particle test_particle5;
+	test_particle5.ax = 0;
+	test_particle5.ay = 0;
+	test_particle5.az = 0;
+	test_particle5.x = 0;
+	test_particle5.y = -4;
+	test_particle5.z = 0;
+	test_particle5.vx = 0;
+	test_particle5.vy = 0;
+	test_particle5.vz = 0;
+	test_particle5.m = 1;
+
+	EXPECT_EQ(particles[0], test_particle0);
+	EXPECT_EQ(particles[1], test_particle1);
+	EXPECT_EQ(particles[2], test_particle2);
+	EXPECT_EQ(particles[3], test_particle3);
+	EXPECT_EQ(particles[4], test_particle4);
+	EXPECT_EQ(particles[5], test_particle5);
+
+	reb_free_simulation(n_body_sim);
+}
+
+/****************/
+/* Shapes tests */
+/****************/
+
+TEST_F(ShapesTest, rm_particles) {
+	reb_particle part;
+	part.y = 0;
+	part.z = 0;
+	part.vx = 0;
+	part.vy = 0;
+	part.vz = 0;
+	part.ax = 0;
+	part.ay = 0;
+	part.az = 0;
+
+	for (int i = 0; i < 10; i++) {
+		part.x = i;
+		reb_add(n_body_sim, part);
+	}
+
+	reb_particle *particles = n_body_sim->particles;
+
+	EXPECT_EQ(particles[0].x, 0);
+	EXPECT_EQ(particles[1].x, 1);
+	EXPECT_EQ(particles[2].x, 2);
+
+	rm_particles(n_body_sim, 1, 4);
+
+	EXPECT_EQ(particles[0].x, 0);
+	EXPECT_EQ(particles[1].x, 4);
+	EXPECT_EQ(particles[2].x, 5);
+}
+
+TEST_F(ShapesTest, Line) {
+	ASSERT_NO_THROW(uniform_line(n_body_sim, 5, 0.1));
+
+	reb_particle *particles = n_body_sim->particles;
+
+	reb_particle test_particle0;
+	test_particle0.ax = 0;
+	test_particle0.ay = 0;
+	test_particle0.az = 0;
+	test_particle0.x = 0;
+	test_particle0.y = .1;
+	test_particle0.z = 0;
+	test_particle0.vx = 0;
+	test_particle0.vy = 0;
+	test_particle0.vz = 0;
+	test_particle0.r = .1;
+	test_particle0.m = .2;
+
+	reb_particle test_particle1;
+	test_particle1.ax = 0;
+	test_particle1.ay = 0;
+	test_particle1.az = 0;
+	test_particle1.x = 0;
+	test_particle1.y = .3;
+	test_particle1.z = 0;
+	test_particle1.vx = 0;
+	test_particle1.vy = 0;
+	test_particle1.vz = 0;
+	test_particle1.r = .1;
+	test_particle1.m = .2;
+
+	reb_particle test_particle2;
+	test_particle2.ax = 0;
+	test_particle2.ay = 0;
+	test_particle2.az = 0;
+	test_particle2.x = 0;
+	test_particle2.y = .5;
+	test_particle2.z = 0;
+	test_particle2.vx = 0;
+	test_particle2.vy = 0;
+	test_particle2.vz = 0;
+	test_particle2.r = .1;
+	test_particle2.m = .2;
+
+	reb_particle test_particle3;
+	test_particle3.ax = 0;
+	test_particle3.ay = 0;
+	test_particle3.az = 0;
+	test_particle3.x = 0;
+	test_particle3.y = .7;
+	test_particle3.z = 0;
+	test_particle3.vx = 0;
+	test_particle3.vy = 0;
+	test_particle3.vz = 0;
+	test_particle3.r = .1;
+	test_particle3.m = .2;
+
+	reb_particle test_particle4;
+	test_particle4.ax = 0;
+	test_particle4.ay = 0;
+	test_particle4.az = 0;
+	test_particle4.x = 0;
+	test_particle4.y = .9;
+	test_particle4.z = 0;
+	test_particle4.vx = 0;
+	test_particle4.vy = 0;
+	test_particle4.vz = 0;
+	test_particle4.r = .1;
+	test_particle4.m = .2;
+
+	EXPECT_EQ(particles[0], test_particle0);
+	EXPECT_DOUBLE_EQ(particles[1].y, test_particle1.y);
+	EXPECT_EQ(particles[2], test_particle2);
+	EXPECT_DOUBLE_EQ(particles[3].y, test_particle3.y);
+	EXPECT_EQ(particles[4], test_particle4);
+}
+
+TEST_F(ShapesTest, CreateRectangle) {
+	char pass;
+	ASSERT_NO_THROW(rand_rectangle(n_body_sim, .1, 1, 2, 3, 250));
+	draw_sim(n_body_sim);
+	std::cout << "Pass random rectangular prism? (y/n)" << std::endl;
+	std::cin >> pass;
+	EXPECT_TRUE(pass == 'y');
+}
+
+TEST_F(ShapesTest, CreateCone) {
+	char pass;
+	ASSERT_NO_THROW(rand_cone(n_body_sim, .1, 1, 2, 250));
+	draw_sim(n_body_sim);
+	std::cout << "Pass random cone? (y/n)" << std::endl;
+	std::cin >> pass;
+	EXPECT_TRUE(pass == 'y');
+}
+
+TEST_F(ShapesTest, CreateEllipsoid) {
+	char pass;
+	ASSERT_NO_THROW(rand_ellipsoid(n_body_sim, .1, 1, 2, 3, 250));
+	draw_sim(n_body_sim);
+	std::cout << "Pass random ellipsoid? (y/n)" << std::endl;
+	std::cin >> pass;
+	EXPECT_TRUE(pass == 'y');
+}
+
+TEST_F(ShapesTest, CreateHCPEllipsoid) {
+	char pass;
+	ASSERT_NO_THROW(hcp_ellipsoid(n_body_sim, .1, 1, 2, 3, 250));
+	draw_sim(n_body_sim);
+	std::cout << "Pass HCP ellipsoid? (y/n)" << std::endl;
+	std::cin >> pass;
+	EXPECT_TRUE(pass == 'y');
+}
+
+TEST_F(ShapesTest, CreateCubicEllipsoid) {
+	char pass;
+	ASSERT_NO_THROW(cubic_ellipsoid(n_body_sim, .1, 1, 2, 3, 250));
+	draw_sim(n_body_sim);
+	std::cout << "Pass cubic ellipsoid? (y/n)" << std::endl;
+	std::cin >> pass;
+	EXPECT_TRUE(pass == 'y');
+}
+
+TEST_F(ShapesTest, CreateShape) {
+	ASSERT_NO_THROW(
+			num_verts = read_vertices(n_body_sim, "test_vertices2.txt"));
+	char pass;
+	ASSERT_NO_THROW(rand_shape(n_body_sim, .2, 250));
+	draw_sim(n_body_sim);
+	std::cout << "Pass random shape? Should be octahedron-ish. (y/n)"
+			<< std::endl;
+	std::cin >> pass;
+	EXPECT_TRUE(pass == 'y');
+}
+
+TEST_F(ShapesTest, MinRad) {
+	ASSERT_NO_THROW(
+			num_verts = read_vertices(n_body_sim, "test_vertices2.txt"));
+
+	EXPECT_EQ(min_radius(n_body_sim, 0, num_verts), sqrt(1 + 2 * 1.5 * 1.5));
+}
+
+TEST_F(ShapesTest, MaxRad) {
+	ASSERT_NO_THROW(
+			num_verts = read_vertices(n_body_sim, "test_vertices2.txt"));
+
+	EXPECT_EQ(max_radius(n_body_sim, 0, num_verts), 4);
+}
+
+TEST_F(ShapesTest, MinDist) {
+	ASSERT_NO_THROW(
+			num_verts = read_vertices(n_body_sim, "test_vertices2.txt"));
+
+	EXPECT_EQ(mindist(n_body_sim, 0, num_verts), sqrt(2) / 2.);
+}
+
+TEST_F(ShapesTest, Nearest) {
+	ASSERT_NO_THROW(
+			num_verts = read_vertices(n_body_sim, "test_vertices2.txt"));
+
+	EXPECT_EQ(
+			nearest_to_point(n_body_sim, 0, num_verts,
+					Vector( { 0, 1.9, 1.9 })), 10);
+	EXPECT_EQ(nearest_to_point(n_body_sim, 0, num_verts, Vector( { 1.9, -0.9,
+			-1.1 })), 105);
+}
+
+TEST_F(ShapesTest, Within) {
+	ASSERT_NO_THROW(
+			num_verts = read_vertices(n_body_sim, "test_vertices2.txt"));
+
+	EXPECT_TRUE(
+			within_shape(n_body_sim, 0, num_verts, 0, 10,
+					Vector( { 0, 0, 0 })));
+	EXPECT_TRUE(
+			within_shape(n_body_sim, 0, num_verts, 0, 10,
+					Vector( { 1, 1, 1 })));
+	EXPECT_FALSE(
+			within_shape(n_body_sim, 0, num_verts, 0, 10,
+					Vector( { 2, 2, 2 })));
+}
+
+TEST_F(ShapesTest, Stretch) {
+	ASSERT_NO_THROW(uniform_line(n_body_sim, 5, 0.1));
+	reb_particle part;
+	part.x = 1.5;
+	part.y = 1;
+	part.z = 0.5;
+	reb_add(n_body_sim, part);
+
+	reb_particle *particles = n_body_sim->particles;
+
+	stretch(n_body_sim, 0, n_body_sim->N, 2);
+
+	EXPECT_EQ(particles[0].y, 0.2);
+	EXPECT_DOUBLE_EQ(particles[1].y, 0.6);
+	EXPECT_EQ(particles[2].y, 1.0);
+	EXPECT_DOUBLE_EQ(particles[3].y, 1.4);
+	EXPECT_EQ(particles[4].y, 1.8);
+
+	EXPECT_EQ(particles[5].x, 3);
+	EXPECT_EQ(particles[5].y, 2);
+	EXPECT_EQ(particles[5].z, 1);
+}
+
+// Note - hard to test actual function of these, since the particles are created randomly
+
+TEST_F(ShapesTest, MarkShape) {
+	ASSERT_NO_THROW(
+			num_verts = read_vertices(n_body_sim, "test_vertices2.txt"));
+	ASSERT_NO_THROW(rand_shape(n_body_sim, .4, 250));
+
+	vector<bool> is_surf(n_body_sim->N - num_verts);
+
+	EXPECT_NO_THROW(
+			mark_surf_shrink_int_shape(n_body_sim, 0, num_verts, 0.1, is_surf));
+}
+
+TEST_F(ShapesTest, MarkCone) {
+	ASSERT_NO_THROW(rand_cone(n_body_sim, .1, 1, 2, 250));
+
+	vector<bool> is_surf(n_body_sim->N);
+
+	EXPECT_NO_THROW(mark_surf_shrink_int_cone(n_body_sim, .1, 1, 2, is_surf));
+}
+
+TEST_F(ShapesTest, MarkEllipse) {
+	ASSERT_NO_THROW(rand_ellipsoid(n_body_sim, .2, 1, 2, 3, 250));
+
+	vector<bool> is_surf(n_body_sim->N);
+
+	EXPECT_NO_THROW(
+			mark_surf_shrink_int_ellipsoid(n_body_sim, .1, 1, 2, 3, is_surf));
+}
+
+/****************/
+/* Output tests */
+/****************/
+
+TEST_F(OutputTest, Filenames) {
+	EXPECT_EQ(node_filename(n_body_sim, "test", 100), "test_000200_node.txt");
+	EXPECT_EQ(stress_filename(n_body_sim, "test", 100),
+			"test_000200_stress.txt");
+}
+
+TEST_F(OutputTest, PrintDouble) {
+	string filename = "test_double.txt";
+	std::ofstream file(filename, std::ios::out | std::ios::app);
+	print_run_double(5, "test1", &file);
+	print_run_double(5.6345, "test2", &file);
+	print_run_double(5.63456, "test3", &file);
+	print_run_double(5.634567, "test4", &file);
+	print_run_double(5.634567e12, "test4", &file);
+}
+
+TEST_F(OutputTest, WriteSurf) {
+	vector<bool> is_surf(n_body_sim->N);
+
+	mark_surf_shrink_int_ellipsoid(n_body_sim, 0.1, 1, 1.25, 1.5, is_surf);
 }
 
 class MyEnvironment: public testing::Environment {

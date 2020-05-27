@@ -57,9 +57,9 @@ void read_scales(Config *cfg) {
 	L_scale = length_scale * p_scale;
 	a_scale = vel_scale / time_scale;
 	F_scale = a_scale * mass_scale;
+	P_scale = F_scale / pow(length_scale, 2.0);
 	E_scale = F_scale * length_scale;
 	dEdt_scale = E_scale / time_scale;
-	P_scale = F_scale / pow(length_scale, 2.0);
 
 	std::ofstream scalefile("scales.txt", std::ios::out | std::ios::trunc);
 	scalefile << "Multiply values by these scales to get physical values:\n"
@@ -101,7 +101,7 @@ void read_springs(string fileroot, int index) {
 		}
 	}
 	spring_file.close();
-	std::cout << "Read " << num_springs << "springs." << std::endl;
+	std::cout << "Read " << num_springs << " springs." << std::endl;
 }
 
 // Read particles in from specified file
@@ -137,7 +137,7 @@ void read_particles(reb_simulation *const n_body_sim, string fileroot,
 
 // Read in a vertex (shape) file from filename
 // File is ASCII in form "char x y z", where char is v if line defines a vertex and x, y, z are vertex positions in units of km
-void read_vertices(reb_simulation *n_body_sim, string filename) {
+int read_vertices(reb_simulation *const n_body_sim, string filename) {
 	// Get current number of particles
 	int i_low = n_body_sim->N;
 
@@ -181,6 +181,8 @@ void read_vertices(reb_simulation *n_body_sim, string filename) {
 	for (int i = i_low; i < i_high; i++) {
 		n_body_sim->particles[i].r = min_dist / 4.0;
 	}
+
+	return i_high - i_low;
 }
 
 /***********/
