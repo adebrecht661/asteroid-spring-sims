@@ -184,6 +184,7 @@ double add_pt_mass_kep(reb_simulation *const n_body_sim, int i_low, int i_high,
 
 	// Add new particle
 	reb_add(n_body_sim, pt);
+	num_perts++;
 
 	// Return mean motion of new orbit
 	double a = orb_el.a;

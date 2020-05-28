@@ -11,3 +11,7 @@ Controls for viewing windows:
 ESC: Exit
 Arrow keys: Rotate around X/Y axes
 Scroll: Zoom in/out
+
+The *Write* routines also take a significant amount of time and can be filtered out:
+
+./tests --gtest_filter=-*Create*:*Write*

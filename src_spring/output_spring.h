@@ -52,29 +52,13 @@ void write_particles(reb_simulation *const n_body_sim, string fileroot,
 		int index);
 // Write all stress info to file
 void write_stresses(reb_simulation *const n_body_sim, string filename);
-// Write all heat info to file
-void write_heat(reb_simulation *const n_body_sim, string filename,
-		int num_timesteps, double power_fac);
 // Print doubles to file and standard out
 void print_run_double(double quantity, string label, std::ofstream *outfile);
-
-/****************/
-/* Heat helpers */
-/****************/
-
-// Normalize total power by number of timesteps for output
-void normalize_tot_power(double ndt);
 
 /********************/
 /* Filename helpers */
 /********************/
 
-// Get filename for heat file
-string heat_filename(reb_simulation *const n_body_sim, string root,
-		double print_interval);
-// Get filename for node file
-string node_filename(reb_simulation *const n_body_sim, string root,
-		double print_interval);
 // Get filename for stress file
 string stress_filename(reb_simulation *const n_body_sim, string root,
 		double print_interval);

@@ -87,10 +87,11 @@ void update_stress(reb_simulation *const n_body_sim) {
 	// Compute and store eigenvalues for each node
 #pragma omp parallel for
 	for (int i = 0; i < n_body_sim->N; i++) {
-		double eigs[3];
-		eigenvalues(stresses[i].stress, eigs);
-		for (int j = 0; j < 3; j++) {
-			stresses[i].eigs[j] = eigs[j];
+		try {
+			eigenvalues(stresses[i].stress, stresses[i].eigs);
+		} catch (char *str) {
+			std::cerr << "Error: " << str << " Exiting." << std::endl;
+			exit(1);
 		}
 	}
 }

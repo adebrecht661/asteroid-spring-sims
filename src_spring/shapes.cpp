@@ -536,8 +536,8 @@ void stretch(reb_simulation *const n_body_sim, int i_low, int i_high,
 
 // Create and fill array that marks particles that are within surf_dist of the surface of arbitrary shape
 // Shape vertices are [i_low, i_high)
-void mark_surf_shrink_int_shape(reb_simulation *const n_body_sim, int i_low,
-		int i_high, double surf_dist, vector<bool> is_surf) {
+int mark_surf_shrink_int_shape(reb_simulation *const n_body_sim, int i_low,
+		int i_high, double surf_dist, vector<bool> &is_surf) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -605,11 +605,13 @@ void mark_surf_shrink_int_shape(reb_simulation *const n_body_sim, int i_low,
 	// Return boolean array of which particles are on surface
 	std::cout << "Number of particles on surface of shape: " << num_at_surf
 			<< std::endl;
+
+	return num_at_surf;
 }
 
 // Mark particles near the surface of a cone
-void mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
-		double surf_dist, double radius, double height, vector<bool> is_surf) {
+int mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
+		double surf_dist, double radius, double height, vector<bool> &is_surf) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -649,11 +651,13 @@ void mark_surf_shrink_int_cone(reb_simulation *const n_body_sim,
 	// Return boolean array of which particles are on surface
 	std::cout << "Number of vertices on surface of cone: " << num_at_surf
 			<< std::endl;
+
+	return num_at_surf;
 }
 
 // Mark particles near the surface of an ellipsoid defined by semi-axes x, y, z
-void mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
-		double surf_dist, double x, double y, double z, vector<bool> is_surf) {
+int mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
+		double surf_dist, double x, double y, double z, vector<bool> &is_surf) {
 	// Get particle info
 	reb_particle *particles = n_body_sim->particles;
 
@@ -687,6 +691,8 @@ void mark_surf_shrink_int_ellipsoid(reb_simulation *const n_body_sim,
 	// Return boolean array of which particles are on surface
 	std::cout << "Number of vertices on surface of ellipsoid: " << num_at_surf
 			<< std::endl;
+
+	return num_at_surf;
 }
 
 /***********/

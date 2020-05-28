@@ -236,15 +236,25 @@ protected:
 class OutputTest: public testing::Test {
 protected:
 	reb_simulation *n_body_sim;
+	spring spr;
 
 	void SetUp() override {
 		n_body_sim = reb_create_simulation();
 		rand_ellipsoid(n_body_sim, .2, 1, 1.25, 1.5, 250);
 		n_body_sim->dt = 0.01;
 		n_body_sim->t = 20000;
+
+		// Spring default properties
+		spr.rs0 = 1;
+		spr.k = 11;
+		spr.gamma = 35;
 	}
 
 	void TearDown() override {
+		vector<spring>().swap(springs);
+		num_springs = 0;
+		vector<stress_tensor>().swap(stresses);
+		num_perts = 0;
 		reb_free_simulation(n_body_sim);
 	}
 };
@@ -2235,6 +2245,7 @@ TEST_F(ShapesTest, Stretch) {
 
 // Note - hard to test actual function of these, since the particles are created randomly
 
+int num_marked = 0;
 TEST_F(ShapesTest, MarkShape) {
 	ASSERT_NO_THROW(
 			num_verts = read_vertices(n_body_sim, "test_vertices2.txt"));
@@ -2243,7 +2254,10 @@ TEST_F(ShapesTest, MarkShape) {
 	vector<bool> is_surf(n_body_sim->N - num_verts);
 
 	EXPECT_NO_THROW(
-			mark_surf_shrink_int_shape(n_body_sim, 0, num_verts, 0.1, is_surf));
+			num_marked = mark_surf_shrink_int_shape(n_body_sim, 0, num_verts,
+					0.1, is_surf));
+
+	EXPECT_EQ(count(is_surf.begin(), is_surf.end(), true), num_marked);
 }
 
 TEST_F(ShapesTest, MarkCone) {
@@ -2251,7 +2265,11 @@ TEST_F(ShapesTest, MarkCone) {
 
 	vector<bool> is_surf(n_body_sim->N);
 
-	EXPECT_NO_THROW(mark_surf_shrink_int_cone(n_body_sim, .1, 1, 2, is_surf));
+	EXPECT_NO_THROW(
+			num_marked = mark_surf_shrink_int_cone(n_body_sim, .1, 1, 2,
+					is_surf));
+
+	EXPECT_EQ(count(is_surf.begin(), is_surf.end(), true), num_marked);
 }
 
 TEST_F(ShapesTest, MarkEllipse) {
@@ -2260,22 +2278,25 @@ TEST_F(ShapesTest, MarkEllipse) {
 	vector<bool> is_surf(n_body_sim->N);
 
 	EXPECT_NO_THROW(
-			mark_surf_shrink_int_ellipsoid(n_body_sim, .1, 1, 2, 3, is_surf));
+			num_marked = mark_surf_shrink_int_ellipsoid(n_body_sim, .1, 1, 2, 3,
+					is_surf));
+
+	EXPECT_EQ(count(is_surf.begin(), is_surf.end(), true), num_marked);
 }
 
 /****************/
 /* Output tests */
 /****************/
 
-TEST_F(OutputTest, Filenames) {
-	EXPECT_EQ(node_filename(n_body_sim, "test", 100), "test_000200_node.txt");
+TEST_F(OutputTest, Filename) {
 	EXPECT_EQ(stress_filename(n_body_sim, "test", 100),
 			"test_000200_stress.txt");
 }
 
 TEST_F(OutputTest, PrintDouble) {
 	string filename = "test_double.txt";
-	std::ofstream file(filename, std::ios::out | std::ios::app);
+	std::ofstream file(filename, std::ios::out | std::ios::trunc);
+
 	print_run_double(5, "test1", &file);
 	print_run_double(5.6345, "test2", &file);
 	print_run_double(5.63456, "test3", &file);
@@ -2287,6 +2308,84 @@ TEST_F(OutputTest, WriteSurf) {
 	vector<bool> is_surf(n_body_sim->N);
 
 	mark_surf_shrink_int_ellipsoid(n_body_sim, 0.1, 1, 1.25, 1.5, is_surf);
+
+	write_surf_part(n_body_sim, 0, n_body_sim->N, "test_surf_parts.txt",
+			is_surf);
+}
+
+TEST_F(OutputTest, WriteResE) {
+	write_resolved_with_E(n_body_sim, 0, n_body_sim->N, "test_res_E.txt",
+			200000.1665);
+}
+
+TEST_F(OutputTest, WriteResNoE) {
+	write_resolved_no_E(n_body_sim, 0, n_body_sim->N, "test_res_no_E.txt");
+}
+
+TEST_F(OutputTest, WriteRes2) {
+	write_resolved_2nodes(n_body_sim, 0, n_body_sim->N, "test_res_2.txt");
+}
+
+TEST_F(OutputTest, WritePt) {
+	OrbitalElements test_orb_el;
+	test_orb_el.a = 60;
+	test_orb_el.e = 0.2;
+	test_orb_el.i = M_PI / 6.;
+	test_orb_el.long_asc_node = M_PI / 4.;
+	test_orb_el.arg_peri = M_PI / 3.;
+	test_orb_el.mean_anom = M_PI / 2.;
+
+	add_pt_mass_kep(n_body_sim, 0, n_body_sim->N, -1, 500, 1, test_orb_el);
+
+	write_pt_mass(n_body_sim, n_body_sim->N - num_perts, 0, "test_pt.txt");
+}
+
+TEST_F(OutputTest, WriteResOrb) {
+	OrbitalElements test_orb_el;
+	test_orb_el.a = 60;
+	test_orb_el.e = 0.2;
+	test_orb_el.i = M_PI / 6.;
+	test_orb_el.long_asc_node = M_PI / 4.;
+	test_orb_el.arg_peri = M_PI / 3.;
+	test_orb_el.mean_anom = M_PI / 2.;
+
+	add_pt_mass_kep(n_body_sim, 0, n_body_sim->N, -1, 500, 1, test_orb_el);
+
+	write_resolved_orb(n_body_sim, "test_res_orb.txt");
+}
+
+TEST_F(OutputTest, WriteResBin) {
+	OrbitalElements bin_orb_el;
+	bin_orb_el.a = 60;
+	bin_orb_el.e = 0.2;
+	bin_orb_el.i = M_PI / 6.;
+	bin_orb_el.long_asc_node = M_PI / 4.;
+	bin_orb_el.arg_peri = M_PI / 3.;
+	bin_orb_el.mean_anom = M_PI / 2.;
+
+	double bin_sep = 20, G = n_body_sim->G;
+	add_bin_kep(n_body_sim, 400, 1, 1. / 4., bin_sep, bin_orb_el);
+
+	write_resolved_bin(n_body_sim, "test_res_bin.txt");
+}
+
+TEST_F(OutputTest, WriteSprings) {
+	connect_springs_dist(n_body_sim, 100, 0, n_body_sim->N, spr);
+
+	write_springs(n_body_sim, "test", 200);
+}
+
+TEST_F(OutputTest, WriteParts) {
+	write_particles(n_body_sim, "test", 200);
+}
+
+TEST_F(OutputTest, WriteStress) {
+	connect_springs_dist(n_body_sim, 100, 0, n_body_sim->N, spr);
+
+	// No stress, of course, because nothing's moved. But I can't artificially move things without it crashing.
+	update_stress(n_body_sim);
+
+	write_stresses(n_body_sim, "test_stress.txt");
 }
 
 class MyEnvironment: public testing::Environment {
