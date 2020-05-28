@@ -1,52 +1,46 @@
-// used by kepcart
-
 #ifndef _KEPCART_
 #define _KEPCART_
 
-// phasespace and orbital element structures
-
-typedef struct {
-  double x, y, z, xd, yd, zd;
-} PhaseState;
-
-typedef struct {
-  double a, e, i, longnode, argperi, meananom;
-} OrbitalElements;
-
-
-#define GG 6.6732e-8      // grav constant cgs 
-#define CC 2.997924562e10 // speed o light, cm/s 
-#define Msol 1.989e33     // mass o sun,  g 
-#define AU 1.49597892e13  // astron unit, cm 
-
-/* in kepcart.cpp */
-
-// handing probability distributions randoms
-double rayleigh(double sigma);
-double powerlaw(double xmin, double xmax, double gamma);
-
-// kepcart conversions
-double ecc_ano(double e,double l);  // solves kepler's eqn
-double ecc_anohyp(double e,double l);  // solves kepler's eqn
-void keplerian(double GM, PhaseState state, OrbitalElements *orbel);
-void cartesian(double GM, OrbitalElements orbel, PhaseState *state);
-double kepler(double ecc, double mean_anom);
-
-// for integrating with f,g functions
-void kepstep(double t, double M1,
-   PhaseState state, PhaseState *newstate);
-double solvex(double r0dotv0, double alpha,
-                double M1, double r0, double dt);
-double C_prussing(double y);
-double S_prussing(double y);
-
 /*
-void kepstep(double t, double M1,
-   double x,  double y,  double z,
-   double vx, double vy, double vz,
-   double *xnew, double *ynew, double *znew,
-   double *vxnew, double *vynew, double *vznew);
-*/
+ * Phase space and orbital element structures
+ */
 
+// Orbital state in phase space (position, velocity)
+struct PhaseState {
+	Vector x, v;
+};
+
+// Standard Keplerian elements:
+// Semimajor axis, eccentricity, inclination, longitude of ascending node, argument of periapsis, mean anomaly
+struct OrbitalElements {
+	double a, e, i, long_asc_node, arg_peri, mean_anom;
+};
+
+/**************************************/
+/* Keplerian to Cartesian conversions */
+/**************************************/
+
+// Cartesian to Keplerian
+OrbitalElements cart_to_kep(double GM, PhaseState state);
+// Keplerian to Cartesian
+PhaseState kep_to_cart(double GM, OrbitalElements orbel);
+// Helper for conversion -- Get eccentric anomaly from mean anomaly
+double eccentric_anomaly(double eccentricity, double mean_anomaly);
+// ... in hyperbolic case
+double eccentric_anomaly_hyperbolic(double eccentricity, double mean_anomaly);
+
+/*************/
+/* Operators */
+/*************/
+
+// Equality
+bool operator==(OrbitalElements lhs, OrbitalElements rhs);
+// Stream output
+std::ostream& operator<<(std::ostream &os, const OrbitalElements &orb_el);
+
+// Equality
+bool operator==(PhaseState lhs, PhaseState rhs);
+// Stream output
+std::ostream& operator<<(std::ostream &os, const PhaseState &state);
 
 #endif

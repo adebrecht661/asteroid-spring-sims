@@ -1,0 +1,17 @@
+README for tests
+
+Unless you want to check the shape-creation routines, strongly suggest running with
+
+./tests --gtest_filter=-*Create*
+
+to filter out those routines. Otherwise, the shapes will print to screen and you will be asked to confirm that they are correct.
+
+Controls for viewing windows:
+
+ESC: Exit
+Arrow keys: Rotate around X/Y axes
+Scroll: Zoom in/out
+
+The *Write* routines also take a significant amount of time and can be filtered out:
+
+./tests --gtest_filter=-*Create*:*Write*

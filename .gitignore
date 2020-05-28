@@ -1,9 +1,15 @@
+# libconfig files
+libconfig/examples/c/.libs/example*
+libconfig/examples/c++/.libs/example*
+libconfig/tests/.libs/libconfig_tests
+
 # Eclipse files
 *.project
 *.settings
 *.cproject
 
 # Custom executable
+modules/tests/tests
 *rebound_spring
 
 # Prerequisites
@@ -29,6 +35,7 @@
 *.a
 *.la
 *.lo
+*.lai
 
 # Shared objects (inc. Windows DLLs)
 *.dll

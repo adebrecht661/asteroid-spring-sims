@@ -1,0 +1,14 @@
+Multiply values by these scales to get physical values:
+Mass scale: 5.972e+27
+Time scale: 3.154e+07
+Length scale: 6.371e+08
+Temperature scale: 100
+Angular velocity scale: 3.17058e-08
+Velocity scale: 20.1997
+Momentum scale: 1.20633e+29
+Angular momentum scale: 7.68552e+37
+Acceleration scale: 6.40449e-07
+Force scale: 3.82476e+21
+Energy scale: 2.43675e+30
+Power scale: 7.72592e+22
+Pressure scale: 9422.99
