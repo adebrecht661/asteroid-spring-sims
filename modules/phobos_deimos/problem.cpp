@@ -261,11 +261,11 @@ int main(int argc, char *argv[]) {
 	std::cout << std::setprecision(3) << "varpi precession fac = "
 			<< 1.5 * J2_plus * pow(R_plus / orb_els[0].a, 2.0) << "\n";
 
-	// Bar chi???????
-	// this is probably not correct if obliquity is greater than pi/2
-	double barchi = 2.0 * abs(omega_orb - omega.getZ()) * tau_relax; // initial value of barchi
+	// Tidal frequency in units of relaxation time
+	// This is probably not correct if obliquity is greater than pi/2
+	double bar_chi = 2.0 * abs(omega_orb - omega.getZ()) * tau_relax;
 	double posc = 0.5 * 2.0 * M_PI / abs(omega_orb - omega.getZ()); // for oscillations!
-	print_run_double(barchi, "barchi", &outfile);
+	print_run_double(bar_chi, "bar_chi", &outfile);
 	print_run_double(posc, "posc", &outfile);
 
 	// ratio of numbers of particles to numbers of springs for resolved body

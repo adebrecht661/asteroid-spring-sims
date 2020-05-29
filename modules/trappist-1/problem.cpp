@@ -287,11 +287,11 @@ int main(int argc, char *argv[]) {
 			* (m_ball / (n_body_sim->N - num_perts)) / def_spring.k;
 	print_run_double(tau_relax, "relaxation time", &outfile);
 
-	// Bar chi???????
-	// this is probably not correct if obliquity is greater than pi/2
-	double barchi = 2.0 * abs(omega_orb - omega.getZ()) * tau_relax; // initial value of barchi
+	// Tidal frequency in units of relaxation time
+	// This is probably not correct if obliquity is greater than pi/2
+	double bar_chi = 2.0 * abs(omega_orb - omega.getZ()) * tau_relax;
 	double posc = 0.5 * 2.0 * M_PI / abs(omega_orb - omega.getZ()); // for oscillations!
-	print_run_double(barchi, "barchi", &outfile);
+	print_run_double(bar_chi, "bar_chi", &outfile);
 	print_run_double(posc, "posc", &outfile);
 
 	// Rate of change of semi-major axis
