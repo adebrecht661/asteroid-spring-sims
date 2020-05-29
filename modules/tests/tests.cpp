@@ -1460,7 +1460,126 @@ TEST_F(StressTest, CalcStress) {
 	particles[0].z = 4;
 
 	update_stress(n_body_sim);
-// Not actually sure what the stress should be... need to figure that out. (????????)
+
+	stress_tensor ans_stress0;
+	stress_tensor ans_stress1;
+	stress_tensor ans_stress2;
+
+	ans_stress0.stress = { { spring_i_force(n_body_sim, 0).getX()
+			* spring_r(n_body_sim, springs[0]).getX(), spring_i_force(
+			n_body_sim, 0).getX() * spring_r(n_body_sim, springs[0]).getY(),
+			spring_i_force(n_body_sim, 0).getX()
+					* spring_r(n_body_sim, springs[0]).getZ() }, {
+			spring_i_force(n_body_sim, 0).getY()
+					* spring_r(n_body_sim, springs[0]).getX(), spring_i_force(
+					n_body_sim, 0).getY()
+					* spring_r(n_body_sim, springs[0]).getY(), spring_i_force(
+					n_body_sim, 0).getY()
+					* spring_r(n_body_sim, springs[0]).getZ() }, {
+			spring_i_force(n_body_sim, 0).getZ()
+					* spring_r(n_body_sim, springs[0]).getX(), spring_i_force(
+					n_body_sim, 0).getZ()
+					* spring_r(n_body_sim, springs[0]).getY(), spring_i_force(
+					n_body_sim, 0).getZ()
+					* spring_r(n_body_sim, springs[0]).getZ() } };
+	ans_stress0.stress += { { spring_i_force(n_body_sim, 1).getX()
+			* spring_r(n_body_sim, springs[1]).getX(), spring_i_force(
+			n_body_sim, 1).getX() * spring_r(n_body_sim, springs[1]).getY(),
+			spring_i_force(n_body_sim, 1).getX()
+					* spring_r(n_body_sim, springs[1]).getZ() }, {
+			spring_i_force(n_body_sim, 1).getY()
+					* spring_r(n_body_sim, springs[1]).getX(), spring_i_force(
+					n_body_sim, 1).getY()
+					* spring_r(n_body_sim, springs[1]).getY(), spring_i_force(
+					n_body_sim, 1).getY()
+					* spring_r(n_body_sim, springs[1]).getZ() }, {
+			spring_i_force(n_body_sim, 1).getZ()
+					* spring_r(n_body_sim, springs[1]).getX(), spring_i_force(
+					n_body_sim, 1).getZ()
+					* spring_r(n_body_sim, springs[1]).getY(), spring_i_force(
+					n_body_sim, 1).getZ()
+					* spring_r(n_body_sim, springs[1]).getZ() } };
+
+	ans_stress1.stress = Matrix(zero_mat);
+	ans_stress1.stress -= { { spring_i_force(n_body_sim, 0).getX()
+			* spring_r(n_body_sim, springs[0]).getX(), spring_i_force(
+			n_body_sim, 0).getX() * spring_r(n_body_sim, springs[0]).getY(),
+			spring_i_force(n_body_sim, 0).getX()
+					* spring_r(n_body_sim, springs[0]).getZ() }, {
+			spring_i_force(n_body_sim, 0).getY()
+					* spring_r(n_body_sim, springs[0]).getX(), spring_i_force(
+					n_body_sim, 0).getY()
+					* spring_r(n_body_sim, springs[0]).getY(), spring_i_force(
+					n_body_sim, 0).getY()
+					* spring_r(n_body_sim, springs[0]).getZ() }, {
+			spring_i_force(n_body_sim, 0).getZ()
+					* spring_r(n_body_sim, springs[0]).getX(), spring_i_force(
+					n_body_sim, 0).getZ()
+					* spring_r(n_body_sim, springs[0]).getY(), spring_i_force(
+					n_body_sim, 0).getZ()
+					* spring_r(n_body_sim, springs[0]).getZ() } };
+	ans_stress1.stress += { { spring_i_force(n_body_sim, 2).getX()
+			* spring_r(n_body_sim, springs[2]).getX(), spring_i_force(
+			n_body_sim, 2).getX() * spring_r(n_body_sim, springs[2]).getY(),
+			spring_i_force(n_body_sim, 2).getX()
+					* spring_r(n_body_sim, springs[2]).getZ() }, {
+			spring_i_force(n_body_sim, 2).getY()
+					* spring_r(n_body_sim, springs[2]).getX(), spring_i_force(
+					n_body_sim, 2).getY()
+					* spring_r(n_body_sim, springs[2]).getY(), spring_i_force(
+					n_body_sim, 2).getY()
+					* spring_r(n_body_sim, springs[2]).getZ() }, {
+			spring_i_force(n_body_sim, 2).getZ()
+					* spring_r(n_body_sim, springs[2]).getX(), spring_i_force(
+					n_body_sim, 2).getZ()
+					* spring_r(n_body_sim, springs[2]).getY(), spring_i_force(
+					n_body_sim, 2).getZ()
+					* spring_r(n_body_sim, springs[2]).getZ() } };
+
+	ans_stress2.stress = Matrix(zero_mat);
+	ans_stress2.stress -= { { spring_i_force(n_body_sim, 1).getX()
+			* spring_r(n_body_sim, springs[1]).getX(), spring_i_force(
+			n_body_sim, 1).getX() * spring_r(n_body_sim, springs[1]).getY(),
+			spring_i_force(n_body_sim, 1).getX()
+					* spring_r(n_body_sim, springs[1]).getZ() }, {
+			spring_i_force(n_body_sim, 1).getY()
+					* spring_r(n_body_sim, springs[1]).getX(), spring_i_force(
+					n_body_sim, 1).getY()
+					* spring_r(n_body_sim, springs[1]).getY(), spring_i_force(
+					n_body_sim, 1).getY()
+					* spring_r(n_body_sim, springs[1]).getZ() }, {
+			spring_i_force(n_body_sim, 1).getZ()
+					* spring_r(n_body_sim, springs[1]).getX(), spring_i_force(
+					n_body_sim, 1).getZ()
+					* spring_r(n_body_sim, springs[1]).getY(), spring_i_force(
+					n_body_sim, 1).getZ()
+					* spring_r(n_body_sim, springs[1]).getZ() } };
+	ans_stress2.stress -= { { spring_i_force(n_body_sim, 2).getX()
+			* spring_r(n_body_sim, springs[2]).getX(), spring_i_force(
+			n_body_sim, 2).getX() * spring_r(n_body_sim, springs[2]).getY(),
+			spring_i_force(n_body_sim, 2).getX()
+					* spring_r(n_body_sim, springs[2]).getZ() }, {
+			spring_i_force(n_body_sim, 2).getY()
+					* spring_r(n_body_sim, springs[2]).getX(), spring_i_force(
+					n_body_sim, 2).getY()
+					* spring_r(n_body_sim, springs[2]).getY(), spring_i_force(
+					n_body_sim, 2).getY()
+					* spring_r(n_body_sim, springs[2]).getZ() }, {
+			spring_i_force(n_body_sim, 2).getZ()
+					* spring_r(n_body_sim, springs[2]).getX(), spring_i_force(
+					n_body_sim, 2).getZ()
+					* spring_r(n_body_sim, springs[2]).getY(), spring_i_force(
+					n_body_sim, 2).getZ()
+					* spring_r(n_body_sim, springs[2]).getZ() } };
+
+	double vol = 4.0 * M_PI / (3.0 * (double) n_body_sim->N);
+	ans_stress0.stress /= vol;
+	ans_stress1.stress /= vol;
+	ans_stress2.stress /= vol;
+
+	EXPECT_EQ(stresses[0].stress, ans_stress0.stress);
+	EXPECT_EQ(stresses[1].stress, ans_stress1.stress);
+	EXPECT_EQ(stresses[2].stress, ans_stress2.stress);
 }
 
 TEST_F(StressTest, FailTest) {
@@ -2370,7 +2489,7 @@ TEST_F(OutputTest, WriteResBin) {
 }
 
 TEST_F(OutputTest, WriteSprings) {
-	connect_springs_dist(n_body_sim, 100, 0, n_body_sim->N, spr);
+	connect_springs_dist(n_body_sim, 0.5, 0, n_body_sim->N, spr);
 
 	write_springs(n_body_sim, "test", 200);
 }
@@ -2380,7 +2499,7 @@ TEST_F(OutputTest, WriteParts) {
 }
 
 TEST_F(OutputTest, WriteStress) {
-	connect_springs_dist(n_body_sim, 100, 0, n_body_sim->N, spr);
+	connect_springs_dist(n_body_sim, 0.5, 0, n_body_sim->N, spr);
 
 	// No stress, of course, because nothing's moved. But I can't artificially move things without it crashing.
 	update_stress(n_body_sim);

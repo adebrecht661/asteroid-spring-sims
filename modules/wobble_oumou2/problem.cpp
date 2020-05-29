@@ -226,21 +226,12 @@ int main(int argc, char *argv[]) {
 	print_run_double(omega_3, "omega_3= ", &outfile);
 
 	// Rotate resolved body so that angular momentum is up
-	// Replace with rotate_to_principal???????
-	L = measure_L(n_body_sim, i_low, i_high);
-	rotate_body(n_body_sim, i_low, i_high, 0.0, -atan2(L.getZ(), L.getY()), 0);
-	L = measure_L(n_body_sim, i_low, i_high);
-	rotate_body(n_body_sim, i_low, i_high, -atan2(L.getY(), L.getX()), 0, 0);
-	L = measure_L(n_body_sim, i_low, i_high);
-	rotate_body(n_body_sim, i_low, i_high, 0, 0, M_PI / 2.0);
-	L = measure_L(n_body_sim, i_low, i_high);
-	std::cout << "llx lly llz = " << L.getX() << " " << L.getY() << " "
-			<< L.getZ() << "\n";
+	rotate_to_principal(n_body_sim, i_low, i_high);
 
-	// Bar chi???????
-	// this is probably not correct if obliquity is greater than pi/2
-	double barchi = 1.0 * abs(omega_prec) * tau_relax; // initial value of barchi
-	print_run_double(barchi, "barchi", &outfile);
+	// Tidal frequency in units of relaxation time
+	// This is probably not correct if obliquity is greater than pi/2
+	double bar_chi = 1.0 * abs(omega_prec) * tau_relax;
+	print_run_double(bar_chi, "bar chi", &outfile);
 
 	// ratio of numbers of particles to numbers of springs for resolved body
 	double Nratio = (double) num_springs / (i_high - i_low);
